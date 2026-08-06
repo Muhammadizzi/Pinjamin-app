@@ -4,6 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/theme-toggle";
 import {
   LayoutDashboard,
   Package,
@@ -52,14 +53,15 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <div className="flex h-full flex-col bg-[var(--sidebar)] text-[var(--sidebar-foreground)]">
       <div className="flex items-center gap-3 px-6 py-6 border-b border-[var(--sidebar-border)] bg-gradient-to-br from-[#081a33] to-[#0e2a4d]">
-        <div className="h-11 w-11 rounded-xl bg-white p-1.5 shadow-lg flex items-center justify-center shrink-0">
-          <img src="/logo-pinjamin.png" alt="Pinjamin" className="h-full w-full object-contain" />
+        <div className="h-11 w-11 rounded-xl bg-transparent p-0 flex items-center justify-center shrink-0">
+          <img src="/logo-pinjamin.png" alt="Pinjamin" className="h-full w-full object-contain drop-shadow-[0_4px_12px_rgba(0,0,0,0.4)]" style={{ background: "transparent" }} />
         </div>
         <div>
           <div className="font-extrabold text-white leading-none tracking-tight">Pinjamin</div>
           <div className="text-[11px] text-amber-200/80 font-medium tracking-widest uppercase">Garuda Food</div>
         </div>
-        <div className="ml-auto hidden lg:block">
+        <div className="ml-auto hidden lg:flex items-center gap-2">
+          <ThemeToggle />
           <div className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" title="online" />
         </div>
       </div>
@@ -147,7 +149,11 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
         </div>
       </div>
 
-      <div className="border-t border-[var(--sidebar-border)] p-4 bg-[#081a33]">
+      <div className="border-t border-[var(--sidebar-border)] p-4 bg-[#081a33] space-y-3">
+        <div className="flex items-center justify-between text-xs text-slate-400">
+          <span>Tema</span>
+          <ThemeToggle />
+        </div>
         <div className="flex items-center gap-3 rounded-xl bg-[#0e2a4d] border border-[#1a3a5a] p-3">
           <div className="h-9 w-9 rounded-full bg-[#e6ad1a] text-[#0a2240] flex items-center justify-center text-sm font-extrabold">A</div>
           <div className="flex-1 min-w-0">
@@ -166,17 +172,18 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
 export function MobileHeader({ onMenu }: { onMenu: () => void }) {
   const router = useRouter();
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b bg-white/95 backdrop-blur px-4 dark:bg-slate-900/95 lg:hidden">
+    <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl px-4 lg:hidden">
       <Button variant="ghost" size="icon" onClick={onMenu} className="shrink-0">
         <Menu className="h-6 w-6" />
       </Button>
       <Link href="/" className="flex items-center gap-2">
-        <img src="/logo-pinjamin.png" alt="Pinjamin" className="h-8 w-8 rounded-lg bg-[#0a2240] p-1 object-contain shadow" />
-        <span className="font-extrabold tracking-tight text-[#0a2240]">Pinjamin</span>
-        <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 font-bold">Garuda</span>
+        <img src="/logo-pinjamin.png" alt="Pinjamin" className="h-8 w-8 rounded-lg bg-transparent object-contain drop-shadow" style={{ background: "transparent" }} />
+        <span className="font-extrabold tracking-tight text-[#0a2240] dark:text-white">Pinjamin</span>
+        <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-100 font-bold">Garuda</span>
       </Link>
       <div className="ml-auto flex items-center gap-2">
-        <Button variant="ghost" size="icon" onClick={() => router.push("/scanner")} className="bg-amber-50 text-[#0a2240] hover:bg-amber-100">
+        <ThemeToggle />
+        <Button variant="ghost" size="icon" onClick={() => router.push("/scanner")} className="bg-amber-50 dark:bg-slate-800 text-[#0a2240] dark:text-amber-200 hover:bg-amber-100">
           <QrCode className="h-5 w-5" />
         </Button>
         <button
@@ -196,7 +203,7 @@ export function MobileHeader({ onMenu }: { onMenu: () => void }) {
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-amber-50/30 dark:from-slate-950 dark:via-slate-900 dark:to-[#0a2240]/20">
       <MobileHeader onMenu={() => setOpen(true)} />
       {open && (
         <div className="fixed inset-0 z-50 lg:hidden">
@@ -212,7 +219,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       )}
       <div className="lg:flex">
-        <aside className="hidden lg:flex lg:w-[280px] lg:shrink-0 lg:flex-col lg:sticky lg:top-0 lg:h-screen lg:border-r lg:border-slate-200 dark:lg:border-slate-800">
+        <aside className="hidden lg:flex lg:w-[280px] lg:shrink-0 lg:flex-col lg:sticky lg:top-0 lg:h-screen lg:border-r lg:border-slate-200/50 dark:lg:border-slate-800 backdrop-blur">
           <Sidebar />
         </aside>
         <main className="flex-1 min-w-0">

@@ -1,11 +1,11 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { StoreProvider } from "@/lib/store";
+import { ThemeProvider } from "@/components/theme-provider";
 
 export const metadata: Metadata = {
   title: "Pinjamin — Smart Asset Lending | Garuda Food",
-  description:
-    "Sistem peminjaman aset Garuda Food — kelola aset, kit, booking, audit, dan laporan dengan QR.",
+  description: "Sistem peminjaman aset Garuda Food — kelola aset, kit, booking, audit, dan laporan dengan QR. Modern, glass, animasi animejs.",
   manifest: "/site.webmanifest",
   icons: {
     icon: "/favicon.ico",
@@ -19,15 +19,13 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="id" suppressHydrationWarning className="h-full">
       <body className="min-h-screen antialiased">
-        <StoreProvider>{children}</StoreProvider>
+        <ThemeProvider>
+          <StoreProvider>{children}</StoreProvider>
+        </ThemeProvider>
       </body>
     </html>
   );
