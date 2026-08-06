@@ -8,6 +8,7 @@
     "dev:all": "turbo run dev",
     "dev:shelf": "turbo run dev --filter=@shelf/webapp",
     "pinjamin:dev": "turbo run dev --filter=@pinjamin/web",
+    "pinjamin:dev:https": "pnpm --filter @pinjamin/web dev:https",
     "pinjamin:build": "turbo run build --filter=@pinjamin/web",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
