@@ -1,0 +1,875 @@
+import { db } from "~/database/db.server";
+import { ShelfError } from "~/utils/error";
+
+import {
+  BOOKING_NOTIFICATION_SETTINGS_SELECT,
+  BOOKING_SETTINGS_SELECT,
+  getBookingNotificationSettingsForOrg,
+  getBookingSettingsForOrganization,
+  updateBookingSettings,
+} from "./service.server";
+
+// @vitest-environment node
+// 👋 see https://vitest.dev/guide/environment.html#environments-for-specific-files
+
+// why: testing booking settings service logic without executing actual database operations
+vitest.mock("~/database/db.server", () => ({
+  db: {
+    bookingSettings: {
+      findUnique: vitest.fn(),
+      findUniqueOrThrow: vitest.fn(),
+      upsert: vitest.fn(),
+      update: vitest.fn(),
+    },
+  },
+}));
+
+const mockBookingSettingsData = {
+  id: "booking-settings-1",
+  bufferStartTime: 24,
+  tagsRequired: true,
+  maxBookingLength: 168,
+  organizationId: "org-1",
+  createdAt: new Date("2024-01-01T00:00:00.000Z"),
+  updatedAt: new Date("2024-01-01T00:00:00.000Z"),
+};
+
+const mockOrganizationId = "org-1";
+
+describe("getBookingSettingsForOrganization", () => {
+  beforeEach(() => {
+    vitest.clearAllMocks();
+    // why: keep each test self-contained — default the read-first lookup to
+    // "not found" so tests that only care about the upsert fallback don't
+    // have to know about the new findUnique call. Tests exercising the
+    // existing-row path override this explicitly.
+    //@ts-expect-error missing vitest type
+    db.bookingSettings.findUnique.mockResolvedValue(null);
+  });
+
+  it("should return the existing row without writing when one is found", async () => {
+    expect.assertions(3);
+    //@ts-expect-error missing vitest type
+    db.bookingSettings.findUnique.mockResolvedValue(mockBookingSettingsData);
+
+    const result = await getBookingSettingsForOrganization(mockOrganizationId);
+
+    expect(db.bookingSettings.findUnique).toHaveBeenCalledWith({
+      where: { organizationId: mockOrganizationId },
+      // Reuse the production projection so this assertion can't silently
+      // drift from what `getBookingSettingsForOrganization` actually selects.
+      select: BOOKING_SETTINGS_SELECT,
+    });
+    // why: the whole point of the read-first change is that an existing row
+    // never triggers a write — this is the regression guard for the
+    // connection-pool-exhaustion incident this task fixes.
+    expect(db.bookingSettings.upsert).not.toHaveBeenCalled();
+    expect(result).toEqual(mockBookingSettingsData);
+  });
+
+  it("should create new booking settings with default values when none exist", async () => {
+    expect.assertions(3);
+    const defaultSettings = {
+      id: "booking-settings-new",
+      bufferStartTime: 0,
+      tagsRequired: false,
+      maxBookingLength: null,
+      organizationId: mockOrganizationId,
+    };
+    //@ts-expect-error missing vitest type
+    db.bookingSettings.findUnique.mockResolvedValue(null);
+    //@ts-expect-error missing vitest type
+    db.bookingSettings.upsert.mockResolvedValue(defaultSettings);
+
+    const result = await getBookingSettingsForOrganization(mockOrganizationId);
+
+    expect(db.bookingSettings.upsert).toHaveBeenCalledTimes(1);
+    expect(db.bookingSettings.upsert).toHaveBeenCalledWith({
+      where: {
+        organizationId: mockOrganizationId,
+      },
+      update: {},
+      create: {
+        bufferStartTime: 0,
+        tagsRequired: false,
+        maxBookingLength: null,
+        maxBookingLengthSkipClosedDays: false,
+        autoArchiveBookings: false,
+        autoArchiveDays: 2,
+        autoArchiveExpiredReservations: false,
+        requireExplicitCheckinForAdmin: false,
+        requireExplicitCheckinForSelfService: false,
+        countKitsAsSingleUnit: false,
+        notifyBookingCreator: true,
+        notifyAdminsOnNewBooking: true,
+        organizationId: mockOrganizationId,
+      },
+      // Reuse the production projection so this assertion can't silently
+      // drift from what `getBookingSettingsForOrganization` actually selects.
+      select: BOOKING_SETTINGS_SELECT,
+    });
+    expect(result).toEqual(defaultSettings);
+  });
+
+  it("should throw ShelfError when the read-first lookup fails", async () => {
+    expect.assertions(2);
+    const dbError = new Error("Database connection failed");
+    //@ts-expect-error missing vitest type
+    db.bookingSettings.findUnique.mockRejectedValue(dbError);
+
+    await expect(
+      getBookingSettingsForOrganization(mockOrganizationId)
+    ).rejects.toThrow(ShelfError);
+
+    await expect(
+      getBookingSettingsForOrganization(mockOrganizationId)
+    ).rejects.toMatchObject({
+      message: "Failed to retrieve booking settings configuration",
+      additionalData: { organizationId: mockOrganizationId },
+    });
+  });
+
+  it("recovers from a concurrent-create P2002 by re-reading the row", async () => {
+    expect.assertions(2);
+    // BOOKING_SETTINGS_SELECT returns a nested relation, so Prisma emulates the
+    // upsert (read + create) and a concurrent first-hit can lose the race and
+    // throw P2002. The function must then re-read the row the winner created,
+    // not surface the unique-constraint error.
+    const p2002 = Object.assign(new Error("Unique constraint failed"), {
+      code: "P2002",
+    });
+    //@ts-expect-error missing vitest type
+    db.bookingSettings.findUnique.mockResolvedValue(null);
+    //@ts-expect-error missing vitest type
+    db.bookingSettings.upsert.mockRejectedValue(p2002);
+    //@ts-expect-error missing vitest type
+    db.bookingSettings.findUniqueOrThrow.mockResolvedValue(
+      mockBookingSettingsData
+    );
+
+    const result = await getBookingSettingsForOrganization(mockOrganizationId);
+
+    expect(db.bookingSettings.findUniqueOrThrow).toHaveBeenCalledWith({
+      where: { organizationId: mockOrganizationId },
+      select: BOOKING_SETTINGS_SELECT,
+    });
+    expect(result).toEqual(mockBookingSettingsData);
+  });
+
+  it("should throw ShelfError when the upsert fallback fails", async () => {
+    expect.assertions(2);
+    const dbError = new Error("Database connection failed");
+    //@ts-expect-error missing vitest type
+    db.bookingSettings.findUnique.mockResolvedValue(null);
+    //@ts-expect-error missing vitest type
+    db.bookingSettings.upsert.mockRejectedValue(dbError);
+
+    await expect(
+      getBookingSettingsForOrganization(mockOrganizationId)
+    ).rejects.toThrow(ShelfError);
+
+    await expect(
+      getBookingSettingsForOrganization(mockOrganizationId)
+    ).rejects.toMatchObject({
+      message: "Failed to retrieve booking settings configuration",
+      additionalData: { organizationId: mockOrganizationId },
+    });
+  });
+
+  it("wraps a findUnique failure in a ShelfError", async () => {
+    expect.assertions(1);
+    const dbError = new Error("Database connection failed");
+    //@ts-expect-error missing vitest type
+    db.bookingSettings.findUnique.mockRejectedValue(dbError);
+
+    await expect(getBookingSettingsForOrganization("")).rejects.toThrow(
+      ShelfError
+    );
+  });
+});
+
+describe("updateBookingSettings", () => {
+  beforeEach(() => {
+    vitest.clearAllMocks();
+  });
+
+  it("should update bufferStartTime only", async () => {
+    expect.assertions(2);
+    const updatedSettings = {
+      ...mockBookingSettingsData,
+      bufferStartTime: 48,
+    };
+    //@ts-expect-error missing vitest type
+    db.bookingSettings.update.mockResolvedValue(updatedSettings);
+
+    const result = await updateBookingSettings({
+      organizationId: mockOrganizationId,
+      bufferStartTime: 48,
+    });
+
+    expect(db.bookingSettings.update).toHaveBeenCalledWith({
+      where: { organizationId: mockOrganizationId },
+      data: { bufferStartTime: 48 },
+      select: {
+        id: true,
+        bufferStartTime: true,
+        tagsRequired: true,
+        maxBookingLength: true,
+        maxBookingLengthSkipClosedDays: true,
+        autoArchiveBookings: true,
+        autoArchiveDays: true,
+        autoArchiveExpiredReservations: true,
+        requireExplicitCheckinForAdmin: true,
+        requireExplicitCheckinForSelfService: true,
+        countKitsAsSingleUnit: true,
+        notifyBookingCreator: true,
+        notifyAdminsOnNewBooking: true,
+        alwaysNotifyTeamMembers: {
+          select: {
+            id: true,
+            name: true,
+            user: {
+              select: {
+                id: true,
+                email: true,
+                firstName: true,
+                lastName: true,
+                profilePicture: true,
+              },
+            },
+          },
+        },
+      },
+    });
+    expect(result).toEqual(updatedSettings);
+  });
+
+  it("should update tagsRequired only", async () => {
+    expect.assertions(2);
+    const updatedSettings = {
+      ...mockBookingSettingsData,
+      tagsRequired: false,
+    };
+    //@ts-expect-error missing vitest type
+    db.bookingSettings.update.mockResolvedValue(updatedSettings);
+
+    const result = await updateBookingSettings({
+      organizationId: mockOrganizationId,
+      tagsRequired: false,
+    });
+
+    expect(db.bookingSettings.update).toHaveBeenCalledWith({
+      where: { organizationId: mockOrganizationId },
+      data: { tagsRequired: false },
+      select: {
+        id: true,
+        bufferStartTime: true,
+        tagsRequired: true,
+        maxBookingLength: true,
+        maxBookingLengthSkipClosedDays: true,
+        autoArchiveBookings: true,
+        autoArchiveDays: true,
+        autoArchiveExpiredReservations: true,
+        requireExplicitCheckinForAdmin: true,
+        requireExplicitCheckinForSelfService: true,
+        countKitsAsSingleUnit: true,
+        notifyBookingCreator: true,
+        notifyAdminsOnNewBooking: true,
+        alwaysNotifyTeamMembers: {
+          select: {
+            id: true,
+            name: true,
+            user: {
+              select: {
+                id: true,
+                email: true,
+                firstName: true,
+                lastName: true,
+                profilePicture: true,
+              },
+            },
+          },
+        },
+      },
+    });
+    expect(result).toEqual(updatedSettings);
+  });
+
+  it("should update countKitsAsSingleUnit to true", async () => {
+    expect.assertions(2);
+    const updatedSettings = {
+      ...mockBookingSettingsData,
+      countKitsAsSingleUnit: true,
+    };
+    //@ts-expect-error missing vitest type
+    db.bookingSettings.update.mockResolvedValue(updatedSettings);
+
+    const result = await updateBookingSettings({
+      organizationId: mockOrganizationId,
+      countKitsAsSingleUnit: true,
+    });
+
+    // Assert only the mutating intent (where + data) — the select shape is an
+    // implementation detail covered elsewhere.
+    expect(db.bookingSettings.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { organizationId: mockOrganizationId },
+        data: { countKitsAsSingleUnit: true },
+      })
+    );
+    expect(result).toEqual(updatedSettings);
+  });
+
+  it("should update countKitsAsSingleUnit to false", async () => {
+    expect.assertions(2);
+    const updatedSettings = {
+      ...mockBookingSettingsData,
+      countKitsAsSingleUnit: false,
+    };
+    //@ts-expect-error missing vitest type
+    db.bookingSettings.update.mockResolvedValue(updatedSettings);
+
+    const result = await updateBookingSettings({
+      organizationId: mockOrganizationId,
+      countKitsAsSingleUnit: false,
+    });
+
+    expect(db.bookingSettings.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { organizationId: mockOrganizationId },
+        data: { countKitsAsSingleUnit: false },
+      })
+    );
+    expect(result).toEqual(updatedSettings);
+  });
+
+  it("should update maxBookingLength only", async () => {
+    expect.assertions(2);
+    const updatedSettings = {
+      ...mockBookingSettingsData,
+      maxBookingLength: 72,
+    };
+    //@ts-expect-error missing vitest type
+    db.bookingSettings.update.mockResolvedValue(updatedSettings);
+
+    const result = await updateBookingSettings({
+      organizationId: mockOrganizationId,
+      maxBookingLength: 72,
+    });
+
+    expect(db.bookingSettings.update).toHaveBeenCalledWith({
+      where: { organizationId: mockOrganizationId },
+      data: { maxBookingLength: 72 },
+      select: {
+        id: true,
+        bufferStartTime: true,
+        tagsRequired: true,
+        maxBookingLength: true,
+        maxBookingLengthSkipClosedDays: true,
+        autoArchiveBookings: true,
+        autoArchiveDays: true,
+        autoArchiveExpiredReservations: true,
+        requireExplicitCheckinForAdmin: true,
+        requireExplicitCheckinForSelfService: true,
+        countKitsAsSingleUnit: true,
+        notifyBookingCreator: true,
+        notifyAdminsOnNewBooking: true,
+        alwaysNotifyTeamMembers: {
+          select: {
+            id: true,
+            name: true,
+            user: {
+              select: {
+                id: true,
+                email: true,
+                firstName: true,
+                lastName: true,
+                profilePicture: true,
+              },
+            },
+          },
+        },
+      },
+    });
+    expect(result).toEqual(updatedSettings);
+  });
+
+  it("should set maxBookingLength to null when passed null", async () => {
+    expect.assertions(2);
+    const updatedSettings = {
+      ...mockBookingSettingsData,
+      maxBookingLength: null,
+    };
+    //@ts-expect-error missing vitest type
+    db.bookingSettings.update.mockResolvedValue(updatedSettings);
+
+    const result = await updateBookingSettings({
+      organizationId: mockOrganizationId,
+      maxBookingLength: null,
+    });
+
+    expect(db.bookingSettings.update).toHaveBeenCalledWith({
+      where: { organizationId: mockOrganizationId },
+      data: { maxBookingLength: null },
+      select: {
+        id: true,
+        bufferStartTime: true,
+        tagsRequired: true,
+        maxBookingLength: true,
+        maxBookingLengthSkipClosedDays: true,
+        autoArchiveBookings: true,
+        autoArchiveDays: true,
+        autoArchiveExpiredReservations: true,
+        requireExplicitCheckinForAdmin: true,
+        requireExplicitCheckinForSelfService: true,
+        countKitsAsSingleUnit: true,
+        notifyBookingCreator: true,
+        notifyAdminsOnNewBooking: true,
+        alwaysNotifyTeamMembers: {
+          select: {
+            id: true,
+            name: true,
+            user: {
+              select: {
+                id: true,
+                email: true,
+                firstName: true,
+                lastName: true,
+                profilePicture: true,
+              },
+            },
+          },
+        },
+      },
+    });
+    expect(result).toEqual(updatedSettings);
+  });
+
+  it("should update multiple fields at once", async () => {
+    expect.assertions(2);
+    const updatedSettings = {
+      ...mockBookingSettingsData,
+      bufferStartTime: 12,
+      tagsRequired: false,
+      maxBookingLength: 240,
+    };
+    //@ts-expect-error missing vitest type
+    db.bookingSettings.update.mockResolvedValue(updatedSettings);
+
+    const result = await updateBookingSettings({
+      organizationId: mockOrganizationId,
+      bufferStartTime: 12,
+      tagsRequired: false,
+      maxBookingLength: 240,
+    });
+
+    expect(db.bookingSettings.update).toHaveBeenCalledWith({
+      where: { organizationId: mockOrganizationId },
+      data: {
+        bufferStartTime: 12,
+        tagsRequired: false,
+        maxBookingLength: 240,
+      },
+      select: {
+        id: true,
+        bufferStartTime: true,
+        tagsRequired: true,
+        maxBookingLength: true,
+        maxBookingLengthSkipClosedDays: true,
+        autoArchiveBookings: true,
+        autoArchiveDays: true,
+        autoArchiveExpiredReservations: true,
+        requireExplicitCheckinForAdmin: true,
+        requireExplicitCheckinForSelfService: true,
+        countKitsAsSingleUnit: true,
+        notifyBookingCreator: true,
+        notifyAdminsOnNewBooking: true,
+        alwaysNotifyTeamMembers: {
+          select: {
+            id: true,
+            name: true,
+            user: {
+              select: {
+                id: true,
+                email: true,
+                firstName: true,
+                lastName: true,
+                profilePicture: true,
+              },
+            },
+          },
+        },
+      },
+    });
+    expect(result).toEqual(updatedSettings);
+  });
+
+  it("should only update provided fields and ignore undefined values", async () => {
+    expect.assertions(2);
+    const updatedSettings = {
+      ...mockBookingSettingsData,
+      bufferStartTime: 36,
+    };
+    //@ts-expect-error missing vitest type
+    db.bookingSettings.update.mockResolvedValue(updatedSettings);
+
+    const result = await updateBookingSettings({
+      organizationId: mockOrganizationId,
+      bufferStartTime: 36,
+      tagsRequired: undefined,
+      maxBookingLength: undefined,
+    });
+
+    expect(db.bookingSettings.update).toHaveBeenCalledWith({
+      where: { organizationId: mockOrganizationId },
+      data: { bufferStartTime: 36 },
+      select: {
+        id: true,
+        bufferStartTime: true,
+        tagsRequired: true,
+        maxBookingLength: true,
+        maxBookingLengthSkipClosedDays: true,
+        autoArchiveBookings: true,
+        autoArchiveDays: true,
+        autoArchiveExpiredReservations: true,
+        requireExplicitCheckinForAdmin: true,
+        requireExplicitCheckinForSelfService: true,
+        countKitsAsSingleUnit: true,
+        notifyBookingCreator: true,
+        notifyAdminsOnNewBooking: true,
+        alwaysNotifyTeamMembers: {
+          select: {
+            id: true,
+            name: true,
+            user: {
+              select: {
+                id: true,
+                email: true,
+                firstName: true,
+                lastName: true,
+                profilePicture: true,
+              },
+            },
+          },
+        },
+      },
+    });
+    expect(result).toEqual(updatedSettings);
+  });
+
+  it("should handle zero values correctly", async () => {
+    expect.assertions(2);
+    const updatedSettings = {
+      ...mockBookingSettingsData,
+      bufferStartTime: 0,
+      maxBookingLength: 0,
+    };
+    //@ts-expect-error missing vitest type
+    db.bookingSettings.update.mockResolvedValue(updatedSettings);
+
+    const result = await updateBookingSettings({
+      organizationId: mockOrganizationId,
+      bufferStartTime: 0,
+      maxBookingLength: 0,
+    });
+
+    expect(db.bookingSettings.update).toHaveBeenCalledWith({
+      where: { organizationId: mockOrganizationId },
+      data: {
+        bufferStartTime: 0,
+        maxBookingLength: 0,
+      },
+      select: {
+        id: true,
+        bufferStartTime: true,
+        tagsRequired: true,
+        maxBookingLength: true,
+        maxBookingLengthSkipClosedDays: true,
+        autoArchiveBookings: true,
+        autoArchiveDays: true,
+        autoArchiveExpiredReservations: true,
+        requireExplicitCheckinForAdmin: true,
+        requireExplicitCheckinForSelfService: true,
+        countKitsAsSingleUnit: true,
+        notifyBookingCreator: true,
+        notifyAdminsOnNewBooking: true,
+        alwaysNotifyTeamMembers: {
+          select: {
+            id: true,
+            name: true,
+            user: {
+              select: {
+                id: true,
+                email: true,
+                firstName: true,
+                lastName: true,
+                profilePicture: true,
+              },
+            },
+          },
+        },
+      },
+    });
+    expect(result).toEqual(updatedSettings);
+  });
+
+  it("should handle false values correctly", async () => {
+    expect.assertions(2);
+    const updatedSettings = {
+      ...mockBookingSettingsData,
+      tagsRequired: false,
+    };
+    //@ts-expect-error missing vitest type
+    db.bookingSettings.update.mockResolvedValue(updatedSettings);
+
+    const result = await updateBookingSettings({
+      organizationId: mockOrganizationId,
+      tagsRequired: false,
+    });
+
+    expect(db.bookingSettings.update).toHaveBeenCalledWith({
+      where: { organizationId: mockOrganizationId },
+      data: { tagsRequired: false },
+      select: {
+        id: true,
+        bufferStartTime: true,
+        tagsRequired: true,
+        maxBookingLength: true,
+        maxBookingLengthSkipClosedDays: true,
+        autoArchiveBookings: true,
+        autoArchiveDays: true,
+        autoArchiveExpiredReservations: true,
+        requireExplicitCheckinForAdmin: true,
+        requireExplicitCheckinForSelfService: true,
+        countKitsAsSingleUnit: true,
+        notifyBookingCreator: true,
+        notifyAdminsOnNewBooking: true,
+        alwaysNotifyTeamMembers: {
+          select: {
+            id: true,
+            name: true,
+            user: {
+              select: {
+                id: true,
+                email: true,
+                firstName: true,
+                lastName: true,
+                profilePicture: true,
+              },
+            },
+          },
+        },
+      },
+    });
+    expect(result).toEqual(updatedSettings);
+  });
+
+  it("should throw ShelfError when database operation fails", async () => {
+    expect.assertions(2);
+    const dbError = new Error("Database connection failed");
+    //@ts-expect-error missing vitest type
+    db.bookingSettings.update.mockRejectedValue(dbError);
+
+    await expect(
+      updateBookingSettings({
+        organizationId: mockOrganizationId,
+        bufferStartTime: 24,
+      })
+    ).rejects.toThrow(ShelfError);
+
+    await expect(
+      updateBookingSettings({
+        organizationId: mockOrganizationId,
+        bufferStartTime: 24,
+      })
+    ).rejects.toMatchObject({
+      message: "Failed to update booking settings configuration",
+      additionalData: {
+        organizationId: mockOrganizationId,
+        bufferStartTime: 24,
+        tagsRequired: undefined,
+        maxBookingLength: undefined,
+        maxBookingLengthSkipClosedDays: undefined,
+        autoArchiveBookings: undefined,
+        autoArchiveDays: undefined,
+      },
+    });
+  });
+
+  it("should handle organization not found error", async () => {
+    expect.assertions(2);
+    const notFoundError = new Error("Record not found");
+    //@ts-expect-error adding Prisma error properties
+    notFoundError.code = "P2025";
+    //@ts-expect-error missing vitest type
+    db.bookingSettings.update.mockRejectedValue(notFoundError);
+
+    await expect(
+      updateBookingSettings({
+        organizationId: "non-existent-org",
+        bufferStartTime: 24,
+      })
+    ).rejects.toThrow(ShelfError);
+
+    await expect(
+      updateBookingSettings({
+        organizationId: "non-existent-org",
+        bufferStartTime: 24,
+      })
+    ).rejects.toMatchObject({
+      message: "Failed to update booking settings configuration",
+      additionalData: {
+        organizationId: "non-existent-org",
+        bufferStartTime: 24,
+        tagsRequired: undefined,
+        maxBookingLength: undefined,
+        maxBookingLengthSkipClosedDays: undefined,
+        autoArchiveBookings: undefined,
+        autoArchiveDays: undefined,
+      },
+    });
+  });
+
+  it("should handle missing organization id", async () => {
+    expect.assertions(1);
+
+    await expect(
+      updateBookingSettings({
+        organizationId: "",
+        bufferStartTime: 24,
+      })
+    ).rejects.toThrow(ShelfError);
+  });
+
+  it("should not call update when no fields are provided", async () => {
+    expect.assertions(2);
+    const updatedSettings = { ...mockBookingSettingsData };
+    //@ts-expect-error missing vitest type
+    db.bookingSettings.update.mockResolvedValue(updatedSettings);
+
+    const result = await updateBookingSettings({
+      organizationId: mockOrganizationId,
+    });
+
+    expect(db.bookingSettings.update).toHaveBeenCalledWith({
+      where: { organizationId: mockOrganizationId },
+      data: {},
+      select: {
+        id: true,
+        bufferStartTime: true,
+        tagsRequired: true,
+        maxBookingLength: true,
+        maxBookingLengthSkipClosedDays: true,
+        autoArchiveBookings: true,
+        autoArchiveDays: true,
+        autoArchiveExpiredReservations: true,
+        requireExplicitCheckinForAdmin: true,
+        requireExplicitCheckinForSelfService: true,
+        countKitsAsSingleUnit: true,
+        notifyBookingCreator: true,
+        notifyAdminsOnNewBooking: true,
+        alwaysNotifyTeamMembers: {
+          select: {
+            id: true,
+            name: true,
+            user: {
+              select: {
+                id: true,
+                email: true,
+                firstName: true,
+                lastName: true,
+                profilePicture: true,
+              },
+            },
+          },
+        },
+      },
+    });
+    expect(result).toEqual(updatedSettings);
+  });
+
+  it("should include all parameters in error additional data", async () => {
+    expect.assertions(1);
+    const dbError = new Error("Database connection failed");
+    //@ts-expect-error missing vitest type
+    db.bookingSettings.update.mockRejectedValue(dbError);
+
+    await expect(
+      updateBookingSettings({
+        organizationId: mockOrganizationId,
+        bufferStartTime: 48,
+        tagsRequired: true,
+        maxBookingLength: 168,
+      })
+    ).rejects.toMatchObject({
+      message: "Failed to update booking settings configuration",
+      additionalData: {
+        organizationId: mockOrganizationId,
+        bufferStartTime: 48,
+        tagsRequired: true,
+        maxBookingLength: 168,
+      },
+    });
+  });
+});
+
+describe("getBookingNotificationSettingsForOrg", () => {
+  const mockNotificationSettings = {
+    notifyBookingCreator: true,
+    notifyAdminsOnNewBooking: true,
+    alwaysNotifyTeamMembers: [],
+  };
+
+  beforeEach(() => {
+    vitest.clearAllMocks();
+  });
+
+  it("upserts and returns the notification settings", async () => {
+    expect.assertions(2);
+    //@ts-expect-error missing vitest type
+    db.bookingSettings.upsert.mockResolvedValue(mockNotificationSettings);
+
+    const result =
+      await getBookingNotificationSettingsForOrg(mockOrganizationId);
+
+    expect(db.bookingSettings.upsert).toHaveBeenCalledTimes(1);
+    expect(result).toEqual(mockNotificationSettings);
+  });
+
+  it("recovers from a concurrent-create P2002 by re-reading the row", async () => {
+    expect.assertions(2);
+    // The notification select returns a nested relation (alwaysNotifyTeamMembers),
+    // so Prisma emulates the upsert and a concurrent first-hit can throw P2002.
+    const p2002 = Object.assign(new Error("Unique constraint failed"), {
+      code: "P2002",
+    });
+    //@ts-expect-error missing vitest type
+    db.bookingSettings.upsert.mockRejectedValue(p2002);
+    //@ts-expect-error missing vitest type
+    db.bookingSettings.findUniqueOrThrow.mockResolvedValue(
+      mockNotificationSettings
+    );
+
+    const result =
+      await getBookingNotificationSettingsForOrg(mockOrganizationId);
+
+    // Exact-match the re-read args (where + select) so the "single source of
+    // truth" select can't drift between the upsert and the P2002 recovery.
+    expect(db.bookingSettings.findUniqueOrThrow).toHaveBeenCalledWith({
+      where: { organizationId: mockOrganizationId },
+      select: BOOKING_NOTIFICATION_SETTINGS_SELECT,
+    });
+    expect(result).toEqual(mockNotificationSettings);
+  });
+
+  it("wraps a non-P2002 failure in a ShelfError", async () => {
+    expect.assertions(2);
+    //@ts-expect-error missing vitest type
+    db.bookingSettings.upsert.mockRejectedValue(new Error("db down"));
+
+    await expect(
+      getBookingNotificationSettingsForOrg(mockOrganizationId)
+    ).rejects.toBeInstanceOf(ShelfError);
+    expect(db.bookingSettings.findUniqueOrThrow).not.toHaveBeenCalled();
+  });
+});

@@ -1,0 +1,284 @@
+/**
+ * This file contains utilities for using client hints for user preference which
+ * are needed by the server, but are only known by the browser.
+ */
+import { parseAcceptLanguage } from "intl-parse-accept-language";
+import {
+  detectFormatPrefsFromHints,
+  formatDate,
+  isValidTimeZone,
+  type DetectedFormatPrefs,
+  type ResolvedFormatPrefs,
+} from "~/utils/date-format";
+import { ShelfError } from "./error";
+import { useRequestInfo } from "./request-info";
+
+export interface ClientHint {
+  timeZone: string;
+  locale: string;
+}
+
+export const clientHints = {
+  timeZone: {
+    cookieName: "CH-time-zone",
+    getValueCode: `Intl.DateTimeFormat().resolvedOptions().timeZone`,
+    fallback: "UTC",
+  },
+};
+
+type ClientHintNames = keyof typeof clientHints;
+
+function getCookieValue(cookieString: string, name: ClientHintNames) {
+  const hint = clientHints[name];
+  if (!hint) {
+    throw new ShelfError({
+      cause: null,
+      message: `Unknown client hint: ${name}`,
+      label: "Dev error",
+    });
+  }
+  const value = cookieString
+    .split(";")
+    .map((c) => c.trim())
+    .find((c) => c.startsWith(hint.cookieName + "="))
+    ?.split("=")[1];
+
+  return value ? decodeURIComponent(value) : null;
+}
+
+/**
+ *
+ * @param request {Request} - optional request object (only used on server)
+ * @returns an object with the client hints and their values
+ */
+export function getHints(request?: Request) {
+  const cookieString =
+    typeof document !== "undefined"
+      ? document.cookie
+      : typeof request !== "undefined"
+      ? request.headers.get("Cookie") ?? ""
+      : "";
+
+  return Object.entries(clientHints).reduce(
+    (acc, [name, hint]) => {
+      const hintName = name as ClientHintNames;
+      if ("transform" in hint) {
+        // @ts-expect-error - this is fine (PRs welcome though)
+        acc[hintName] = hint.transform(
+          getCookieValue(cookieString, hintName) ?? hint.fallback
+        );
+      } else {
+        acc[hintName] = getCookieValue(cookieString, hintName) ?? hint.fallback;
+      }
+      return acc;
+    },
+    {} as {
+      [name in ClientHintNames]: (typeof clientHints)[name] extends {
+        transform: (value: any) => infer ReturnValue;
+      }
+        ? ReturnValue
+        : (typeof clientHints)[name]["fallback"];
+    }
+  );
+}
+
+export const getClientHint = (request: Request): ClientHint => ({
+  locale: getLocale(request),
+  timeZone: getHints(request).timeZone,
+});
+
+/**
+ * The raw `CH-time-zone` cookie value the request carries, or null when absent.
+ * Decoded but NOT validated — callers decide what counts as a usable value.
+ */
+function getTimeZoneCookieValue(request: Request): string | null {
+  const cookieString =
+    typeof document !== "undefined"
+      ? document.cookie
+      : request.headers.get("Cookie") ?? "";
+  return getCookieValue(cookieString, "timeZone");
+}
+
+/**
+ * Whether the request actually carries the `CH-time-zone` cookie. Distinguishes
+ * a genuine UTC user (cookie present, value "UTC") from the "UTC" FALLBACK that
+ * {@link getHints} returns when the cookie is absent — e.g. the first
+ * authenticated request before {@link ClientHintCheck} sets the cookie + reloads,
+ * and server-established sessions (SSO / OAuth callbacks) that never render
+ * ClientHintCheck first.
+ *
+ * @param request - the incoming request
+ * @returns true when the timezone cookie is present (regardless of validity)
+ */
+export function hasTimeZoneHint(request: Request): boolean {
+  return getTimeZoneCookieValue(request) !== null;
+}
+
+/**
+ * Detected prefs for PERSISTENCE (new-user stamping + lazy backfill). Same as
+ * {@link detectFormatPrefsFromHints}, EXCEPT `timeZone` is null unless the request
+ * carries a VALID IANA zone in the CH-time-zone cookie. Both an absent cookie AND
+ * a present-but-MALFORMED one are treated as unknown: `detectFormatPrefsFromHints`
+ * maps a bad cookie to the "UTC" fallback, and persisting that UTC is
+ * indistinguishable from a real UTC — once stored it permanently blocks the lazy
+ * backfill from writing the user's true zone (the fast-path sees a non-null column
+ * and returns). Leaving the column null lets the read path resolve from live hints
+ * until a valid zone arrives, at which point the backfill fills it. The other three
+ * fields derive from the always-present accept-language header, so they are always
+ * safe to persist.
+ *
+ * @param request - the incoming request
+ * @returns detected prefs to store; `timeZone` null when the cookie is absent or invalid
+ */
+export function detectFormatPrefsForPersistence(
+  request: Request
+): DetectedFormatPrefs {
+  const detected = detectFormatPrefsFromHints(getClientHint(request));
+  const rawTimeZone = getTimeZoneCookieValue(request);
+  const timeZoneIsAuthoritative =
+    rawTimeZone !== null && isValidTimeZone(rawTimeZone);
+  return timeZoneIsAuthoritative ? detected : { ...detected, timeZone: null };
+}
+
+/**
+ * @returns an object with the client hints and their values
+ */
+export function useHints() {
+  const requestInfo = useRequestInfo();
+  return requestInfo.hints;
+}
+
+/**
+ * @returns inline script element that checks for client hints and sets cookies
+ * if they are not set then reloads the page if any cookie was set to an
+ * inaccurate value.
+ */
+export function ClientHintCheck({ nonce }: { nonce: string }) {
+  // why: client hints detection script must execute in the browser;
+  // `<script>{text}</script>` in React renders the source as a text node and
+  // the browser will not run it, so injecting HTML is the only viable option
+  // here. The script body is built from our own clientHints map (no user
+  // input), so there is no XSS surface.
+  return (
+    <script
+      nonce={nonce}
+      dangerouslySetInnerHTML={{
+        __html: `
+const cookies = document.cookie.split(';').map(c => c.trim()).reduce((acc, cur) => {
+	const [key, value] = cur.split('=');
+	acc[key] = value;
+	return acc;
+}, {});
+let cookieChanged = false;
+const hints = [
+${Object.values(clientHints)
+  .map((hint) => {
+    const cookieName = JSON.stringify(hint.cookieName);
+    return `{ name: ${cookieName}, actual: String(${hint.getValueCode}), cookie: cookies[${cookieName}] }`;
+  })
+  .join(",\n")}
+];
+for (const hint of hints) {
+	if (decodeURIComponent(hint.cookie) !== hint.actual) {
+		cookieChanged = true;
+		document.cookie = encodeURIComponent(hint.name) + '=' + encodeURIComponent(hint.actual) + ';path=/';
+	}
+}
+// if the cookie changed, reload the page, unless the browser doesn't support
+// cookies (in which case we would enter an infinite loop of reloads)
+if (cookieChanged && navigator.cookieEnabled) {
+	window.location.reload();
+}
+			`,
+      }}
+    />
+  );
+}
+
+/**
+ * Uses the request's accept-language header to determine the user's preferred
+ * locale and the client hint cookies for the user's timeZone returns a
+ * DateTimeFormat object for that locale and timezone.
+ *
+ * All options can be overridden by passing in an options object. By default,
+ * the options are all "numeric" and the timeZone.
+ */
+export function getDateTimeFormat(
+  request: Request,
+  options?: Intl.DateTimeFormatOptions
+) {
+  const locale = getLocale(request);
+
+  const hints: ClientHint = {
+    locale,
+    timeZone: getHints(request).timeZone,
+  };
+  return getDateTimeFormatFromHints(hints, options);
+}
+
+export function getDateTimeFormatFromHints(
+  hints: ClientHint,
+  options?: Intl.DateTimeFormatOptions
+) {
+  // change your default options here
+  const defaultOptions: Intl.DateTimeFormatOptions = {
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+  };
+
+  options = {
+    ...(options?.timeStyle ? {} : defaultOptions),
+    ...options,
+    timeZone: options?.timeZone ?? hints.timeZone,
+  };
+  return new Intl.DateTimeFormat(hints.locale, options);
+}
+
+/**
+ *
+ * @param request
+ * @returns current locale. Defaults to en-US
+ */
+export function getLocale(request: Request) {
+  const locales = parseAcceptLanguage(request.headers.get("accept-language"), {
+    validate: Intl.DateTimeFormat.supportedLocalesOf,
+  });
+
+  return locales[0] ?? "en-US";
+}
+
+/**
+ * Render a date-only string as an absolute (working-hours) date using the
+ * caller's resolved format prefs — no timezone conversion. This is the spine
+ * behind custom-field DATE display and calendar labels.
+ *
+ * @param value - ISO date-only or date-time string
+ * @param prefs - Fully-resolved user format prefs
+ * @returns Numeric date string in the user's configured order
+ */
+export function formatDateBasedOnLocaleOnly(
+  value: string,
+  prefs: ResolvedFormatPrefs
+) {
+  return formatDate(value, prefs, { localeOnly: true });
+}
+
+/**
+ * date-only formats are interpreted as UTC when passed to the Date constructor, per ECMAScript
+ * So when parsing the date (e.g 13-12-2024) you get local time from the date object.
+ * To perfectly parse date-only string we have to parse date as integers.
+ * For more information refer to this comment on github - https://github.com/date-fns/date-fns/issues/489#issuecomment-302271425
+ *
+ * This function converts date-only strings into Date object without making it local.
+ * Make sure the date passed to this function is in following format - YYYY-MM-DD
+ */
+export function parseDateOnlyString(date: string) {
+  const [year, month, day] = date.split("-").map(Number);
+
+  return new Date(
+    year,
+    month - 1, // Converting month to JS format
+    day
+  );
+}
