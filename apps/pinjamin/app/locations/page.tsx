@@ -8,11 +8,12 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useStore } from "@/lib/store";
+import { useT } from "@/lib/i18n";
 import { Plus, Trash2, MapPin, Pencil } from "lucide-react";
 
 export default function LocationsPage() {
   const { locations, assets, addLocation, updateLocation, deleteLocation } =
-    useStore();
+    useStore(); const { t } = useT();
   const [show, setShow] = useState(false);
   const [edit, setEdit] = useState<string | null>(null);
   const [form, setForm] = useState({
@@ -91,7 +92,7 @@ export default function LocationsPage() {
       <div className="max-w-3xl mx-auto space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold">Locations</h1>
+            <h1 className="text-2xl font-bold">{t("locations")}</h1>
             <p className="text-sm text-muted-foreground">
               Hierarkis: gedung → lantai → ruang
             </p>

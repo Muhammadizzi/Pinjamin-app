@@ -10,12 +10,13 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { useStore } from "@/lib/store";
+import { useT } from "@/lib/i18n";
 import { ImageUpload } from "@/components/ui/image-upload";
 
 export default function NewAssetPage() {
   const router = useRouter();
   const { categories, locations, assetModels, tags, customFields, addAsset } =
-    useStore();
+    useStore(); const { t } = useT();
   const [form, setForm] = useState<any>({
     name: "",
     description: "",

@@ -6,10 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useStore } from "@/lib/store";
+import { useT } from "@/lib/i18n";
 import { Plus, Trash2, Tag as TagIcon } from "lucide-react";
 
 export default function TagsPage() {
-  const { tags, assets, addTag, deleteTag } = useStore();
+  const { tags, assets, addTag, deleteTag } = useStore(); const { t } = useT();
   const [name, setName] = useState("");
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -21,7 +22,7 @@ export default function TagsPage() {
     <AppShell>
       <div className="max-w-2xl mx-auto space-y-6">
         <div>
-          <h1 className="text-2xl font-bold">Tags</h1>
+          <h1 className="text-2xl font-bold">{t("tags")}</h1>
           <p className="text-sm text-muted-foreground">
             Label fleksibel lintas kategori (many-to-many)
           </p>

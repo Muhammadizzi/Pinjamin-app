@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useStore } from "@/lib/store";
+import { useT } from "@/lib/i18n";
 import { QRCodeSVG } from "qrcode.react";
 import { ArrowLeft, Trash2 } from "lucide-react";
 
@@ -13,7 +14,7 @@ export default function KitDetailPage() {
   const params = useParams();
   const id = params.id as string;
   const router = useRouter();
-  const { kits, assets, deleteKit } = useStore();
+  const { kits, assets, deleteKit } = useStore(); const { t } = useT();
   const kit = kits.find((k) => k.id === id);
   if (!kit)
     return (

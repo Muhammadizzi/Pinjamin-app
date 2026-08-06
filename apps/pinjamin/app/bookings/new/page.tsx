@@ -10,10 +10,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useStore } from "@/lib/store";
+import { useT } from "@/lib/i18n";
 
 export default function NewBookingPage() {
   const router = useRouter();
-  const { assets, kits, custodians, addBooking } = useStore();
+  const { assets, kits, custodians, addBooking } = useStore(); const { t } = useT();
   const [form, setForm] = useState({
     name: "",
     description: "",

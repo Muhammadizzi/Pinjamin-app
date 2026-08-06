@@ -9,10 +9,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useStore } from "@/lib/store";
+import { useT } from "@/lib/i18n";
 import { Plus, Boxes, Trash2, Eye, Package } from "lucide-react";
 
 export default function KitsPage() {
-  const { kits, assets, addKit, deleteKit } = useStore();
+  const { kits, assets, addKit, deleteKit } = useStore(); const { t } = useT();
   const [show, setShow] = useState(false);
   const [form, setForm] = useState({
     name: "",
@@ -44,7 +45,7 @@ export default function KitsPage() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold">Kits</h1>
+            <h1 className="text-2xl font-bold">{t("kits")}</h1>
             <p className="text-sm text-muted-foreground">
               Bundel aset yang dipinjam sebagai paket
             </p>

@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useStore } from "@/lib/store";
+import { useT } from "@/lib/i18n";
 import { formatDate } from "@/lib/utils";
 import {
   Plus,
@@ -21,7 +22,7 @@ import {
 
 export default function BookingsPage() {
   const { bookings, custodians, assets, updateBookingStatus, deleteBooking } =
-    useStore();
+    useStore(); const { t } = useT();
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("ALL");
   const filtered = useMemo(() => {
@@ -36,7 +37,7 @@ export default function BookingsPage() {
       <div className="space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-bold">Bookings</h1>
+            <h1 className="text-2xl font-bold">{t("bookings")}</h1>
             <p className="text-sm text-muted-foreground">
               {filtered.length} booking • cegah bentrok otomatis
             </p>

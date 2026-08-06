@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useStore } from "@/lib/store";
+import { useT } from "@/lib/i18n";
 import Link from "next/link";
 import {
   Plus,
@@ -19,7 +20,7 @@ import {
 import { formatDate } from "@/lib/utils";
 
 export default function AuditsPage() {
-  const { audits, assets, addAudit, deleteAudit } = useStore();
+  const { audits, assets, addAudit, deleteAudit } = useStore(); const { t } = useT();
   const [show, setShow] = useState(false);
   const [name, setName] = useState("");
   const [sel, setSel] = useState<string[]>([]);
@@ -44,7 +45,7 @@ export default function AuditsPage() {
       <div className="max-w-4xl mx-auto space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold">Audits</h1>
+            <h1 className="text-2xl font-bold">{t("audits")}</h1>
             <p className="text-sm text-muted-foreground">
               Verifikasi keberadaan & kondisi aset
             </p>

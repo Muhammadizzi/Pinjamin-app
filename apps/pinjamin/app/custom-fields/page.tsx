@@ -8,10 +8,11 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useStore } from "@/lib/store";
+import { useT } from "@/lib/i18n";
 import { Plus, Trash2 } from "lucide-react";
 
 export default function CustomFieldsPage() {
-  const { customFields, addCustomField, deleteCustomField } = useStore();
+  const { customFields, addCustomField, deleteCustomField } = useStore(); const { t } = useT();
   const [form, setForm] = useState({
     name: "",
     type: "text" as any,
@@ -39,7 +40,7 @@ export default function CustomFieldsPage() {
     <AppShell>
       <div className="max-w-3xl mx-auto space-y-6">
         <div>
-          <h1 className="text-2xl font-bold">Custom Fields</h1>
+          <h1 className="text-2xl font-bold">{t("customFields")}</h1>
           <p className="text-sm text-muted-foreground">
             Kolom metadata tambahan untuk aset
           </p>

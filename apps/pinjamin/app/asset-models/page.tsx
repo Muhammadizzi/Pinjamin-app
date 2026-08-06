@@ -7,11 +7,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { useStore } from "@/lib/store";
+import { useT } from "@/lib/i18n";
 import { Plus, Trash2 } from "lucide-react";
 
 export default function AssetModelsPage() {
   const { assetModels, categories, addAssetModel, deleteAssetModel } =
-    useStore();
+    useStore(); const { t } = useT();
   const [form, setForm] = useState({
     name: "",
     brand: "",
@@ -28,7 +29,7 @@ export default function AssetModelsPage() {
     <AppShell>
       <div className="max-w-3xl mx-auto space-y-6">
         <div>
-          <h1 className="text-2xl font-bold">Asset Models</h1>
+          <h1 className="text-2xl font-bold">{t("assetModels")}</h1>
           <p className="text-sm text-muted-foreground">
             Spesifikasi model aset
           </p>

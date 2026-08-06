@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useStore } from "@/lib/store";
+import { useT } from "@/lib/i18n";
 import { formatDate } from "@/lib/utils";
 import { QRCodeSVG } from "qrcode.react";
 import {
@@ -33,7 +34,7 @@ export default function AssetDetailPage() {
     assetModels,
     customFields,
     deleteAsset,
-  } = useStore();
+  } = useStore(); const { t } = useT();
   const asset = assets.find((a) => a.id === id);
   if (!asset)
     return (

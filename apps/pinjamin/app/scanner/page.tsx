@@ -6,11 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useStore } from "@/lib/store";
+import { useT } from "@/lib/i18n";
 import Link from "next/link";
 import { QrCode, Camera, Keyboard, Check, Upload, ShieldAlert, Sparkles } from "lucide-react";
 
 export default function ScannerPage() {
-  const { assets, kits, updateAsset } = useStore();
+  const { assets, kits, updateAsset } = useStore(); const { t } = useT();
   const [mode, setMode] = useState<"scan" | "manual">("scan");
   const [manual, setManual] = useState("");
   const [result, setResult] = useState<any>(null);
@@ -177,7 +178,7 @@ export default function ScannerPage() {
     <AppShell>
       <div className="max-w-2xl mx-auto space-y-6">
         <div>
-          <h1 className="text-2xl font-extrabold tracking-tight">QR Scanner</h1>
+          <h1 className="text-2xl font-extrabold tracking-tight">{t("scanner")}</h1>
           <p className="text-sm text-muted-foreground">Scan cepat dengan kamera, upload gambar, atau input manual — semua jalan</p>
         </div>
 

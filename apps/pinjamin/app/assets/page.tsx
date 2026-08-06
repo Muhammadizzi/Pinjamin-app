@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select } from "@/components/ui/select";
 import { useStore } from "@/lib/store";
+import { useT } from "@/lib/i18n";
 import { formatDate } from "@/lib/utils";
 import {
   Search,
@@ -28,7 +29,7 @@ import Papa from "papaparse";
 
 export default function AssetsPage() {
   const { assets, categories, locations, tags, custodians, deleteAsset } =
-    useStore();
+    useStore(); const { t } = useT();
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("ALL");
   const [cat, setCat] = useState("ALL");
@@ -101,7 +102,7 @@ export default function AssetsPage() {
       <div className="space-y-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold">Assets</h1>
+            <h1 className="text-xl sm:text-2xl font-bold">{t("assets")}</h1>
             <p className="text-sm text-muted-foreground">
               {filtered.length} aset • {assets.length} total
             </p>

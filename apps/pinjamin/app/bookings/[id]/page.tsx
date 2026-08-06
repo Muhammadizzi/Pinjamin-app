@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useStore } from "@/lib/store";
+import { useT } from "@/lib/i18n";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import { useState } from "react";
 import { ArrowLeft, Check, X, Trash2 } from "lucide-react";
@@ -24,7 +25,7 @@ export default function BookingDetailPage() {
     kits,
     updateBookingStatus,
     deleteBooking,
-  } = useStore();
+  } = useStore(); const { t } = useT();
   const b = bookings.find((x) => x.id === id);
   const [returnNote, setReturnNote] = useState("");
   if (!b)

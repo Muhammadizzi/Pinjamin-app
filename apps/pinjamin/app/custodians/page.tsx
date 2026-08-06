@@ -6,11 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useStore } from "@/lib/store";
+import { useT } from "@/lib/i18n";
 import { Plus, Trash2, Pencil, Users } from "lucide-react";
 
 export default function CustodiansPage() {
   const { custodians, addCustodian, updateCustodian, deleteCustodian } =
-    useStore();
+    useStore(); const { t } = useT();
   const [show, setShow] = useState(false);
   const [edit, setEdit] = useState<string | null>(null);
   const [form, setForm] = useState({
@@ -46,7 +47,7 @@ export default function CustodiansPage() {
       <div className="max-w-4xl mx-auto space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold">Custodians</h1>
+            <h1 className="text-2xl font-bold">{t("custodians")}</h1>
             <p className="text-sm text-muted-foreground">
               Data peminjam dikelola admin (tanpa login)
             </p>

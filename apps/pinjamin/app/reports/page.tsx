@@ -4,11 +4,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useStore } from "@/lib/store";
+import { useT } from "@/lib/i18n";
 import { Download, FileSpreadsheet, FileText, BarChart3 } from "lucide-react";
 import Papa from "papaparse";
 
 export default function ReportsPage() {
-  const { assets, bookings, categories, locations, custodians } = useStore();
+  const { assets, bookings, categories, locations, custodians } = useStore(); const { t } = useT();
 
   const exportCSV = (which: string) => {
     let data: any[] = [];
@@ -135,7 +136,7 @@ export default function ReportsPage() {
     <AppShell>
       <div className="space-y-6 max-w-5xl mx-auto">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Reports</h1>
+          <h1 className="text-2xl font-bold tracking-tight">{t("reports")}</h1>
           <p className="text-sm text-muted-foreground">Laporan & export — tema Pinjamin Garuda Food</p>
         </div>
 

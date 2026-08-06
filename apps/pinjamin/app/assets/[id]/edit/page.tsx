@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { useStore } from "@/lib/store";
+import { useT } from "@/lib/i18n";
 import { ImageUpload } from "@/components/ui/image-upload";
 
 export default function EditAssetPage() {
@@ -23,7 +24,7 @@ export default function EditAssetPage() {
     tags,
     customFields,
     updateAsset,
-  } = useStore();
+  } = useStore(); const { t } = useT();
   const asset = assets.find((a) => a.id === id);
   const [form, setForm] = useState<any>(null);
   useEffect(() => {

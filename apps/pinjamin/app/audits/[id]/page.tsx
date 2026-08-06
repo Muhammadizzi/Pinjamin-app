@@ -8,13 +8,14 @@ import { Badge } from "@/components/ui/badge";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useStore } from "@/lib/store";
+import { useT } from "@/lib/i18n";
 import { ArrowLeft, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
 import { useState } from "react";
 
 export default function AuditDetailPage() {
   const params = useParams();
   const id = params.id as string;
-  const { audits, assets, updateAuditItem, completeAudit } = useStore();
+  const { audits, assets, updateAuditItem, completeAudit } = useStore(); const { t } = useT();
   const audit = audits.find((a) => a.id === id);
   const [notes, setNotes] = useState<Record<string, string>>({});
   if (!audit)

@@ -3,6 +3,7 @@ import { AppShell } from "@/components/layout/sidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useStore } from "@/lib/store";
+import { useT } from "@/lib/i18n";
 import { formatDate } from "@/lib/utils";
 import Link from "next/link";
 import { useMemo, useState } from "react";
@@ -10,7 +11,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default function CalendarPage() {
-  const { bookings } = useStore();
+  const { bookings } = useStore(); const { t } = useT();
   const [cur, setCur] = useState(() => new Date());
   const year = cur.getFullYear();
   const month = cur.getMonth();

@@ -8,11 +8,12 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useStore } from "@/lib/store";
+import { useT } from "@/lib/i18n";
 import { Plus, Trash2, Pencil } from "lucide-react";
 
 export default function CategoriesPage() {
   const { categories, assets, addCategory, updateCategory, deleteCategory } =
-    useStore();
+    useStore(); const { t } = useT();
   const [show, setShow] = useState(false);
   const [edit, setEdit] = useState<string | null>(null);
   const [form, setForm] = useState({
@@ -43,7 +44,7 @@ export default function CategoriesPage() {
       <div className="space-y-6 max-w-4xl mx-auto">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold">Categories</h1>
+            <h1 className="text-2xl font-bold">{t("categories")}</h1>
             <p className="text-sm text-muted-foreground">
               Kelola kategori aset (satu kategori per aset)
             </p>
