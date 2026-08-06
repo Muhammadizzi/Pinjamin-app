@@ -1,0 +1,188 @@
+name: 🩺 React Doctor
+
+# Runs on every PR that touches webapp OR companion source. The job fans out
+# over both apps via a matrix; each app is scanned independently and gets its
+# own sticky PR comment. Two outcomes per app:
+#   1. Always posts (or updates) a sticky PR comment summarising findings on
+#      the files changed by this PR.
+#   2. Fails the check if NEW errors are introduced — warnings stay advisory.
+
+on:
+  pull_request:
+    paths:
+      - "apps/webapp/**/*.ts"
+      - "apps/webapp/**/*.tsx"
+      - "apps/webapp/package.json"
+      - "apps/companion/**/*.ts"
+      - "apps/companion/**/*.tsx"
+      - "apps/companion/package.json"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/react-doctor.yml"
+      - ".github/scripts/react-doctor-pr-comment.mjs"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  doctor:
+    name: 🩺 React Doctor (${{ matrix.app.name }})
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    strategy:
+      # Scan each app independently — a failure on one app must not cancel the
+      # other's scan or its PR comment.
+      fail-fast: false
+      matrix:
+        app:
+          - name: webapp
+            dir: apps/webapp
+          - name: companion
+            dir: apps/companion
+    steps:
+      - name: ⬇️ Checkout PR merge ref
+        uses: actions/checkout@v4
+        with:
+          # No `ref:` — the default checkout resolves to the PR merge ref and is
+          # exempt from actions/checkout's fork-PR guard. fetch-depth: 0 is
+          # still required so `origin/<base>` exists for the --diff below.
+          fetch-depth: 0
+          # Nothing after this step needs git auth, so the token never lands in
+          # .git/config where fork-controlled code could read it back out.
+          persist-credentials: false
+
+      - name: 🪢 Re-attach HEAD to a named branch
+        # actions/checkout leaves us on a DETACHED HEAD at the PR merge ref.
+        # react-doctor's --diff path calls `git rev-parse --abbrev-ref HEAD`
+        # to find the current branch; in detached state that returns the
+        # literal "HEAD", which the CLI interprets as "no branch" and silently
+        # falls back to scanning the FULL codebase. Re-attaching HEAD to a
+        # named ref restores the diff path.
+        run: git switch -C react-doctor-pr-head
+
+      - name: 🔎 Detect whether this app changed in the PR
+        id: changes
+        # Gate the rest of this matrix leg on whether the app actually has
+        # changes in the PR diff. Without this, a webapp-only PR still posts an
+        # empty "🩺 React Doctor — companion ✅ No new findings" sticky comment
+        # (and vice-versa). Uses the same origin/<base> ref react-doctor's
+        # --diff relies on, so no extra dependency is needed.
+        # BASE_REF is untrusted PR input → passed via env, never inline ${{ }}.
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          APP_DIR: ${{ matrix.app.dir }}
+        run: |
+          # Capture the diff, then test each path with a literal prefix match.
+          # Two reasons to avoid `git diff | grep -q "^${APP_DIR}/"`:
+          #   * pipefail: grep -q exits on first match and closes the pipe; git
+          #     can die with SIGPIPE (141) on large diffs and bash -eo pipefail
+          #     surfaces that 141 — flipping the gate to false for an app that
+          #     actually changed.
+          #   * regex: APP_DIR interpolated into a grep pattern would treat any
+          #     metacharacter as regex. A quoted `case` glob keeps it literal.
+          CHANGED_FILES=$(git diff --name-only "origin/${BASE_REF}...HEAD")
+          CHANGED=false
+          while IFS= read -r file; do
+            case "$file" in
+              "${APP_DIR}"/*) CHANGED=true; break ;;
+            esac
+          done <<< "$CHANGED_FILES"
+          echo "changed=$CHANGED" >> "$GITHUB_OUTPUT"
+          echo "App ${APP_DIR} changed in this PR: $CHANGED"
+
+      - name: 📦 Setup pnpm
+        if: steps.changes.outputs.changed == 'true'
+        uses: pnpm/action-setup@v4
+
+      - name: ⎔ Setup node
+        if: steps.changes.outputs.changed == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: 📥 Install deps
+        if: steps.changes.outputs.changed == 'true'
+        run: pnpm install --frozen-lockfile
+
+      - name: 🩺 Run react-doctor (diff vs base)
+        id: doctor
+        if: steps.changes.outputs.changed == 'true'
+        working-directory: ${{ matrix.app.dir }}
+        # Notes:
+        #   --diff origin/<base>     — only files changed vs the PR target
+        #   --no-dead-code           — knip findings are out of scope here
+        #   --annotations            — emits GitHub Actions annotations so
+        #                              findings show inline on the PR diff
+        #   --fail-on error          — exit non-zero only when an error-level
+        #                              finding is present (warnings advisory)
+        # We DON'T fail this step — the dedicated "Fail if errors" step below
+        # owns that, so the comment can post even when the gate fails.
+        # All untrusted PR inputs go through env: instead of inline ${{ }}
+        # interpolation to avoid shell injection.
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: |
+          set +e
+          pnpm exec react-doctor . \
+            --diff "origin/${BASE_REF}" \
+            --no-dead-code \
+            --verbose \
+            --annotations \
+            --fail-on error \
+            2>&1 | tee "$RUNNER_TEMP/doctor.log"
+          echo "exit_code=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+          # The CLI prints "Full diagnostics written to /tmp/react-doctor-..."
+          DIAG_PATH=$(grep -oE '/tmp/react-doctor-[a-f0-9-]+' "$RUNNER_TEMP/doctor.log" | head -1)
+          echo "diag_path=$DIAG_PATH" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: 📝 Build PR comment body
+        if: always() && steps.changes.outputs.changed == 'true'
+        env:
+          DIAG_PATH: ${{ steps.doctor.outputs.diag_path }}
+          EXIT_CODE: ${{ steps.doctor.outputs.exit_code }}
+          # react-doctor emits file paths relative to the scanned dir, so the
+          # comment builder needs the app dir to render repo-root-relative links.
+          PATH_PREFIX: ${{ matrix.app.dir }}/
+        run: |
+          node .github/scripts/react-doctor-pr-comment.mjs \
+            "$DIAG_PATH" "$EXIT_CODE" "$PATH_PREFIX" \
+            > "$RUNNER_TEMP/comment.md"
+          echo "--- comment preview ---"
+          cat "$RUNNER_TEMP/comment.md"
+
+      - name: 💬 Post or update PR comment
+        # Fork and Dependabot PRs run with a read-only GITHUB_TOKEN, so the
+        # comment API 403s for them. Those PRs surface findings through the
+        # inline annotations (emitted as log commands, which need no token) and
+        # the job summary written below.
+        #
+        # Predicate on pull_request.user.login, NOT github.actor: the read-only
+        # token is keyed to who AUTHORED the PR, but github.actor becomes the
+        # re-runner's login on a manual re-run — which would wrongly re-enable
+        # this step on a Dependabot PR re-run.
+        if: always() && steps.changes.outputs.changed == 'true'
+          && github.event.pull_request.head.repo.full_name == github.repository
+          && github.event.pull_request.user.login != 'dependabot[bot]'
+        # Backstop for any read-only-token case not enumerated above.
+        continue-on-error: true
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          # Per-app header so the two matrix jobs maintain separate sticky
+          # comments instead of overwriting each other.
+          header: react-doctor-${{ matrix.app.name }}
+          path: ${{ runner.temp }}/comment.md
+
+      - name: 📋 Write findings to job summary
+        # Runs for EVERY PR including forks and Dependabot — this is the only
+        # aggregated report those PRs get, since the sticky comment is skipped.
+        if: always() && steps.changes.outputs.changed == 'true'
+        run: cat "$RUNNER_TEMP/comment.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: ❌ Fail if errors introduced
+        if: steps.changes.outputs.changed == 'true' && steps.doctor.outputs.exit_code != '0'
+        run: |
+          echo "react-doctor introduced new errors on this PR — see the comment for details."
+          exit 1
