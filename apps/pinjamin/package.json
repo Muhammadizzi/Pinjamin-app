@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.112.1",
     "animejs": "^4.5.0",
     "bcryptjs": "^2.4.3",
     "class-variance-authority": "^0.7.1",

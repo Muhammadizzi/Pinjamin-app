@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { useStore } from "@/lib/store";
+import { ImageUpload } from "@/components/ui/image-upload";
 
 export default function EditAssetPage() {
   const params = useParams();
@@ -155,15 +156,8 @@ export default function EditAssetPage() {
                     className="h-11 rounded-xl"
                   />
                 </div>
-                <div className="space-y-2 sm:col-span-2">
-                  <Label>Foto URL</Label>
-                  <Input
-                    value={form.mainImage || ""}
-                    onChange={(e) =>
-                      setForm({ ...form, mainImage: e.target.value })
-                    }
-                    className="h-11 rounded-xl"
-                  />
+                <div className="sm:col-span-2">
+                  <ImageUpload value={form.mainImage || ""} onChange={(url) => setForm({ ...form, mainImage: url })} label="Foto Aset" />
                 </div>
               </div>
               <div className="space-y-2">

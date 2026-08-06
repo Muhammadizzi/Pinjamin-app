@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { useStore } from "@/lib/store";
+import { ImageUpload } from "@/components/ui/image-upload";
 
 export default function NewAssetPage() {
   const router = useRouter();
@@ -179,20 +180,8 @@ export default function NewAssetPage() {
                     className="h-11 rounded-xl"
                   />
                 </div>
-                <div className="sm:col-span-2 space-y-2">
-                  <Label>Foto URL</Label>
-                  <Input
-                    value={form.mainImage}
-                    onChange={(e) =>
-                      setForm({ ...form, mainImage: e.target.value })
-                    }
-                    placeholder="https://..."
-                    className="h-11 rounded-xl"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Kosongkan jika belum ada foto. Bisa upload ke Supabase
-                    Storage nanti.
-                  </p>
+                <div className="sm:col-span-2">
+                  <ImageUpload value={form.mainImage} onChange={(url) => setForm({ ...form, mainImage: url })} label="Foto Aset (Upload / URL)" />
                 </div>
                 <div className="sm:col-span-2 space-y-2">
                   <Label>Tags</Label>
