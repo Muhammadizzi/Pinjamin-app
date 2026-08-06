@@ -1,0 +1,516 @@
+"use client";
+import { useState, useMemo } from "react";
+import Link from "next/link";
+import { AppShell } from "@/components/layout/sidebar";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Select } from "@/components/ui/select";
+import { useStore } from "@/lib/store";
+import { formatDate } from "@/lib/utils";
+import {
+  Search,
+  Plus,
+  Download,
+  Upload,
+  QrCode,
+  MapPin,
+  Tag as TagIcon,
+  Filter,
+  Trash2,
+  Eye,
+  Pencil,
+  LayoutGrid,
+  List,
+} from "lucide-react";
+import Papa from "papaparse";
+
+export default function AssetsPage() {
+  const { assets, categories, locations, tags, custodians, deleteAsset } =
+    useStore();
+  const [q, setQ] = useState("");
+  const [status, setStatus] = useState("ALL");
+  const [cat, setCat] = useState("ALL");
+  const [loc, setLoc] = useState("ALL");
+  const [tag, setTag] = useState("ALL");
+  const [sort, setSort] = useState("newest");
+  const [view, setView] = useState<"list" | "card">("list");
+  const [perPage, setPerPage] = useState(8);
+  const [page, setPage] = useState(1);
+
+  const filtered = useMemo(() => {
+    let r = [...assets];
+    if (q)
+      r = r.filter(
+        (a) =>
+          a.name.toLowerCase().includes(q.toLowerCase()) ||
+          a.qrCode.toLowerCase().includes(q.toLowerCase()) ||
+          a.serialNumber?.toLowerCase().includes(q.toLowerCase())
+      );
+    if (status !== "ALL") r = r.filter((a) => a.status === status);
+    if (cat !== "ALL") r = r.filter((a) => a.categoryId === cat);
+    if (loc !== "ALL") r = r.filter((a) => a.locationId === loc);
+    if (tag !== "ALL") r = r.filter((a) => a.tagIds.includes(tag));
+    if (sort === "newest")
+      r.sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
+    if (sort === "name") r.sort((a, b) => a.name.localeCompare(b.name));
+    if (sort === "value") r.sort((a, b) => (b.value || 0) - (a.value || 0));
+    return r;
+  }, [assets, q, status, cat, loc, tag, sort]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / perPage));
+  const paged = filtered.slice((page - 1) * perPage, page * perPage);
+
+  const exportCSV = () => {
+    const csv = Papa.unparse(
+      assets.map((a) => ({
+        id: a.id,
+        name: a.name,
+        status: a.status,
+        category: categories.find((c) => c.id === a.categoryId)?.name,
+        location: locations.find((l) => l.id === a.locationId)?.name,
+        qrCode: a.qrCode,
+        value: a.value,
+        serial: a.serialNumber,
+      }))
+    );
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "assets.csv";
+    link.click();
+  };
+
+  const importCSV = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    Papa.parse(file, {
+      header: true,
+      complete: (res) => {
+        alert(
+          `Ditemukan ${res.data.length} baris. Fitur import massal siap dihubungkan ke store (demo).`
+        );
+      },
+    });
+  };
+
+  return (
+    <AppShell>
+      <div className="space-y-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold">Assets</h1>
+            <p className="text-sm text-muted-foreground">
+              {filtered.length} aset • {assets.length} total
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <label className="rounded-xl border bg-white px-4 py-2.5 text-sm font-medium cursor-pointer flex items-center gap-2 hover:bg-slate-50 dark:bg-slate-900">
+              <Upload className="h-4 w-4" /> Import{" "}
+              <input
+                type="file"
+                accept=".csv"
+                className="hidden"
+                onChange={importCSV}
+              />
+            </label>
+            <Button
+              variant="outline"
+              onClick={exportCSV}
+              className="rounded-xl"
+            >
+              <Download className="h-4 w-4" /> Export
+            </Button>
+            <Link href="/assets/new">
+              <Button className="rounded-xl">
+                <Plus className="h-4 w-4" /> New Asset
+              </Button>
+            </Link>
+          </div>
+        </div>
+
+        {/* Toolbar */}
+        <Card>
+          <CardContent className="p-4 space-y-4">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search assets, QR, serial..."
+                  value={q}
+                  onChange={(e) => {
+                    setQ(e.target.value);
+                    setPage(1);
+                  }}
+                  className="pl-10 h-11 rounded-xl"
+                />
+              </div>
+              <div className="flex gap-2 overflow-x-auto pb-1 lg:pb-0">
+                <Select
+                  value={status}
+                  onChange={(e) => {
+                    setStatus(e.target.value);
+                    setPage(1);
+                  }}
+                  className="w-[160px] shrink-0"
+                >
+                  <option value="ALL">All Status</option>
+                  <option value="AVAILABLE">AVAILABLE</option>
+                  <option value="CHECKED_OUT">CHECKED_OUT</option>
+                  <option value="MAINTENANCE">MAINTENANCE</option>
+                  <option value="RETIRED">RETIRED</option>
+                </Select>
+                <Select
+                  value={sort}
+                  onChange={(e) => setSort(e.target.value)}
+                  className="w-[160px] shrink-0"
+                >
+                  <option value="newest">Date created</option>
+                  <option value="name">Name A-Z</option>
+                  <option value="value">Value</option>
+                </Select>
+                <div className="hidden sm:flex rounded-xl border overflow-hidden">
+                  <button
+                    onClick={() => setView("list")}
+                    className={`px-3 py-2 ${
+                      view === "list" ? "bg-slate-900 text-white" : "bg-white"
+                    }`}
+                  >
+                    <List className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => setView("card")}
+                    className={`px-3 py-2 ${
+                      view === "card" ? "bg-slate-900 text-white" : "bg-white"
+                    }`}
+                  >
+                    <LayoutGrid className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <Select
+                value={cat}
+                onChange={(e) => {
+                  setCat(e.target.value);
+                  setPage(1);
+                }}
+              >
+                <option value="ALL">All Categories</option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </Select>
+              <Select
+                value={loc}
+                onChange={(e) => {
+                  setLoc(e.target.value);
+                  setPage(1);
+                }}
+              >
+                <option value="ALL">All Locations</option>
+                {locations.map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.name}
+                  </option>
+                ))}
+              </Select>
+              <Select
+                value={tag}
+                onChange={(e) => {
+                  setTag(e.target.value);
+                  setPage(1);
+                }}
+              >
+                <option value="ALL">All Tags</option>
+                {tags.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </Select>
+              <Select
+                value={String(perPage)}
+                onChange={(e) => {
+                  setPerPage(Number(e.target.value));
+                  setPage(1);
+                }}
+              >
+                <option value="8">8 / page</option>
+                <option value="20">20 / page</option>
+                <option value="50">50 / page</option>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Content */}
+        {paged.length === 0 ? (
+          <Card className="border-dashed">
+            <CardContent className="py-16 text-center space-y-4">
+              <div className="mx-auto h-20 w-20 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                <PackageIcon />
+              </div>
+              <div>
+                <div className="font-semibold">No assets yet</div>
+                <div className="text-sm text-muted-foreground">
+                  Buat aset pertama Anda
+                </div>
+              </div>
+              <Link href="/assets/new">
+                <Button>Create your first asset</Button>
+              </Link>
+            </CardContent>
+          </Card>
+        ) : view === "list" ? (
+          <>
+            {/* Desktop table */}
+            <div className="hidden md:block overflow-x-auto rounded-2xl border bg-white dark:bg-slate-900">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 dark:bg-slate-800 text-left text-xs uppercase tracking-widest text-muted-foreground">
+                  <tr>
+                    <th className="px-4 py-3">Nama</th>
+                    <th className="px-4 py-3">Kategori</th>
+                    <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3">Lokasi</th>
+                    <th className="px-4 py-3">Custodian</th>
+                    <th className="px-4 py-3 text-right">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paged.map((a) => {
+                    const catName =
+                      categories.find((c) => c.id === a.categoryId)?.name ||
+                      "-";
+                    const locName =
+                      locations.find((l) => l.id === a.locationId)?.name || "-";
+                    const custName =
+                      custodians.find((c) => c.id === a.custodianId)?.name ||
+                      "-";
+                    return (
+                      <tr
+                        key={a.id}
+                        className="border-t hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                      >
+                        <td className="px-4 py-3">
+                          <div className="font-medium">{a.name}</div>
+                          <div className="text-xs text-muted-foreground flex items-center gap-1">
+                            <QrCode className="h-3 w-3" /> {a.qrCode} •{" "}
+                            {a.serialNumber}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">{catName}</td>
+                        <td className="px-4 py-3">
+                          <StatusBadge status={a.status} />
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="flex items-center gap-1">
+                            <MapPin className="h-3 w-3 text-muted-foreground" />{" "}
+                            {locName}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-xs">{custName}</td>
+                        <td className="px-4 py-3">
+                          <div className="flex justify-end gap-1">
+                            <Link href={`/assets/${a.id}`}>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            </Link>
+                            <Link href={`/assets/${a.id}/edit`}>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                            </Link>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-red-600"
+                              onClick={() => deleteAsset(a.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            {/* Mobile cards */}
+            <div className="grid grid-cols-1 gap-3 md:hidden">
+              {paged.map((a) => (
+                <Card key={a.id} className="overflow-hidden">
+                  <CardContent className="p-4 space-y-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold truncate">{a.name}</div>
+                        <div className="text-xs text-muted-foreground truncate">
+                          {a.qrCode} • {formatDate(a.createdAt)}
+                        </div>
+                      </div>
+                      <StatusBadge status={a.status} />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div className="rounded-lg bg-slate-50 dark:bg-slate-800 p-2">
+                        <div className="text-muted-foreground">Kategori</div>
+                        <div className="font-medium">
+                          {categories.find((c) => c.id === a.categoryId)
+                            ?.name || "-"}
+                        </div>
+                      </div>
+                      <div className="rounded-lg bg-slate-50 dark:bg-slate-800 p-2">
+                        <div className="text-muted-foreground">Lokasi</div>
+                        <div className="font-medium truncate">
+                          {locations.find((l) => l.id === a.locationId)?.name ||
+                            "-"}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Link href={`/assets/${a.id}`} className="flex-1">
+                        <Button
+                          variant="outline"
+                          className="w-full rounded-xl"
+                          size="sm"
+                        >
+                          <Eye className="h-4 w-4" /> Detail
+                        </Button>
+                      </Link>
+                      <Link href={`/assets/${a.id}/edit`} className="flex-1">
+                        <Button className="w-full rounded-xl" size="sm">
+                          Edit
+                        </Button>
+                      </Link>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {paged.map((a) => (
+              <Card
+                key={a.id}
+                className="overflow-hidden hover:shadow-md transition-shadow"
+              >
+                <div className="h-32 bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-900 flex items-center justify-center">
+                  {a.mainImage ? (
+                    <img
+                      src={a.mainImage}
+                      alt={a.name}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <PackageIconLarge />
+                  )}
+                </div>
+                <CardContent className="p-4 space-y-2">
+                  <div className="font-semibold line-clamp-1">{a.name}</div>
+                  <StatusBadge status={a.status} />
+                  <div className="text-xs text-muted-foreground line-clamp-2">
+                    {a.description}
+                  </div>
+                  <div className="flex gap-2 pt-2">
+                    <Link href={`/assets/${a.id}`} className="flex-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full rounded-xl"
+                      >
+                        Detail
+                      </Button>
+                    </Link>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => deleteAsset(a.id)}
+                      className="text-red-600"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-2xl border bg-white dark:bg-slate-900 p-4">
+          <div className="text-sm text-muted-foreground">
+            Hal {page} dari {totalPages} • {filtered.length} hasil
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page <= 1}
+              onClick={() => setPage((p) => p - 1)}
+            >
+              Prev
+            </Button>
+            <span className="text-sm px-2">
+              {page} / {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page >= totalPages}
+              onClick={() => setPage((p) => p + 1)}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      </div>
+    </AppShell>
+  );
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const map: Record<string, string> = {
+    AVAILABLE: "success",
+    CHECKED_OUT: "info",
+    MAINTENANCE: "warning",
+    RETIRED: "secondary",
+  };
+  return <Badge variant={(map[status] as any) || "secondary"}>{status}</Badge>;
+}
+function PackageIcon() {
+  return (
+    <svg
+      width="32"
+      height="32"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="#94a3b8"
+      strokeWidth="1.5"
+    >
+      <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" />
+      <path d="M3.3 7 12 12l8.7-5M12 22V12" />
+    </svg>
+  );
+}
+function PackageIconLarge() {
+  return (
+    <div className="h-16 w-16 rounded-2xl bg-white dark:bg-slate-700 flex items-center justify-center shadow">
+      <PackageIcon />
+    </div>
+  );
+}
