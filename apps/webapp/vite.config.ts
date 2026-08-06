@@ -51,7 +51,7 @@ export default defineConfig({
     noExternal: ["@shelf/database", "@shelf/labels", "@shelf/quantity-control"],
   },
   server: {
-    port: 3000,
+    port: 3001,
     https: httpsConfig,
     warmup: {
       clientFiles: [

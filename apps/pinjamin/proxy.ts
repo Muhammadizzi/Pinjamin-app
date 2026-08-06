@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-export function middleware(req: NextRequest) {
+export default function proxy(req: NextRequest) {
   const token = req.cookies.get("pinjamin_session")?.value;
   const isLogin = req.nextUrl.pathname.startsWith("/login");
   const isApi = req.nextUrl.pathname.startsWith("/api");
@@ -26,3 +26,5 @@ export function middleware(req: NextRequest) {
 export const config = {
   matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };
+
+export const middleware = proxy;

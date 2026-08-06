@@ -11,8 +11,8 @@ type Props = SVGProps<SVGSVGElement> & {
 };
 
 const ShelfLogo = ({
-  typeColor = "#070732",
-  iconBgColor = "#ff7809",
+  typeColor = "#0a2240",
+  iconBgColor = "#e6ad1a",
   iconShelfsColor = "#fff",
   ...rest
 }: Props) => (

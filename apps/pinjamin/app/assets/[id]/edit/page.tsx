@@ -183,7 +183,7 @@ export default function EditAssetPage() {
                       }
                       className={`px-3 py-1.5 rounded-full text-sm border ${
                         form.tagIds.includes(t.id)
-                          ? "bg-red-600 text-white border-red-600"
+                          ? "bg-[#0a2240] text-white border-[#0a2240]"
                           : "bg-white"
                       }`}
                     >

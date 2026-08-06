@@ -147,7 +147,7 @@ export default function CustodiansPage() {
           {custodians.map((c) => (
             <Card key={c.id}>
               <CardContent className="p-4 flex gap-4">
-                <div className="h-10 w-10 rounded-xl bg-red-600 text-white flex items-center justify-center font-bold shrink-0">
+                <div className="h-10 w-10 rounded-xl bg-[#0a2240] text-white flex items-center justify-center font-bold shrink-0">
                   {c.name[0]}
                 </div>
                 <div className="flex-1 min-w-0">

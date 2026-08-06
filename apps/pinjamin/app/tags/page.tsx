@@ -49,7 +49,7 @@ export default function TagsPage() {
               <Card key={t.id}>
                 <CardContent className="p-4 flex items-center gap-3">
                   <div className="h-9 w-9 rounded-xl bg-red-100 dark:bg-red-900 flex items-center justify-center">
-                    <TagIcon className="h-4 w-4 text-red-600" />
+                    <TagIcon className="h-4 w-4 text-[#0a2240]" />
                   </div>
                   <div className="flex-1">
                     <div className="font-medium">{t.name}</div>
@@ -61,7 +61,7 @@ export default function TagsPage() {
                     variant="ghost"
                     size="icon"
                     onClick={() => deleteTag(t.id)}
-                    className="text-red-600"
+                    className="text-[#0a2240]"
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>

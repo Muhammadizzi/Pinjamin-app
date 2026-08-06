@@ -54,7 +54,7 @@ export default function LocationsPage() {
         <div key={l.id} style={{ marginLeft: depth * 16 }}>
           <Card className="mb-2">
             <CardContent className="p-3 flex items-center gap-3">
-              <MapPin className="h-4 w-4 text-red-600" />
+              <MapPin className="h-4 w-4 text-[#0a2240]" />
               <div className="flex-1">
                 <div className="font-medium text-sm">{l.name}</div>
                 <div className="text-xs text-muted-foreground">
@@ -75,7 +75,7 @@ export default function LocationsPage() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 text-red-600"
+                className="h-8 w-8 text-[#0a2240]"
                 onClick={() => deleteLocation(l.id)}
               >
                 <Trash2 className="h-4 w-4" />

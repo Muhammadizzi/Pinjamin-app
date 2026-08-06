@@ -121,7 +121,7 @@ export default function KitsPage() {
               <Card key={k.id} className="hover:shadow-md transition-shadow">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base flex items-center gap-2">
-                    <Boxes className="h-5 w-5 text-red-600" />
+                    <Boxes className="h-5 w-5 text-[#0a2240]" />
                     {k.name}
                   </CardTitle>
                   <p className="text-xs text-muted-foreground line-clamp-2">
@@ -163,7 +163,7 @@ export default function KitsPage() {
                       variant="ghost"
                       size="sm"
                       onClick={() => deleteKit(k.id)}
-                      className="text-red-600"
+                      className="text-[#0a2240]"
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>

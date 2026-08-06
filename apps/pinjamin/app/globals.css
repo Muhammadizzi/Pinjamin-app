@@ -1,5 +1,12 @@
 @import "tailwindcss";
 
+/* 
+  Pinjamin theme — extracted from logo-pinjamin.png
+  Primary navy: #0e3a5d (dominant #063578, adjusted for accessibility)
+  Accent gold: #e6ad1a (histogram) + warm amber
+  Logo shows deep navy background with gold typography
+*/
+
 :root {
   --background: #f8fafc;
   --foreground: #0f172a;
@@ -7,49 +14,54 @@
   --card-foreground: #0f172a;
   --popover: #ffffff;
   --popover-foreground: #0f172a;
-  --primary: #dc2626;
+  --primary: #0e3a5d; /* navy from logo #063578 */
   --primary-foreground: #ffffff;
-  --secondary: #f1f5f9;
-  --secondary-foreground: #0f172a;
+  --secondary: #fff8e6; /* light gold */
+  --secondary-foreground: #7a5a00;
   --muted: #f1f5f9;
   --muted-foreground: #64748b;
-  --accent: #fef2f2;
-  --accent-foreground: #dc2626;
-  --destructive: #ef4444;
+  --accent: #fef3c7; /* warm gold accent */
+  --accent-foreground: #92400e;
+  --destructive: #dc2626;
   --destructive-foreground: #ffffff;
   --border: #e2e8f0;
   --input: #e2e8f0;
-  --ring: #dc2626;
+  --ring: #0e3a5d;
   --radius: 0.75rem;
-  --sidebar: #0f172a;
+  --sidebar: #0a2240; /* deep navy like logo background */
   --sidebar-foreground: #f8fafc;
-  --sidebar-accent: #1e293b;
-  --sidebar-border: #1e293b;
+  --sidebar-accent: #12345a;
+  --sidebar-border: #14365f;
+  --chart-1: #0e3a5d;
+  --chart-2: #e6ad1a;
+  --chart-3: #3b82f6;
+  --chart-4: #06b6d4;
+  --chart-5: #8b5cf6;
 }
 
 .dark {
-  --background: #020617;
-  --foreground: #f8fafc;
-  --card: #0f172a;
-  --card-foreground: #f8fafc;
-  --popover: #0f172a;
-  --popover-foreground: #f8fafc;
-  --primary: #ef4444;
-  --primary-foreground: #ffffff;
-  --secondary: #1e293b;
-  --secondary-foreground: #f8fafc;
-  --muted: #1e293b;
+  --background: #020e1f;
+  --foreground: #f1f5f9;
+  --card: #0a1f3a;
+  --card-foreground: #f1f5f9;
+  --popover: #0a1f3a;
+  --popover-foreground: #f1f5f9;
+  --primary: #e6ad1a; /* gold primary in dark mode for contrast */
+  --primary-foreground: #0a2240;
+  --secondary: #12345a;
+  --secondary-foreground: #f1f5f9;
+  --muted: #13325a;
   --muted-foreground: #94a3b8;
-  --accent: #1e293b;
-  --accent-foreground: #f8fafc;
+  --accent: #1e3a5a;
+  --accent-foreground: #fef3c7;
   --destructive: #7f1d1d;
   --destructive-foreground: #f8fafc;
-  --border: #1e293b;
-  --input: #1e293b;
-  --ring: #ef4444;
-  --sidebar: #020617;
+  --border: #14365f;
+  --input: #14365f;
+  --ring: #e6ad1a;
+  --sidebar: #060f1f;
   --sidebar-foreground: #f8fafc;
-  --sidebar-accent: #1e293b;
+  --sidebar-accent: #0f2a4d;
 }
 
 @theme inline {
@@ -92,9 +104,10 @@ body {
     -apple-system,
     sans-serif;
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
-/* Scrollbar */
+/* Scrollbar — themed gold/navy */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -107,11 +120,22 @@ body {
   border-radius: 999px;
 }
 .dark ::-webkit-scrollbar-thumb {
-  background: #334155;
+  background: #1e3a5a;
 }
 
 /* Utilities for mobile touch */
 .touch-target {
   min-height: 44px;
   min-width: 44px;
+}
+
+/* Focus ring gold */
+:focus-visible {
+  outline-color: var(--ring);
+}
+
+/* Selection gold */
+::selection {
+  background: #e6ad1a;
+  color: #0a2240;
 }
