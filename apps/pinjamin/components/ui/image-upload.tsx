@@ -10,9 +10,10 @@ type Props = {
   value?: string;
   onChange: (url: string) => void;
   label?: string;
+  uploadOnly?: boolean;
 };
 
-export function ImageUpload({ value, onChange, label = "Foto Aset" }: Props) {
+export function ImageUpload({ value, onChange, label = "Foto Aset", uploadOnly = false }: Props) {
   const [dragOver, setDragOver] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
@@ -81,24 +82,26 @@ export function ImageUpload({ value, onChange, label = "Foto Aset" }: Props) {
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <Label className="font-medium">{label}</Label>
-        <div className="flex gap-1 text-xs">
-          <button
-            type="button"
-            onClick={() => setMode("upload")}
-            className={`px-2.5 py-1 rounded-full border text-xs font-medium ${mode === "upload" ? "bg-[#0a2240] text-white border-[#0a2240]" : "bg-white hover:bg-slate-50"}`}
-          >
-            <Upload className="h-3 w-3 inline mr-1" />
-            Upload
-          </button>
-          <button
-            type="button"
-            onClick={() => setMode("url")}
-            className={`px-2.5 py-1 rounded-full border text-xs font-medium ${mode === "url" ? "bg-[#0a2240] text-white border-[#0a2240]" : "bg-white hover:bg-slate-50"}`}
-          >
-            <Link2 className="h-3 w-3 inline mr-1" />
-            URL
-          </button>
-        </div>
+        {!uploadOnly && (
+          <div className="flex gap-1 text-xs">
+            <button
+              type="button"
+              onClick={() => setMode("upload")}
+              className={`px-2.5 py-1 rounded-full border text-xs font-medium ${mode === "upload" ? "bg-[#1a365d] text-white border-[#1a365d]" : "bg-white hover:bg-slate-50 text-slate-700"}`}
+            >
+              <Upload className="h-3 w-3 inline mr-1" />
+              Upload
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode("url")}
+              className={`px-2.5 py-1 rounded-full border text-xs font-medium ${mode === "url" ? "bg-[#1a365d] text-white border-[#1a365d]" : "bg-white hover:bg-slate-50 text-slate-700"}`}
+            >
+              <Link2 className="h-3 w-3 inline mr-1" />
+              URL
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Preview */}
