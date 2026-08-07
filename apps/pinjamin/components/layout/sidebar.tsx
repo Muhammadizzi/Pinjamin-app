@@ -23,7 +23,6 @@ import {
   X,
   LogOut,
   ChevronDown,
-  Database,
 } from "lucide-react";
 
 export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
@@ -51,7 +50,6 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
     { href: "/audits", label: t("audits"), icon: ClipboardCheck },
     { href: "/bookings", label: t("bookings"), icon: CalendarRange },
     { href: "/reports", label: t("reports"), icon: BarChart3 },
-    { href: "/database", label: "Database", icon: Database },
   ];
 
   return (
