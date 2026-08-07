@@ -281,7 +281,7 @@ export default function ScannerPage() {
                     value={manual}
                     onChange={(e) => setManual(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && handleCode(manual)}
-                    className="h-12 rounded-xl font-mono bg-white/70 dark:bg-slate-800/50 backdrop-blur pr-20"
+                    className="h-12 rounded-xl font-mono bg-white dark:bg-slate-800 backdrop-blur pr-20"
                   />
                   <Button
                     onClick={() => handleCode(manual)}

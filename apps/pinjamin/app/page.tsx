@@ -69,7 +69,7 @@ export default function DashboardPage() {
               </Button>
             </Link>
             <Link href="/scanner">
-              <Button variant="outline" className="rounded-xl bg-white/70 dark:bg-slate-800/50 backdrop-blur border-[#f0e6d2] dark:border-slate-700 hover:bg-white">
+              <Button variant="outline" className="rounded-xl">
                 <QrCode className="h-4 w-4" strokeWidth={1.5} /> {t("scanQr")}
               </Button>
             </Link>
@@ -77,7 +77,7 @@ export default function DashboardPage() {
         </div>
 
         <div ref={statsRef} className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Card className="stat-card border shadow-lg backdrop-blur-xl bg-white/80 dark:bg-slate-800/40 border-[#f0e6d2] dark:border-slate-700 hover:shadow-xl transition-all hover:-translate-y-1">
+          <Card className="stat-card border shadow-lg backdrop-blur-xl bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:shadow-xl transition-all hover:-translate-y-1">
             <CardHeader className="pb-2 flex flex-row items-center justify-between">
               <CardTitle className="text-sm font-medium text-muted-foreground">{t("totalAsset")}</CardTitle>
               <div className="h-9 w-9 rounded-xl bg-[#1a365d] text-white flex items-center justify-center">
@@ -92,7 +92,7 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
-          <Card className="stat-card border shadow-lg backdrop-blur-xl bg-white/80 dark:bg-slate-800/40 border-[#f0e6d2] dark:border-slate-700 hover:shadow-xl transition-all hover:-translate-y-1">
+          <Card className="stat-card border shadow-lg backdrop-blur-xl bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:shadow-xl transition-all hover:-translate-y-1">
             <CardHeader className="pb-2 flex flex-row items-center justify-between">
               <CardTitle className="text-sm font-medium text-muted-foreground">{t("available")}</CardTitle>
               <div className="h-9 w-9 rounded-xl bg-emerald-500 text-white flex items-center justify-center">
@@ -105,7 +105,7 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
-          <Card className="stat-card border shadow-lg backdrop-blur-xl bg-white/80 dark:bg-slate-800/40 border-[#f0e6d2] dark:border-slate-700 hover:shadow-xl transition-all hover:-translate-y-1">
+          <Card className="stat-card border shadow-lg backdrop-blur-xl bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:shadow-xl transition-all hover:-translate-y-1">
             <CardHeader className="pb-2 flex flex-row items-center justify-between">
               <CardTitle className="text-sm font-medium text-muted-foreground">{t("checkedOut")}</CardTitle>
               <div className="h-9 w-9 rounded-xl bg-blue-500 text-white flex items-center justify-center">
@@ -118,7 +118,7 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
-          <Card className="stat-card border shadow-lg backdrop-blur-xl bg-white/80 dark:bg-slate-800/40 border-[#f0e6d2] dark:border-slate-700 hover:shadow-xl transition-all hover:-translate-y-1">
+          <Card className="stat-card border shadow-lg backdrop-blur-xl bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:shadow-xl transition-all hover:-translate-y-1">
             <CardHeader className="pb-2 flex flex-row items-center justify-between">
               <CardTitle className="text-sm font-medium text-muted-foreground">{t("overdue")}</CardTitle>
               <div className="h-9 w-9 rounded-xl bg-red-500 text-white flex items-center justify-center">
@@ -133,7 +133,7 @@ export default function DashboardPage() {
         </div>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <Card className="lg:col-span-2 backdrop-blur-xl bg-white/80 dark:bg-slate-800/40 border-[#f0e6d2] dark:border-slate-700 shadow-lg anime-fade">
+          <Card className="lg:col-span-2 backdrop-blur-xl bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 shadow-lg anime-fade">
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="text-base">{t("recentBookings")}</CardTitle>
               <Link href="/bookings" className="text-sm text-[#1a365d] dark:text-[#CBA12C] hover:underline flex items-center gap-1 font-medium">
@@ -143,7 +143,7 @@ export default function DashboardPage() {
             <CardContent className="space-y-3">
               {recentBookings.length === 0 && <p className="text-sm text-muted-foreground py-8 text-center">{t("noBookings")}</p>}
               {recentBookings.map((b) => (
-                <Link key={b.id} href={`/bookings/${b.id}`} className="flex items-center gap-4 rounded-xl border bg-white/60 dark:bg-slate-700/30 backdrop-blur p-4 hover:bg-white dark:hover:bg-slate-700 transition-all hover:shadow-md hover:scale-[1.01]">
+                <Link key={b.id} href={`/bookings/${b.id}`} className="flex items-center gap-4 rounded-xl border bg-white dark:bg-slate-800 backdrop-blur p-4 hover:bg-white dark:hover:bg-slate-700 transition-all hover:shadow-md hover:scale-[1.01]">
                   <div className="h-10 w-10 rounded-xl bg-[#1a365d] text-white flex items-center justify-center shrink-0">
                     <CalendarRange className="h-5 w-5" strokeWidth={1.5} />
                   </div>
@@ -160,7 +160,7 @@ export default function DashboardPage() {
           </Card>
 
           <div className="space-y-6 anime-fade">
-            <Card className="backdrop-blur-xl bg-white/80 dark:bg-slate-800/40 border-[#f0e6d2] dark:border-slate-700 shadow-lg">
+            <Card className="backdrop-blur-xl bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 shadow-lg">
               <CardHeader>
                 <CardTitle className="text-base">{t("needAttention")}</CardTitle>
               </CardHeader>
@@ -187,7 +187,7 @@ export default function DashboardPage() {
               </CardContent>
             </Card>
 
-            <Card className="backdrop-blur-xl bg-white/80 dark:bg-slate-800/40 border-[#f0e6d2] dark:border-slate-700 shadow-lg">
+            <Card className="backdrop-blur-xl bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 shadow-lg">
               <CardHeader>
                 <CardTitle className="text-base">{t("lastActivity")}</CardTitle>
               </CardHeader>

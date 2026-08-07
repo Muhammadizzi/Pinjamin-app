@@ -4,8 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { ThemeToggle } from "@/components/theme-toggle";
-import { LanguageToggleLight } from "@/components/language-toggle";
+import { LanguageToggle } from "@/components/language-toggle";
 import { useT } from "@/lib/i18n";
 import {
   LayoutDashboard,
@@ -24,6 +23,7 @@ import {
   X,
   LogOut,
   ChevronDown,
+  Database,
 } from "lucide-react";
 
 export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
@@ -51,6 +51,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
     { href: "/audits", label: t("audits"), icon: ClipboardCheck },
     { href: "/bookings", label: t("bookings"), icon: CalendarRange },
     { href: "/reports", label: t("reports"), icon: BarChart3 },
+    { href: "/database", label: "Database", icon: Database },
   ];
 
   return (
@@ -156,23 +157,32 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
 export function TopBar({ onMenu }: { onMenu: () => void }) {
   const router = useRouter();
   return (
-    <header className="sticky top-0 z-20 flex h-[64px] items-center gap-3 border-b bg-[#fefcf8]/80 dark:bg-[#0f1d33]/80 backdrop-blur-xl px-4">
-      <Button variant="ghost" size="icon" onClick={onMenu} className="shrink-0 lg:hidden">
+    <header className="sticky top-0 z-20 flex h-[64px] items-center gap-3 border-b bg-[#0f1d33]/95 backdrop-blur-xl px-4 border-[#243a5e] shadow-sm">
+      <Button variant="ghost" size="icon" onClick={onMenu} className="shrink-0 lg:hidden text-white hover:bg-white/10">
         <Menu className="h-6 w-6" strokeWidth={1.5} />
       </Button>
       <Link href="/" className="flex items-center gap-2 lg:hidden">
-        <img src="/logo-pinjamin.png" alt="Pinjamin" className="h-8 w-8 rounded-lg bg-transparent object-contain" style={{ background: "transparent" }} />
-        <span className="font-extrabold tracking-tight text-[#1a365d] dark:text-white">Pinjamin</span>
+        <img src="/logo-pinjamin.png" alt="Pinjamin" className="h-7 w-auto object-contain" style={{ background: "transparent", filter: "drop-shadow(0 2px 6px rgba(0,0,0,0.3))" }} />
+        <span className="font-extrabold tracking-tight text-white">Pinjamin</span>
+        <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#CBA12C] text-[#1a365d] font-bold">GARUDA FOOD</span>
       </Link>
-      <div className="hidden lg:block text-sm font-medium text-slate-600 dark:text-slate-300">
-        <span className="text-[#1a365d] dark:text-[#CBA12C] font-semibold">Pinjamin</span>
-        <span className="text-slate-400 mx-2">/</span>
-        <span>Garuda Food</span>
+      <div className="hidden lg:flex items-center gap-2 text-sm">
+        <span className="text-[#CBA12C] font-bold tracking-wide">Pinjamin</span>
+        <span className="text-white/20">/</span>
+        <span className="text-white/60 font-medium">Garuda Food</span>
+        <span className="ml-3 hidden xl:inline-flex items-center gap-2 text-xs text-white/40">
+          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+          Sistem aktif
+        </span>
       </div>
       <div className="ml-auto flex items-center gap-2">
-        <LanguageToggleLight />
-        <ThemeToggle />
-        <Button variant="ghost" size="icon" onClick={() => router.push("/scanner")} className="hidden sm:flex bg-amber-50 dark:bg-slate-800 text-[#1a365d] dark:text-amber-200 hover:bg-amber-100">
+        <LanguageToggle />
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => router.push("/scanner")}
+          className="hidden sm:flex bg-white/5 hover:bg-white/10 text-white border-white/15 hover:text-white backdrop-blur"
+        >
           <QrCode className="h-5 w-5" strokeWidth={1.5} />
         </Button>
         <button
@@ -180,7 +190,7 @@ export function TopBar({ onMenu }: { onMenu: () => void }) {
             await fetch("/api/auth/logout", { method: "POST" });
             router.push("/login");
           }}
-          className="h-9 w-9 rounded-full bg-[#1a365d] text-amber-100 flex items-center justify-center text-sm font-bold border border-amber-200/20"
+          className="h-9 w-9 rounded-full bg-[#CBA12C] text-[#1a365d] flex items-center justify-center text-sm font-extrabold shadow-md border-2 border-[#CBA12C]"
         >
           A
         </button>
@@ -192,14 +202,14 @@ export function TopBar({ onMenu }: { onMenu: () => void }) {
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="min-h-screen bg-[#fefcf8] dark:bg-[#0f1d33]">
+    <div className="min-h-screen bg-[#0f1d33] text-white">
       <div className="lg:flex">
-        <aside className="hidden lg:flex lg:w-[280px] lg:shrink-0 lg:flex-col lg:sticky lg:top-0 lg:h-screen lg:border-r lg:border-[#f0e6d2] dark:lg:border-[#1a365d] backdrop-blur">
+        <aside className="hidden lg:flex lg:w-[280px] lg:shrink-0 lg:flex-col lg:sticky lg:top-0 lg:h-screen lg:border-r lg:border-[#1a365d] backdrop-blur">
           <Sidebar />
         </aside>
         <div className="flex-1 min-w-0 flex flex-col">
           <TopBar onMenu={() => setOpen(true)} />
-          <main className="flex-1 bg-gradient-to-br from-[#fefcf8] via-white to-amber-50/20 dark:from-[#0f1d33] dark:via-[#0f1d33] dark:to-[#1a365d]/20">
+          <main className="flex-1 bg-[#0f1d33]">
             <div className="mx-auto max-w-[1600px] p-4 sm:p-6 lg:p-8">{children}</div>
           </main>
         </div>
