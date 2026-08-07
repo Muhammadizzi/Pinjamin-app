@@ -3,11 +3,11 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev -H 0.0.0.0 -p 3000",
-    "dev:http": "next dev -H 0.0.0.0 -p 3000",
-    "dev:https": "next dev --experimental-https -H 0.0.0.0 -p 3000",
+    "dev": "next dev -H 0.0.0.0 -p 5003",
+    "dev:http": "next dev -H 0.0.0.0 -p 5003",
+    "dev:https": "next dev --experimental-https -H 0.0.0.0 -p 5003",
     "build": "next build",
-    "start": "next start -H 0.0.0.0 -p 3000",
+    "start": "next start -H 0.0.0.0 -p 5003",
     "lint": "next lint"
   },
   "dependencies": {

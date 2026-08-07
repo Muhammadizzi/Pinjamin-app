@@ -2,7 +2,7 @@
 
 Browser **wajib HTTPS** untuk akses kamera (`getUserMedia`), kecuali `localhost`.
 
-Kamu buka `http://0.0.0.0:3000/scanner` → Chrome/Safari blokir → error:
+Kamu buka `http://0.0.0.0:5003/scanner` → Chrome/Safari blokir → error:
 > `Camera streaming not supported by the browser — bukan HTTPS`
 
 Pinjamin sudah di-fix agar **otomatis fallback** ke `Upload Gambar QR` + `Input Manual` jika tidak HTTPS, tapi untuk pakai **Scan Kamera** langsung, pakai salah satu cara:
@@ -10,7 +10,7 @@ Pinjamin sudah di-fix agar **otomatis fallback** ke `Upload Gambar QR` + `Input 
 ## Opsi A — Paling Gampang (localhost)
 Buka via `localhost`, bukan `0.0.0.0`:
 ```
-http://localhost:3000/scanner
+http://localhost:5003/scanner
 ```
 `localhost` dianggap *secure context* oleh browser → kamera jalan tanpa HTTPS.
 
@@ -21,7 +21,7 @@ Next 16 bisa generate cert self-signed otomatis:
 # di root Pinjamin-app
 pnpm --filter @pinjamin/web dev --experimental-https
 # atau
-cd apps/pinjamin && pnpm dlx next dev --experimental-https -H 0.0.0.0 -p 3000
+cd apps/pinjamin && pnpm dlx next dev --experimental-https -H 0.0.0.0 -p 5003
 ```
 Chrome akan warning `Your connection is not private` → klik **Advanced → Proceed to localhost**.
 
@@ -33,7 +33,7 @@ pnpm pinjamin:dev:https   # akan kita tambahkan di package.json
 ## Opsi C — Preview Vercel / e2b (Sudah HTTPS)
 Jika deploy ke Vercel atau buka preview e2b:
 ```
-https://3000-xxxxx.e2b.app/scanner
+https://5003-xxxxx.e2b.app/scanner
 ```
 Sudah HTTPS → kamera langsung jalan.
 
@@ -47,5 +47,5 @@ Di scanner, ada badge:
 
 ## Update package.json (akan kami push)
 ```json
-"pinjamin:dev:https": "next dev --experimental-https -H 0.0.0.0 -p 3000"
+"pinjamin:dev:https": "next dev --experimental-https -H 0.0.0.0 -p 5003"
 ```

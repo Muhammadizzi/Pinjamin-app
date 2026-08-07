@@ -205,8 +205,8 @@ export default function ScannerPage() {
             <div className="text-sm">
               <div className="font-semibold text-amber-900 dark:text-amber-200">Mode tidak aman (Not Secure)</div>
               <div className="text-amber-800 dark:text-amber-300 text-xs leading-relaxed">
-                Browser blokir kamera di <code className="bg-white dark:bg-slate-900 px-1 rounded">http://0.0.0.0:3000</code>. Buka via{" "}
-                <code className="bg-white dark:bg-slate-900 px-1 rounded">http://localhost:3000</code> atau{" "}
+                Browser blokir kamera di <code className="bg-white dark:bg-slate-900 px-1 rounded">http://0.0.0.0:5003</code>. Buka via{" "}
+                <code className="bg-white dark:bg-slate-900 px-1 rounded">http://localhost:5003</code> atau{" "}
                 <code className="bg-white dark:bg-slate-900 px-1 rounded">https://…e2b.app</code> untuk kamera, atau pakai <b>Upload Gambar QR</b> di bawah.
               </div>
             </div>
