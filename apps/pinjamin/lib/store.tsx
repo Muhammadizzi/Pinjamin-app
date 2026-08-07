@@ -17,7 +17,7 @@ import type {
 } from "./types";
 import { generateId, generateQRCode } from "./utils";
 
-const STORAGE_KEY = "pinjamin_data_v1";
+const STORAGE_KEY = "pinjamin_data_v2_clean";
 
 type StoreContextType = AppData & {
   // assets
@@ -100,6 +100,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [isHydrated, setHydrated] = useState(false);
 
   useEffect(() => {
+    // Hapus data lama v1 agar benar-benar kosong sesuai request user
+    try {
+      localStorage.removeItem("pinjamin_data_v1");
+      localStorage.removeItem("pinjamin_data_v1_clean");
+    } catch {}
     const loaded = loadFromStorage();
     // migrate: ensure overdue computed on read
     const now = new Date();
