@@ -24,6 +24,7 @@ import {
   Pencil,
   LayoutGrid,
   List,
+  X,
 } from "lucide-react";
 import Papa from "papaparse";
 
@@ -132,121 +133,225 @@ export default function AssetsPage() {
           </div>
         </div>
 
-        {/* Toolbar */}
-        <Card>
-          <CardContent className="p-4 space-y-4">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search assets, QR, serial..."
-                  value={q}
-                  onChange={(e) => {
-                    setQ(e.target.value);
-                    setPage(1);
-                  }}
-                  className="pl-10 h-11 rounded-xl"
-                />
-              </div>
-              <div className="flex gap-2 overflow-x-auto pb-1 lg:pb-0">
-                <Select
-                  value={status}
-                  onChange={(e) => {
-                    setStatus(e.target.value);
-                    setPage(1);
-                  }}
-                  className="w-[160px] shrink-0"
-                >
-                  <option value="ALL">All Status</option>
-                  <option value="AVAILABLE">AVAILABLE</option>
-                  <option value="CHECKED_OUT">CHECKED_OUT</option>
-                  <option value="MAINTENANCE">MAINTENANCE</option>
-                  <option value="RETIRED">RETIRED</option>
-                </Select>
-                <Select
-                  value={sort}
-                  onChange={(e) => setSort(e.target.value)}
-                  className="w-[160px] shrink-0"
-                >
-                  <option value="newest">Date created</option>
-                  <option value="name">Name A-Z</option>
-                  <option value="value">Value</option>
-                </Select>
-                <div className="hidden sm:flex rounded-xl border overflow-hidden">
-                  <button
-                    onClick={() => setView("list")}
-                    className={`px-3 py-2 ${
-                      view === "list" ? "bg-slate-900 text-white" : "bg-white"
-                    }`}
+        {/* Toolbar — Filter Rapi */}
+        <Card className="border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+          <CardContent className="p-0">
+            {/* Bar atas: Search + Status + Sort + View */}
+            <div className="p-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/20">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <Input
+                    placeholder="Search assets, QR, serial..."
+                    value={q}
+                    onChange={(e) => {
+                      setQ(e.target.value);
+                      setPage(1);
+                    }}
+                    className="pl-10 h-11 rounded-xl bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 focus:border-[#1a365d] focus:ring-2 focus:ring-[#1a365d]/10"
+                  />
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <div className="relative">
+                    <Select
+                      value={status}
+                      onChange={(e) => {
+                        setStatus(e.target.value);
+                        setPage(1);
+                      }}
+                      className="w-[150px] h-11 rounded-xl bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 pr-8"
+                    >
+                      <option value="ALL">All Status</option>
+                      <option value="AVAILABLE">AVAILABLE</option>
+                      <option value="CHECKED_OUT">CHECKED_OUT</option>
+                      <option value="MAINTENANCE">MAINTENANCE</option>
+                      <option value="RETIRED">RETIRED</option>
+                    </Select>
+                  </div>
+                  <Select
+                    value={sort}
+                    onChange={(e) => setSort(e.target.value)}
+                    className="w-[150px] h-11 rounded-xl bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700"
                   >
-                    <List className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={() => setView("card")}
-                    className={`px-3 py-2 ${
-                      view === "card" ? "bg-slate-900 text-white" : "bg-white"
-                    }`}
-                  >
-                    <LayoutGrid className="h-4 w-4" />
-                  </button>
+                    <option value="newest">Date created</option>
+                    <option value="name">Name A-Z</option>
+                    <option value="value">Value</option>
+                  </Select>
+                  <div className="hidden sm:flex rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden bg-white dark:bg-slate-900 p-1 gap-1">
+                    <button
+                      onClick={() => setView("list")}
+                      className={`px-3.5 py-2 rounded-lg flex items-center gap-1.5 text-sm font-medium transition-all ${
+                        view === "list" ? "bg-[#1a365d] text-white shadow" : "text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+                      }`}
+                      title="List view"
+                    >
+                      <List className="h-4 w-4" />
+                      <span className="hidden lg:inline">List</span>
+                    </button>
+                    <button
+                      onClick={() => setView("card")}
+                      className={`px-3.5 py-2 rounded-lg flex items-center gap-1.5 text-sm font-medium transition-all ${
+                        view === "card" ? "bg-[#1a365d] text-white shadow" : "text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+                      }`}
+                      title="Grid view"
+                    >
+                      <LayoutGrid className="h-4 w-4" />
+                      <span className="hidden lg:inline">Grid</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <Select
-                value={cat}
-                onChange={(e) => {
-                  setCat(e.target.value);
-                  setPage(1);
-                }}
-              >
-                <option value="ALL">All Categories</option>
-                {categories.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </Select>
-              <Select
-                value={loc}
-                onChange={(e) => {
-                  setLoc(e.target.value);
-                  setPage(1);
-                }}
-              >
-                <option value="ALL">All Locations</option>
-                {locations.map((l) => (
-                  <option key={l.id} value={l.id}>
-                    {l.name}
-                  </option>
-                ))}
-              </Select>
-              <Select
-                value={tag}
-                onChange={(e) => {
-                  setTag(e.target.value);
-                  setPage(1);
-                }}
-              >
-                <option value="ALL">All Tags</option>
-                {tags.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                  </option>
-                ))}
-              </Select>
-              <Select
-                value={String(perPage)}
-                onChange={(e) => {
-                  setPerPage(Number(e.target.value));
-                  setPage(1);
-                }}
-              >
-                <option value="8">8 / page</option>
-                <option value="20">20 / page</option>
-                <option value="50">50 / page</option>
-              </Select>
+            {/* Bar bawah: Filter kategori/lokasi/tag/perpage + chips */}
+            <div className="p-4 space-y-3">
+              <div className="flex items-center gap-2 text-xs font-semibold tracking-widest text-slate-500 dark:text-slate-400 uppercase">
+                <Filter className="h-3.5 w-3.5" />
+                Filter
+                {(cat !== "ALL" || loc !== "ALL" || tag !== "ALL") && (
+                  <span className="ml-1 bg-[#1a365d] text-white text-[10px] px-2 py-0.5 rounded-full">
+                    {[cat !== "ALL", loc !== "ALL", tag !== "ALL"].filter(Boolean).length} aktif
+                  </span>
+                )}
+                {(cat !== "ALL" || loc !== "ALL" || tag !== "ALL" || status !== "ALL" || q) && (
+                  <button
+                    onClick={() => {
+                      setCat("ALL");
+                      setLoc("ALL");
+                      setTag("ALL");
+                      setStatus("ALL");
+                      setQ("");
+                      setPage(1);
+                    }}
+                    className="ml-auto text-xs normal-case tracking-normal font-medium text-[#1a365d] dark:text-amber-300 hover:underline flex items-center gap-1"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                    Hapus filter
+                  </button>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
+                    <TagIcon className="h-3 w-3 text-slate-400" />
+                    Category
+                  </label>
+                  <Select
+                    value={cat}
+                    onChange={(e) => {
+                      setCat(e.target.value);
+                      setPage(1);
+                    }}
+                    className="h-11 rounded-xl bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700"
+                  >
+                    <option value="ALL">All Categories</option>
+                    {categories.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
+                    <MapPin className="h-3 w-3 text-slate-400" />
+                    Location
+                  </label>
+                  <Select
+                    value={loc}
+                    onChange={(e) => {
+                      setLoc(e.target.value);
+                      setPage(1);
+                    }}
+                    className="h-11 rounded-xl bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700"
+                  >
+                    <option value="ALL">All Locations</option>
+                    {locations.map((l) => (
+                      <option key={l.id} value={l.id}>
+                        {l.name}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
+                    <TagIcon className="h-3 w-3 text-slate-400" />
+                    Tag
+                  </label>
+                  <Select
+                    value={tag}
+                    onChange={(e) => {
+                      setTag(e.target.value);
+                      setPage(1);
+                    }}
+                    className="h-11 rounded-xl bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700"
+                  >
+                    <option value="ALL">All Tags</option>
+                    {tags.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-slate-600 dark:text-slate-300">Per halaman</label>
+                  <Select
+                    value={String(perPage)}
+                    onChange={(e) => {
+                      setPerPage(Number(e.target.value));
+                      setPage(1);
+                    }}
+                    className="h-11 rounded-xl bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700"
+                  >
+                    <option value="8">8 / page</option>
+                    <option value="20">20 / page</option>
+                    <option value="50">50 / page</option>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Active filter chips */}
+              {(cat !== "ALL" || loc !== "ALL" || tag !== "ALL" || status !== "ALL") && (
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {status !== "ALL" && (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#1a365d] text-white text-xs font-medium">
+                      Status: {status}
+                      <button onClick={() => setStatus("ALL")} className="hover:bg-white/20 rounded-full p-0.5">
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  )}
+                  {cat !== "ALL" && (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-100 border border-amber-200 dark:border-amber-800 text-xs font-medium">
+                      {categories.find((c) => c.id === cat)?.name}
+                      <button onClick={() => setCat("ALL")} className="hover:bg-black/10 rounded-full p-0.5">
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  )}
+                  {loc !== "ALL" && (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-200 border border-blue-200 dark:border-blue-800 text-xs font-medium">
+                      {locations.find((l) => l.id === loc)?.name}
+                      <button onClick={() => setLoc("ALL")} className="hover:bg-black/10 rounded-full p-0.5">
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  )}
+                  {tag !== "ALL" && (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-200 border border-emerald-200 dark:border-emerald-800 text-xs font-medium">
+                      {tags.find((t) => t.id === tag)?.name}
+                      <button onClick={() => setTag("ALL")} className="hover:bg-black/10 rounded-full p-0.5">
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>

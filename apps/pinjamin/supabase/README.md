@@ -74,7 +74,7 @@ Untuk MVP, **tidak wajib** — localStorage sudah cukup untuk demo & Vercel free
 
 ## 4. Test
 
-- Buka `http://localhost:3000/assets/new` → upload gambar (drag & drop)
+- Buka `http://localhost:5003/assets/new` → upload gambar (drag & drop)
 - Lihat badge: `Supabase Storage` = sukses cloud, `Base64 • Offline` = fallback
 - Lihat di Supabase Dashboard → Storage → assets → file `pinjamin/<timestamp>-xxxxx.jpg`
 
@@ -82,4 +82,4 @@ Untuk MVP, **tidak wajib** — localStorage sudah cukup untuk demo & Vercel free
 
 - **Bucket not found:** buat bucket `assets` manual di dashboard.
 - **Policy error / 403:** jalankan SQL policy di atas atau set bucket Public.
-- **CORS:** di Storage Settings → Allowed origins tambah `http://localhost:3000` dan domain Vercel.
+- **CORS:** di Storage Settings → Allowed origins tambah `http://localhost:5003` dan domain Vercel.
