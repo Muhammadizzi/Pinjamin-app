@@ -99,6 +99,9 @@ export interface Kit {
   status: string;
   qrCode: string;
   assetIds: string[];
+  categoryId?: string;
+  locationId?: string;
+  image?: string;
   createdAt: string;
 }
 
