@@ -33,6 +33,7 @@ export interface Location {
   description?: string;
   address?: string;
   parentId?: string | null;
+  image?: string;
   createdAt: string;
 }
 
