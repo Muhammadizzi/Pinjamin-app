@@ -1,0 +1,126 @@
+@import "tailwindcss";
+
+/* 
+  Pinjamin — SINGLE DARK THEME (navy #1a365d + gold #CBA12C)
+  Sesuai request: hilangkan 2 mode, cukup 1 tema saja (dark navy)
+  Sidebar tetap gelap, dashboard gelap, kontras tinggi, tidak silau
+*/
+
+:root,
+.dark {
+  --background: #0f1d33; /* dark navy single */
+  --foreground: #f8fafc;
+  --card: #1a2d4a; /* card navy */
+  --card-foreground: #f8fafc;
+  --popover: #1a2d4a;
+  --popover-foreground: #f8fafc;
+  --primary: #CBA12C; /* gold */
+  --primary-foreground: #1a365d;
+  --secondary: #1a365d;
+  --secondary-foreground: #f8fafc;
+  --muted: #1f3556;
+  --muted-foreground: #a0aec0;
+  --accent: #243a5e;
+  --accent-foreground: #f8fafc;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --border: #243a5e;
+  --input: #243a5e;
+  --ring: #CBA12C;
+  --radius: 0.9rem;
+  --sidebar: #0f2440;
+  --sidebar-foreground: #f8fafc;
+  --sidebar-accent: #1a365d;
+  --sidebar-border: #243a5e;
+  --chart-1: #CBA12C;
+  --chart-2: #38a169;
+  --chart-3: #4299e1;
+  --chart-4: #805ad5;
+  --chart-5: #ed64a6;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-border: var(--sidebar-border);
+}
+
+* {
+  border-color: var(--border);
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Inter, system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+:root,
+.dark {
+  --card-shadow: 0 4px 24px rgba(0, 0, 0, 0.35);
+  --card-shadow-hover: 0 8px 32px rgba(0, 0, 0, 0.45);
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #2a4365;
+  border-radius: 999px;
+}
+
+.touch-target {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+:focus-visible {
+  outline-color: var(--ring);
+}
+
+::selection {
+  background: #CBA12C;
+  color: #1a365d;
+}
+
+.glass {
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+.glass-card {
+  background: color-mix(in srgb, var(--card) 96%, transparent);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--border);
+  box-shadow: var(--card-shadow);
+}
