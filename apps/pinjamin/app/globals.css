@@ -1,42 +1,42 @@
 @import "tailwindcss";
 
 /* 
-  Pinjamin — SINGLE DARK THEME (navy #1a365d + gold #CBA12C)
-  Sesuai request: hilangkan 2 mode, cukup 1 tema saja (dark navy)
-  Sidebar tetap gelap, dashboard gelap, kontras tinggi, tidak silau
+  Pinjamin — SINGLE LIGHT THEME (putih + navy #1a365d + gold #CBA12C)
+  Request: ganti tema ke light tapi warna navy tetap mengikuti
+  Sidebar tetap navy gelap, konten putih bersih, kontras tinggi
 */
 
-:root,
-.dark {
-  --background: #0f1d33; /* dark navy single */
-  --foreground: #f8fafc;
-  --card: #1a2d4a; /* card navy */
-  --card-foreground: #f8fafc;
-  --popover: #1a2d4a;
-  --popover-foreground: #f8fafc;
-  --primary: #CBA12C; /* gold */
-  --primary-foreground: #1a365d;
-  --secondary: #1a365d;
-  --secondary-foreground: #f8fafc;
-  --muted: #1f3556;
-  --muted-foreground: #a0aec0;
-  --accent: #243a5e;
-  --accent-foreground: #f8fafc;
-  --destructive: #ef4444;
+:root {
+  --background: #ffffff; /* putih bersih */
+  --foreground: #1c2a3a; /* navy charcoal */
+  --card: #ffffff;
+  --card-foreground: #1c2a3a;
+  --popover: #ffffff;
+  --popover-foreground: #1c2a3a;
+  --primary: #1a365d; /* navy */
+  --primary-foreground: #ffffff;
+  --secondary: #f1f5f9;
+  --secondary-foreground: #1a365d;
+  --muted: #f8fafc;
+  --muted-foreground: #64748b;
+  --accent: #f1f5f9;
+  --accent-foreground: #1a365d;
+  --destructive: #dc2626;
   --destructive-foreground: #ffffff;
-  --border: #243a5e;
-  --input: #243a5e;
-  --ring: #CBA12C;
+  --border: #e2e8f0;
+  --input: #e2e8f0;
+  --ring: #1a365d;
   --radius: 0.9rem;
-  --sidebar: #0f2440;
-  --sidebar-foreground: #f8fafc;
-  --sidebar-accent: #1a365d;
-  --sidebar-border: #243a5e;
-  --chart-1: #CBA12C;
-  --chart-2: #38a169;
-  --chart-3: #4299e1;
-  --chart-4: #805ad5;
-  --chart-5: #ed64a6;
+  /* Sidebar tetap navy gelap meski light theme */
+  --sidebar: #1a365d;
+  --sidebar-foreground: #ffffff;
+  --sidebar-accent: #243a5e;
+  --sidebar-border: #2a4a6b;
+  --chart-1: #1a365d;
+  --chart-2: #CBA12C;
+  --chart-3: #2b6cb0;
+  --chart-4: #38a169;
+  --chart-5: #805ad5;
 }
 
 @theme inline {
@@ -71,7 +71,7 @@
 }
 
 html {
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 body {
@@ -82,10 +82,9 @@ body {
   text-rendering: optimizeLegibility;
 }
 
-:root,
-.dark {
-  --card-shadow: 0 4px 24px rgba(0, 0, 0, 0.35);
-  --card-shadow-hover: 0 8px 32px rgba(0, 0, 0, 0.45);
+:root {
+  --card-shadow: 0 4px 24px rgba(26, 54, 93, 0.06), 0 1px 3px rgba(26, 54, 93, 0.08);
+  --card-shadow-hover: 0 8px 32px rgba(26, 54, 93, 0.12), 0 2px 8px rgba(26, 54, 93, 0.08);
 }
 
 ::-webkit-scrollbar {
@@ -96,7 +95,7 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #2a4365;
+  background: #cbd5e1;
   border-radius: 999px;
 }
 
@@ -119,8 +118,10 @@ body {
   -webkit-backdrop-filter: blur(16px);
 }
 .glass-card {
-  background: color-mix(in srgb, var(--card) 96%, transparent);
-  backdrop-filter: blur(16px);
+  background: var(--card);
   border: 1px solid var(--border);
   box-shadow: var(--card-shadow);
+}
+.glass-card:hover {
+  box-shadow: var(--card-shadow-hover);
 }
