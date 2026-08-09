@@ -1,11 +1,35 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import type { NextRequest } from "next/server";
 
-const JWT_SECRET =
-  process.env.AUTH_SECRET || "pinjamin-dev-secret-please-change";
 const COOKIE_NAME = "pinjamin_session";
 const MAX_ATTEMPTS = 5;
 const WINDOW_MS = 15 * 60 * 1000;
+const DEV_ONLY_JWT_SECRET = "pinjamin-dev-secret-please-change";
+
+let cachedSecret: string | null = null;
+
+// Fails fast in production instead of silently signing/verifying JWTs with a
+// secret that is checked into source control. In development it falls back
+// to a known value so `next dev` keeps working without extra setup.
+function getJwtSecret(): string {
+  if (cachedSecret) return cachedSecret;
+  const fromEnv = process.env.AUTH_SECRET?.trim();
+  if (fromEnv) {
+    cachedSecret = fromEnv;
+    return cachedSecret;
+  }
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "AUTH_SECRET belum di-set. Generate dengan `openssl rand -base64 32` dan set sebagai env var sebelum deploy ke production."
+    );
+  }
+  console.warn(
+    "[auth] AUTH_SECRET tidak di-set - memakai secret default untuk development. Jangan pernah deploy ke production tanpa AUTH_SECRET."
+  );
+  cachedSecret = DEV_ONLY_JWT_SECRET;
+  return cachedSecret;
+}
 
 const attempts = new Map<string, { count: number; firstAt: number }>();
 
@@ -19,12 +43,12 @@ export function getAdminCredentials() {
 }
 
 export function signSession(payload: { username: string }) {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: "7d" });
+  return jwt.sign(payload, getJwtSecret(), { expiresIn: "7d" });
 }
 
 export function verifySession(token: string) {
   try {
-    return jwt.verify(token, JWT_SECRET) as { username: string };
+    return jwt.verify(token, getJwtSecret()) as { username: string };
   } catch {
     return null;
   }
@@ -32,8 +56,18 @@ export function verifySession(token: string) {
 
 export const authConfig = {
   cookieName: COOKIE_NAME,
-  jwtSecret: JWT_SECRET,
 };
+
+/**
+ * Server-side session check for API routes (Node runtime). Verifies the JWT
+ * signature/expiry - unlike the edge middleware, which only checks cookie
+ * presence for UX redirects and must never be treated as the real gate.
+ */
+export function requireAuth(req: NextRequest): { username: string } | null {
+  const token = req.cookies.get(COOKIE_NAME)?.value;
+  if (!token) return null;
+  return verifySession(token);
+}
 
 export function checkRateLimit(ip: string) {
   const now = Date.now();
