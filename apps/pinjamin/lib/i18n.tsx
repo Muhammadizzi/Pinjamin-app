@@ -62,12 +62,10 @@ const dict = {
     allSafe: "Semua peminjaman aman 🎉",
     due: "Jatuh tempo",
     lastActivity: "Aktivitas Terakhir",
-    assetCreated: "Aset “MacBook Pro” dibuat",
-    justNowBy: "Baru saja oleh adminsystem",
-    bookingOngoing: "Peminjaman “Proyektor” berjalan",
-    yesterday: "Kemarin",
-    auditOpened: "Audit Q1 dibuka",
-    twoDaysAgo: "2 hari lalu",
+    noActivity: "Belum ada aktivitas",
+    activityAssetCreated: "Aset dibuat",
+    activityBookingCreated: "Peminjaman dibuat",
+    activityAuditCreated: "Audit dibuat",
     // Assets
     assetsTitle: "Aset",
     searchAssets: "Cari aset, QR, serial...",
@@ -155,12 +153,10 @@ const dict = {
     allSafe: "All bookings safe 🎉",
     due: "Due",
     lastActivity: "Recent Activity",
-    assetCreated: "Asset “MacBook Pro” created",
-    justNowBy: "Just now by adminsystem",
-    bookingOngoing: "Booking “Projector” ongoing",
-    yesterday: "Yesterday",
-    auditOpened: "Audit Q1 opened",
-    twoDaysAgo: "2 days ago",
+    noActivity: "No activity yet",
+    activityAssetCreated: "Asset created",
+    activityBookingCreated: "Booking created",
+    activityAuditCreated: "Audit created",
     assetsTitle: "Assets",
     searchAssets: "Search assets, QR, serial...",
     allStatus: "All Status",
@@ -195,7 +191,11 @@ const dict = {
 type Dict = typeof dict.id;
 type Key = keyof Dict;
 
-const I18nContext = createContext<{ lang: Lang; setLang: (l: Lang) => void; t: (k: Key) => string } | null>(null);
+const I18nContext = createContext<{
+  lang: Lang;
+  setLang: (l: Lang) => void;
+  t: (k: Key) => string;
+} | null>(null);
 
 export function I18nProvider({ children }: { children: React.ReactNode }) {
   const [lang, setLangState] = useState<Lang>("id");
@@ -214,7 +214,11 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     window.dispatchEvent(new CustomEvent("pinjamin:lang", { detail: l }));
   };
   const t = (k: Key) => dict[lang][k] || dict.id[k] || k;
-  return <I18nContext.Provider value={{ lang, setLang, t }}>{children}</I18nContext.Provider>;
+  return (
+    <I18nContext.Provider value={{ lang, setLang, t }}>
+      {children}
+    </I18nContext.Provider>
+  );
 }
 
 export function useT() {

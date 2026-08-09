@@ -1,5 +1,6 @@
 "use client";
 import { useParams, useRouter } from "next/navigation";
+import { useRef } from "react";
 import Link from "next/link";
 import { AppShell } from "@/components/layout/sidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -34,7 +35,9 @@ export default function AssetDetailPage() {
     assetModels,
     customFields,
     deleteAsset,
-  } = useStore(); const { t } = useT();
+  } = useStore();
+  const { t } = useT();
+  const qrRef = useRef<HTMLDivElement>(null);
   const asset = assets.find((a) => a.id === id);
   if (!asset)
     return (
@@ -56,6 +59,59 @@ export default function AssetDetailPage() {
     if (confirm("Hapus aset ini?")) {
       deleteAsset(asset.id);
       router.push("/assets");
+    }
+  };
+
+  const downloadQr = async () => {
+    const svg = qrRef.current?.querySelector("svg");
+    if (!svg) return;
+    const svgData = new XMLSerializer().serializeToString(svg);
+    const svgBlob = new Blob([svgData], {
+      type: "image/svg+xml;charset=utf-8",
+    });
+    const svgUrl = URL.createObjectURL(svgBlob);
+    try {
+      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const image = new Image();
+        image.onload = () => resolve(image);
+        image.onerror = reject;
+        image.src = svgUrl;
+      });
+
+      const width = 320;
+      const height = 420;
+      const qrSize = 200;
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, width, height);
+      ctx.textAlign = "center";
+
+      ctx.fillStyle = "#1a365d";
+      ctx.font = "bold 20px sans-serif";
+      ctx.fillText(asset.name, width / 2, 36, width - 32);
+
+      ctx.drawImage(img, (width - qrSize) / 2, 64, qrSize, qrSize);
+
+      ctx.fillStyle = "#1a365d";
+      ctx.font = "bold 16px monospace";
+      ctx.fillText(asset.qrCode, width / 2, 64 + qrSize + 32);
+
+      ctx.fillStyle = "#CBA12C";
+      ctx.font = "600 13px sans-serif";
+      ctx.fillText("GARUDA FOOD", width / 2, 64 + qrSize + 56);
+
+      const pngUrl = canvas.toDataURL("image/png");
+      const a = document.createElement("a");
+      a.href = pngUrl;
+      a.download = `${asset.qrCode}.png`;
+      a.click();
+    } finally {
+      URL.revokeObjectURL(svgUrl);
     }
   };
 
@@ -215,7 +271,7 @@ export default function AssetDetailPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="flex flex-col items-center gap-4">
-                <div className="bg-white p-4 rounded-2xl shadow">
+                <div ref={qrRef} className="bg-white p-4 rounded-2xl shadow">
                   <QRCodeSVG
                     value={`${
                       typeof window !== "undefined"
@@ -243,17 +299,7 @@ export default function AssetDetailPage() {
                   </Button>
                   <Button
                     className="flex-1 rounded-xl text-xs"
-                    onClick={() => {
-                      const svg = document.querySelector("svg");
-                      if (!svg) return;
-                      const data = new XMLSerializer().serializeToString(svg);
-                      const blob = new Blob([data], { type: "image/svg+xml" });
-                      const url = URL.createObjectURL(blob);
-                      const a = document.createElement("a");
-                      a.href = url;
-                      a.download = `${asset.qrCode}.svg`;
-                      a.click();
-                    }}
+                    onClick={downloadQr}
                   >
                     Download
                   </Button>
