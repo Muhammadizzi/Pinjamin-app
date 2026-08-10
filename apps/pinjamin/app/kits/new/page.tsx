@@ -10,12 +10,14 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { useStore } from "@/lib/store";
+import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ImageUpload } from "@/components/ui/image-upload";
 import { ArrowLeft } from "lucide-react";
 
 export default function NewKitPage() {
   const router = useRouter();
   const { categories, locations, addKit } = useStore();
+  const { ask, confirmDialog } = useConfirmDialog();
   const [form, setForm] = useState({
     name: "",
     description: "",
@@ -27,6 +29,19 @@ export default function NewKitPage() {
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name.trim()) return alert("Nama Kit wajib diisi");
+    ask({
+      title: `Buat kit "${form.name}"?`,
+      description:
+        "Kit baru akan dibuat dan bisa diisi aset dari halaman detailnya.",
+      confirmLabel: "Ya, Buat",
+      variant: "primary",
+      action: () => {
+        doCreate();
+      },
+    });
+  };
+
+  const doCreate = () => {
     addKit({
       name: form.name,
       description: form.description,
@@ -42,14 +57,20 @@ export default function NewKitPage() {
   return (
     <AppShell>
       <div className="max-w-2xl mx-auto space-y-6">
-        <Link href="/kits" className="inline-flex items-center gap-2 text-sm font-medium text-[#1a365d] dark:text-white hover:underline">
+        <Link
+          href="/kits"
+          className="inline-flex items-center gap-2 text-sm font-medium text-[#1a365d] dark:text-white hover:underline"
+        >
           <ArrowLeft className="h-4 w-4" />
           Kembali ke Daftar Kit
         </Link>
 
         <div>
           <h1 className="text-2xl font-bold">Buat Kit Baru</h1>
-          <p className="text-sm text-muted-foreground">Isi informasi kit. Kit yang sudah terdaftar tidak tampil di sini — hanya form.</p>
+          <p className="text-sm text-muted-foreground">
+            Isi informasi kit. Kit yang sudah terdaftar tidak tampil di sini —
+            hanya form.
+          </p>
         </div>
 
         <Card>
@@ -73,13 +94,25 @@ export default function NewKitPage() {
 
               <div className="space-y-2">
                 <Label>Deskripsi</Label>
-                <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Deskripsi kit..." rows={3} />
+                <Textarea
+                  value={form.description}
+                  onChange={(e) =>
+                    setForm({ ...form, description: e.target.value })
+                  }
+                  placeholder="Deskripsi kit..."
+                  rows={3}
+                />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Kategori</Label>
-                  <Select value={form.categoryId} onChange={(e) => setForm({ ...form, categoryId: e.target.value })}>
+                  <Select
+                    value={form.categoryId}
+                    onChange={(e) =>
+                      setForm({ ...form, categoryId: e.target.value })
+                    }
+                  >
                     <option value="">— Pilih Kategori —</option>
                     {categories.map((c) => (
                       <option key={c.id} value={c.id}>
@@ -90,7 +123,12 @@ export default function NewKitPage() {
                 </div>
                 <div className="space-y-2">
                   <Label>Lokasi</Label>
-                  <Select value={form.locationId} onChange={(e) => setForm({ ...form, locationId: e.target.value })}>
+                  <Select
+                    value={form.locationId}
+                    onChange={(e) =>
+                      setForm({ ...form, locationId: e.target.value })
+                    }
+                  >
                     <option value="">— Pilih Lokasi —</option>
                     {locations.map((l) => (
                       <option key={l.id} value={l.id}>
@@ -101,15 +139,27 @@ export default function NewKitPage() {
                 </div>
               </div>
 
-              <ImageUpload value={form.image} onChange={(url) => setForm({ ...form, image: url })} label="Gambar Kit" uploadOnly />
+              <ImageUpload
+                value={form.image}
+                onChange={(url) => setForm({ ...form, image: url })}
+                label="Gambar Kit"
+                uploadOnly
+              />
 
               <div className="flex gap-3 pt-2">
                 <Link href="/kits" className="flex-1">
-                  <Button type="button" variant="outline" className="w-full rounded-xl">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full rounded-xl"
+                  >
                     Batal
                   </Button>
                 </Link>
-                <Button type="submit" className="flex-1 rounded-xl bg-[#1a365d] hover:bg-[#243a5e] text-white">
+                <Button
+                  type="submit"
+                  className="flex-1 rounded-xl bg-[#1a365d] hover:bg-[#243a5e] text-white"
+                >
                   Simpan Kit
                 </Button>
               </div>
@@ -117,6 +167,8 @@ export default function NewKitPage() {
           </CardContent>
         </Card>
       </div>
+
+      {confirmDialog}
     </AppShell>
   );
 }

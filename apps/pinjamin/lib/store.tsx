@@ -10,6 +10,7 @@ import { seedData } from "./seed";
 import type {
   AppData,
   Asset,
+  AssetStatus,
   Booking,
   BookingStatus,
   Category,
@@ -26,12 +27,38 @@ import { getSupabase, isSupabaseConfigured } from "./supabase";
 
 const STORAGE_KEY = "pinjamin_data_v2_clean";
 
+/** Baris hasil parse CSV impor aset (lihat app/assets/page.tsx). */
+export type AssetImportRow = {
+  name: string;
+  status?: AssetStatus;
+  categoryName?: string;
+  locationName?: string;
+  qrCode?: string;
+  value?: number;
+  serialNumber?: string;
+  description?: string;
+};
+
+export type ImportAssetsResult = {
+  imported: number;
+  /** Dilewati: nama kosong, atau QR/id sudah ada (duplikat). */
+  skipped: number;
+  categoriesCreated: number;
+  locationsCreated: number;
+};
+
 type StoreContextType = AppData & {
   addAsset: (
     a: Omit<Asset, "id" | "qrCode" | "createdAt" | "updatedAt" | "notes">
   ) => void;
   updateAsset: (id: string, patch: Partial<Asset>) => void;
   deleteAsset: (id: string) => void;
+  /**
+   * Impor massal aset (CSV): buat kategori/lokasi baru berdasarkan nama bila
+   * belum ada, lewati baris tanpa nama atau dengan QR/id duplikat. Semua
+   * perubahan dilakukan dalam SATU setData (satu sinkron server).
+   */
+  importAssets: (rows: AssetImportRow[]) => ImportAssetsResult;
   addCategory: (c: Omit<Category, "id" | "createdAt">) => void;
   updateCategory: (id: string, patch: Partial<Category>) => void;
   deleteCategory: (id: string) => void;
@@ -429,6 +456,144 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     deleteAsset: (id) => {
       if (isSupabaseConfigured()) supaDelete("assets", id);
       setData((d) => ({ ...d, assets: d.assets.filter((x) => x.id !== id) }));
+    },
+    importAssets: (rows) => {
+      const result: ImportAssetsResult = {
+        imported: 0,
+        skipped: 0,
+        categoriesCreated: 0,
+        locationsCreated: 0,
+      };
+      const now = new Date().toISOString();
+      const VALID_STATUS: AssetStatus[] = [
+        "AVAILABLE",
+        "CHECKED_OUT",
+        "MAINTENANCE",
+        "RETIRED",
+      ];
+      const supa = isSupabaseConfigured();
+
+      setData((d) => {
+        const categories = [...d.categories];
+        const locations = [...d.locations];
+        const findCat = (name: string) =>
+          categories.find(
+            (c) => c.name.trim().toLowerCase() === name.toLowerCase()
+          );
+        const findLoc = (name: string) =>
+          locations.find(
+            (l) => l.name.trim().toLowerCase() === name.toLowerCase()
+          );
+        const takenQr = new Set(d.assets.map((a) => a.qrCode.toLowerCase()));
+        const takenId = new Set(d.assets.map((a) => a.id));
+        const newAssets: Asset[] = [];
+
+        for (const row of rows) {
+          const name = row.name?.trim();
+          if (!name) {
+            result.skipped++;
+            continue;
+          }
+          const qr = row.qrCode?.trim() || "";
+          const incomingId = (row as any).id?.trim?.() || "";
+          if (
+            (qr && takenQr.has(qr.toLowerCase())) ||
+            (incomingId && takenId.has(incomingId))
+          ) {
+            result.skipped++;
+            continue;
+          }
+
+          let categoryId: string | undefined;
+          const catName = row.categoryName?.trim();
+          if (catName) {
+            let cat = findCat(catName);
+            if (!cat) {
+              cat = {
+                id: generateId(),
+                name: catName,
+                description: "",
+                color: "#64748b",
+                createdAt: now,
+              };
+              categories.push(cat);
+              result.categoriesCreated++;
+              if (supa) supaInsert("categories", cat);
+            }
+            categoryId = cat.id;
+          }
+
+          let locationId: string | undefined;
+          const locName = row.locationName?.trim();
+          if (locName) {
+            let loc = findLoc(locName);
+            if (!loc) {
+              loc = {
+                id: generateId(),
+                name: locName,
+                description: "",
+                parentId: null,
+                createdAt: now,
+              };
+              locations.push(loc);
+              result.locationsCreated++;
+              if (supa) supaInsert("locations", loc);
+            }
+            locationId = loc.id;
+          }
+
+          const qrCode = qr || generateQRCode();
+          const asset: Asset = {
+            id: generateId(),
+            name,
+            description: row.description?.trim() || undefined,
+            status:
+              row.status && VALID_STATUS.includes(row.status)
+                ? row.status
+                : "AVAILABLE",
+            categoryId,
+            locationId,
+            qrCode,
+            value:
+              typeof row.value === "number" && Number.isFinite(row.value)
+                ? row.value
+                : undefined,
+            serialNumber: row.serialNumber?.trim() || undefined,
+            tagIds: [],
+            customValues: {},
+            notes: [],
+            createdAt: now,
+            updatedAt: now,
+          };
+          newAssets.push(asset);
+          takenQr.add(qrCode.toLowerCase());
+          result.imported++;
+          if (supa)
+            supaInsert("assets", {
+              ...asset,
+              tagIds: undefined,
+              customValues: undefined,
+              notes: undefined,
+            });
+        }
+
+        if (
+          newAssets.length === 0 &&
+          result.categoriesCreated === 0 &&
+          result.locationsCreated === 0
+        ) {
+          return d;
+        }
+        // Aset impor di depan (baru → lama), konsisten dengan addAsset.
+        return {
+          ...d,
+          categories,
+          locations,
+          assets: [...newAssets.reverse(), ...d.assets],
+        };
+      });
+
+      return result;
     },
     addCategory: (c) => {
       const row = {

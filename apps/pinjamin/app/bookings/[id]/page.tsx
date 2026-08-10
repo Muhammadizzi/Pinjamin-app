@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useStore } from "@/lib/store";
+import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useT } from "@/lib/i18n";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import { useState } from "react";
@@ -25,7 +26,9 @@ export default function BookingDetailPage() {
     kits,
     updateBookingStatus,
     deleteBooking,
-  } = useStore(); const { t } = useT();
+  } = useStore();
+  const { t } = useT();
+  const { ask, confirmDialog } = useConfirmDialog();
   const b = bookings.find((x) => x.id === id);
   const [returnNote, setReturnNote] = useState("");
   if (!b)
@@ -143,8 +146,15 @@ export default function BookingDetailPage() {
                 <Button
                   className="w-full rounded-xl bg-emerald-600 hover:bg-emerald-700"
                   onClick={() =>
-                    updateBookingStatus(b.id, "COMPLETE", {
-                      returnCondition: returnNote,
+                    ask({
+                      title: "Tandai dikembalikan?",
+                      description: `"${b.name}" akan selesai (COMPLETE) dan asetnya kembali tersedia.`,
+                      confirmLabel: "Ya, Kembalikan",
+                      variant: "primary",
+                      action: () =>
+                        updateBookingStatus(b.id, "COMPLETE", {
+                          returnCondition: returnNote,
+                        }),
                     })
                   }
                 >
@@ -155,7 +165,15 @@ export default function BookingDetailPage() {
             {b.status === "RESERVED" && (
               <Button
                 className="w-full rounded-xl"
-                onClick={() => updateBookingStatus(b.id, "ONGOING")}
+                onClick={() =>
+                  ask({
+                    title: "Mulai peminjaman?",
+                    description: `"${b.name}" akan berjalan (ONGOING) dan asetnya diserahkan.`,
+                    confirmLabel: "Ya, Mulai",
+                    variant: "primary",
+                    action: () => updateBookingStatus(b.id, "ONGOING"),
+                  })
+                }
               >
                 <Check className="h-4 w-4" /> Mulai Peminjaman (ONGOING)
               </Button>
@@ -164,7 +182,14 @@ export default function BookingDetailPage() {
               <Button
                 variant="outline"
                 className="w-full rounded-xl"
-                onClick={() => updateBookingStatus(b.id, "CANCELLED")}
+                onClick={() =>
+                  ask({
+                    title: "Batalkan peminjaman?",
+                    description: `"${b.name}" akan dibatalkan dan reservasi asetnya dilepas.`,
+                    confirmLabel: "Ya, Batalkan",
+                    action: () => updateBookingStatus(b.id, "CANCELLED"),
+                  })
+                }
               >
                 <X className="h-4 w-4" /> Batalkan (CANCELLED)
               </Button>
@@ -184,18 +209,25 @@ export default function BookingDetailPage() {
             <Button
               variant="ghost"
               className="w-full rounded-xl text-red-600"
-              onClick={() => {
-                if (confirm("Hapus booking?")) {
-                  deleteBooking(b.id);
-                  router.push("/bookings");
-                }
-              }}
+              onClick={() =>
+                ask({
+                  title: "Hapus booking?",
+                  description: `"${b.name}" akan dihapus permanen beserta riwayatnya.`,
+                  confirmLabel: "Ya, Hapus",
+                  action: () => {
+                    deleteBooking(b.id);
+                    router.push("/bookings");
+                  },
+                })
+              }
             >
               <Trash2 className="h-4 w-4" /> Hapus Booking
             </Button>
           </CardContent>
         </Card>
       </div>
+
+      {confirmDialog}
     </AppShell>
   );
 }

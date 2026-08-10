@@ -8,12 +8,15 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useStore } from "@/lib/store";
+import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useT } from "@/lib/i18n";
 import { Plus, Trash2, Pencil } from "lucide-react";
 
 export default function CategoriesPage() {
   const { categories, assets, addCategory, updateCategory, deleteCategory } =
-    useStore(); const { t } = useT();
+    useStore();
+  const { t } = useT();
+  const { ask, confirmDialog } = useConfirmDialog();
   const [show, setShow] = useState(false);
   const [edit, setEdit] = useState<string | null>(null);
   const [form, setForm] = useState({
@@ -24,14 +27,23 @@ export default function CategoriesPage() {
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name) return;
-    if (edit) {
-      updateCategory(edit, form);
-      setEdit(null);
-    } else {
-      addCategory(form);
-    }
-    setForm({ name: "", description: "", color: "#ef4444" });
-    setShow(false);
+    ask({
+      title: edit
+        ? `Simpan perubahan kategori "${form.name}"?`
+        : `Tambah kategori "${form.name}"?`,
+      confirmLabel: edit ? "Ya, Simpan" : "Ya, Tambah",
+      variant: "primary",
+      action: () => {
+        if (edit) {
+          updateCategory(edit, form);
+          setEdit(null);
+        } else {
+          addCategory(form);
+        }
+        setForm({ name: "", description: "", color: "#ef4444" });
+        setShow(false);
+      },
+    });
   };
   const startEdit = (c: any) => {
     setForm({ name: c.name, description: c.description || "", color: c.color });
@@ -147,7 +159,14 @@ export default function CategoriesPage() {
                       variant="ghost"
                       size="icon"
                       className="h-8 w-8 text-red-600"
-                      onClick={() => deleteCategory(c.id)}
+                      onClick={() =>
+                        ask({
+                          title: "Hapus kategori?",
+                          description: `Kategori "${c.name}" akan dihapus permanen. Aset berkategori ini tidak ikut terhapus.`,
+                          confirmLabel: "Ya, Hapus",
+                          action: () => deleteCategory(c.id),
+                        })
+                      }
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -158,6 +177,8 @@ export default function CategoriesPage() {
           })}
         </div>
       </div>
+
+      {confirmDialog}
     </AppShell>
   );
 }

@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useStore } from "@/lib/store";
+import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useT } from "@/lib/i18n";
 import Link from "next/link";
 import {
@@ -20,7 +21,9 @@ import {
 import { formatDate } from "@/lib/utils";
 
 export default function AuditsPage() {
-  const { audits, assets, addAudit, deleteAudit } = useStore(); const { t } = useT();
+  const { audits, assets, addAudit, deleteAudit } = useStore();
+  const { t } = useT();
+  const { ask, confirmDialog } = useConfirmDialog();
   const [show, setShow] = useState(false);
   const [name, setName] = useState("");
   const [sel, setSel] = useState<string[]>([]);
@@ -29,15 +32,23 @@ export default function AuditsPage() {
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || sel.length === 0) return alert("Isi nama dan pilih aset");
-    addAudit({
-      name,
-      status: "OPEN" as any,
-      createdBy: "adminsystem",
-      assetIds: sel,
+    ask({
+      title: `Buat audit "${name}"?`,
+      description: `${sel.length} aset akan masuk sesi audit ini.`,
+      confirmLabel: "Ya, Buat",
+      variant: "primary",
+      action: () => {
+        addAudit({
+          name,
+          status: "OPEN" as any,
+          createdBy: "adminsystem",
+          assetIds: sel,
+        });
+        setName("");
+        setSel([]);
+        setShow(false);
+      },
     });
-    setName("");
-    setSel([]);
-    setShow(false);
   };
 
   return (
@@ -134,7 +145,14 @@ export default function AuditsPage() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={() => deleteAudit(a.id)}
+                    onClick={() =>
+                      ask({
+                        title: "Hapus audit?",
+                        description: `Audit "${a.name}" beserta hasilnya akan dihapus permanen.`,
+                        confirmLabel: "Ya, Hapus",
+                        action: () => deleteAudit(a.id),
+                      })
+                    }
                     className="text-red-600"
                   >
                     <Trash2 className="h-4 w-4" />
@@ -152,6 +170,8 @@ export default function AuditsPage() {
           )}
         </div>
       </div>
+
+      {confirmDialog}
     </AppShell>
   );
 }

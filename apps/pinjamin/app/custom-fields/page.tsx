@@ -8,11 +8,14 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useStore } from "@/lib/store";
+import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useT } from "@/lib/i18n";
 import { Plus, Trash2 } from "lucide-react";
 
 export default function CustomFieldsPage() {
-  const { customFields, addCustomField, deleteCustomField } = useStore(); const { t } = useT();
+  const { customFields, addCustomField, deleteCustomField } = useStore();
+  const { t } = useT();
+  const { ask, confirmDialog } = useConfirmDialog();
   const [form, setForm] = useState({
     name: "",
     type: "text" as any,
@@ -22,19 +25,26 @@ export default function CustomFieldsPage() {
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name) return;
-    addCustomField({
-      name: form.name,
-      type: form.type,
-      required: form.required,
-      options:
-        form.type === "option"
-          ? form.options
-              .split(",")
-              .map((s) => s.trim())
-              .filter(Boolean)
-          : undefined,
+    ask({
+      title: `Tambah custom field "${form.name}"?`,
+      confirmLabel: "Ya, Tambah",
+      variant: "primary",
+      action: () => {
+        addCustomField({
+          name: form.name,
+          type: form.type,
+          required: form.required,
+          options:
+            form.type === "option"
+              ? form.options
+                  .split(",")
+                  .map((s) => s.trim())
+                  .filter(Boolean)
+              : undefined,
+        });
+        setForm({ name: "", type: "text", required: false, options: "" });
+      },
     });
-    setForm({ name: "", type: "text", required: false, options: "" });
   };
   return (
     <AppShell>
@@ -123,7 +133,14 @@ export default function CustomFieldsPage() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={() => deleteCustomField(cf.id)}
+                  onClick={() =>
+                    ask({
+                      title: "Hapus custom field?",
+                      description: `Field "${cf.name}" akan dihapus permanen dari semua aset.`,
+                      confirmLabel: "Ya, Hapus",
+                      action: () => deleteCustomField(cf.id),
+                    })
+                  }
                   className="text-red-600"
                 >
                   <Trash2 className="h-4 w-4" />
@@ -138,6 +155,8 @@ export default function CustomFieldsPage() {
           )}
         </div>
       </div>
+
+      {confirmDialog}
     </AppShell>
   );
 }

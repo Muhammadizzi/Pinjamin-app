@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useStore } from "@/lib/store";
+import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useT } from "@/lib/i18n";
 import { QRCodeSVG } from "qrcode.react";
 import { ArrowLeft, Trash2 } from "lucide-react";
@@ -16,6 +17,7 @@ export default function KitDetailPage() {
   const router = useRouter();
   const { kits, assets, categories, locations, deleteKit } = useStore();
   const { t } = useT();
+  const { ask, confirmDialog } = useConfirmDialog();
   const kit = kits.find((k) => k.id === id) as any;
   if (!kit)
     return (
@@ -28,7 +30,10 @@ export default function KitDetailPage() {
   return (
     <AppShell>
       <div className="max-w-3xl mx-auto space-y-6">
-        <Link href="/kits" className="inline-flex items-center gap-2 text-sm font-medium text-[#1a365d] dark:text-white hover:underline">
+        <Link
+          href="/kits"
+          className="inline-flex items-center gap-2 text-sm font-medium text-[#1a365d] dark:text-white hover:underline"
+        >
           <ArrowLeft className="h-4 w-4" /> Kembali ke Daftar Kit
         </Link>
         <Card>
@@ -45,7 +50,11 @@ export default function KitDetailPage() {
           <CardContent className="space-y-4">
             {kit.image && (
               <div className="rounded-2xl overflow-hidden border shadow-sm">
-                <img src={kit.image} alt={kit.name} className="w-full h-56 object-cover" />
+                <img
+                  src={kit.image}
+                  alt={kit.name}
+                  className="w-full h-56 object-cover"
+                />
               </div>
             )}
             <div className="flex flex-col items-center gap-3 bg-slate-50 dark:bg-slate-800 rounded-2xl p-6">
@@ -56,14 +65,23 @@ export default function KitDetailPage() {
               <Badge>{kit.status}</Badge>
             </div>
             <div>
-              <div className="font-medium mb-2">Anggota ({kit.assetIds.length})</div>
+              <div className="font-medium mb-2">
+                Anggota ({kit.assetIds.length})
+              </div>
               {kit.assetIds.length === 0 ? (
-                <div className="text-sm text-muted-foreground border rounded-xl p-4 text-center">Kit ini belum ada anggota aset. Edit belum tersedia untuk tambah anggota — bisa dihapus dan buat baru.</div>
+                <div className="text-sm text-muted-foreground border rounded-xl p-4 text-center">
+                  Kit ini belum ada anggota aset. Edit belum tersedia untuk
+                  tambah anggota — bisa dihapus dan buat baru.
+                </div>
               ) : (
                 kit.assetIds.map((aid: string) => {
                   const a = assets.find((x) => x.id === aid);
                   return a ? (
-                    <Link key={aid} href={`/assets/${a.id}`} className="block border rounded-xl p-3 mb-2 hover:bg-slate-50 dark:hover:bg-slate-800">
+                    <Link
+                      key={aid}
+                      href={`/assets/${a.id}`}
+                      className="block border rounded-xl p-3 mb-2 hover:bg-slate-50 dark:hover:bg-slate-800"
+                    >
                       <div className="font-medium text-sm">{a.name}</div>
                       <div className="text-xs text-muted-foreground">
                         {a.status} • {a.qrCode}
@@ -76,18 +94,27 @@ export default function KitDetailPage() {
             <Button
               variant="destructive"
               className="w-full rounded-xl"
-              onClick={() => {
-                if (confirm("Hapus kit?")) {
-                  deleteKit(kit.id);
-                  router.push("/kits");
-                }
-              }}
+              onClick={() =>
+                ask({
+                  title: "Hapus kit?",
+                  description: `"${kit.name}" beserta seluruh isinya (${
+                    kit.assetIds?.length ?? 0
+                  } aset) akan dihapus permanen.`,
+                  confirmLabel: "Ya, Hapus",
+                  action: () => {
+                    deleteKit(kit.id);
+                    router.push("/kits");
+                  },
+                })
+              }
             >
               <Trash2 className="h-4 w-4" /> Hapus Kit
             </Button>
           </CardContent>
         </Card>
       </div>
+
+      {confirmDialog}
     </AppShell>
   );
 }

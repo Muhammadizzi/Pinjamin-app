@@ -6,17 +6,27 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useStore } from "@/lib/store";
+import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useT } from "@/lib/i18n";
 import { Plus, Trash2, Tag as TagIcon } from "lucide-react";
 
 export default function TagsPage() {
-  const { tags, assets, addTag, deleteTag } = useStore(); const { t } = useT();
+  const { tags, assets, addTag, deleteTag } = useStore();
+  const { t } = useT();
+  const { ask, confirmDialog } = useConfirmDialog();
   const [name, setName] = useState("");
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name) return;
-    addTag({ name });
-    setName("");
+    ask({
+      title: `Tambah tag "${name}"?`,
+      confirmLabel: "Ya, Tambah",
+      variant: "primary",
+      action: () => {
+        addTag({ name });
+        setName("");
+      },
+    });
   };
   return (
     <AppShell>
@@ -61,7 +71,14 @@ export default function TagsPage() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={() => deleteTag(t.id)}
+                    onClick={() =>
+                      ask({
+                        title: "Hapus tag?",
+                        description: `Tag "${t.name}" akan dihapus permanen dari ${count} aset terkait.`,
+                        confirmLabel: "Ya, Hapus",
+                        action: () => deleteTag(t.id),
+                      })
+                    }
                     className="text-[#0a2240]"
                   >
                     <Trash2 className="h-4 w-4" />
@@ -72,6 +89,8 @@ export default function TagsPage() {
           })}
         </div>
       </div>
+
+      {confirmDialog}
     </AppShell>
   );
 }

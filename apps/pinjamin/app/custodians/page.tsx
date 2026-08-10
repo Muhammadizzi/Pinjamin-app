@@ -6,12 +6,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useStore } from "@/lib/store";
+import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useT } from "@/lib/i18n";
 import { Plus, Trash2, Pencil, Users } from "lucide-react";
 
 export default function CustodiansPage() {
   const { custodians, addCustodian, updateCustodian, deleteCustodian } =
-    useStore(); const { t } = useT();
+    useStore();
+  const { t } = useT();
+  const { ask, confirmDialog } = useConfirmDialog();
   const [show, setShow] = useState(false);
   const [edit, setEdit] = useState<string | null>(null);
   const [form, setForm] = useState({
@@ -24,12 +27,21 @@ export default function CustodiansPage() {
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name) return;
-    if (edit) {
-      updateCustodian(edit, form);
-      setEdit(null);
-    } else addCustodian(form);
-    setForm({ name: "", nik: "", department: "", email: "", phone: "" });
-    setShow(false);
+    ask({
+      title: edit
+        ? `Simpan perubahan peminjam "${form.name}"?`
+        : `Tambah peminjam "${form.name}"?`,
+      confirmLabel: edit ? "Ya, Simpan" : "Ya, Tambah",
+      variant: "primary",
+      action: () => {
+        if (edit) {
+          updateCustodian(edit, form);
+          setEdit(null);
+        } else addCustodian(form);
+        setForm({ name: "", nik: "", department: "", email: "", phone: "" });
+        setShow(false);
+      },
+    });
   };
   const startEdit = (c: any) => {
     setForm({
@@ -173,7 +185,14 @@ export default function CustodiansPage() {
                     variant="ghost"
                     size="icon"
                     className="h-8 w-8 text-red-600"
-                    onClick={() => deleteCustodian(c.id)}
+                    onClick={() =>
+                      ask({
+                        title: "Hapus peminjam?",
+                        description: `"${c.name}" akan dihapus permanen dari daftar peminjam.`,
+                        confirmLabel: "Ya, Hapus",
+                        action: () => deleteCustodian(c.id),
+                      })
+                    }
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -183,6 +202,8 @@ export default function CustodiansPage() {
           ))}
         </div>
       </div>
+
+      {confirmDialog}
     </AppShell>
   );
 }

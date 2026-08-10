@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useStore } from "@/lib/store";
+import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useT } from "@/lib/i18n";
 import { formatDate } from "@/lib/utils";
 import { QRCodeSVG } from "qrcode.react";
@@ -34,7 +35,9 @@ export default function AssetDetailPage() {
     assetModels,
     customFields,
     deleteAsset,
-  } = useStore(); const { t } = useT();
+  } = useStore();
+  const { t } = useT();
+  const { ask, confirmDialog } = useConfirmDialog();
   const asset = assets.find((a) => a.id === id);
   if (!asset)
     return (
@@ -53,10 +56,15 @@ export default function AssetDetailPage() {
   const cust = custodians.find((c) => c.id === asset.custodianId);
 
   const handleDelete = () => {
-    if (confirm("Hapus aset ini?")) {
-      deleteAsset(asset.id);
-      router.push("/assets");
-    }
+    ask({
+      title: "Hapus aset?",
+      description: `"${asset.name}" (${asset.qrCode}) akan dihapus permanen dan tidak bisa dikembalikan.`,
+      confirmLabel: "Ya, Hapus",
+      action: () => {
+        deleteAsset(asset.id);
+        router.push("/assets");
+      },
+    });
   };
 
   return (
@@ -285,6 +293,8 @@ export default function AssetDetailPage() {
           </div>
         </div>
       </div>
+
+      {confirmDialog}
     </AppShell>
   );
 }

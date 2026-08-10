@@ -7,12 +7,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { useStore } from "@/lib/store";
+import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useT } from "@/lib/i18n";
 import { Plus, Trash2 } from "lucide-react";
 
 export default function AssetModelsPage() {
   const { assetModels, categories, addAssetModel, deleteAssetModel } =
-    useStore(); const { t } = useT();
+    useStore();
+  const { t } = useT();
+  const { ask, confirmDialog } = useConfirmDialog();
   const [form, setForm] = useState({
     name: "",
     brand: "",
@@ -22,8 +25,15 @@ export default function AssetModelsPage() {
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name) return;
-    addAssetModel(form);
-    setForm({ name: "", brand: "", modelNo: "", categoryId: "" });
+    ask({
+      title: `Tambah model aset "${form.name}"?`,
+      confirmLabel: "Ya, Tambah",
+      variant: "primary",
+      action: () => {
+        addAssetModel(form);
+        setForm({ name: "", brand: "", modelNo: "", categoryId: "" });
+      },
+    });
   };
   return (
     <AppShell>
@@ -112,7 +122,14 @@ export default function AssetModelsPage() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={() => deleteAssetModel(m.id)}
+                  onClick={() =>
+                    ask({
+                      title: "Hapus model aset?",
+                      description: `Model "${m.name}" akan dihapus permanen.`,
+                      confirmLabel: "Ya, Hapus",
+                      action: () => deleteAssetModel(m.id),
+                    })
+                  }
                   className="text-red-600"
                 >
                   <Trash2 className="h-4 w-4" />
@@ -122,6 +139,8 @@ export default function AssetModelsPage() {
           ))}
         </div>
       </div>
+
+      {confirmDialog}
     </AppShell>
   );
 }
