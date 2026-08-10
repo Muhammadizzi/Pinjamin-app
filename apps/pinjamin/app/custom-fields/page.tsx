@@ -132,45 +132,87 @@ export default function CustomFieldsPage() {
                 {/* Use for select kategori */}
                 {categories.length > 0 && (
                   <div className="sm:col-span-2 space-y-2">
-                    <Label>Gunakan untuk Kategori</Label>
-                    <div className="flex flex-wrap gap-2 p-3 rounded-xl border bg-slate-50/50 dark:bg-slate-800/30 border-slate-200 dark:border-slate-700">
+                    <div className="flex items-center justify-between gap-2">
+                      <Label>Gunakan untuk Kategori</Label>
+                      <div className="flex items-center gap-2">
+                        {form.categoryIds.length > 0 && (
+                          <span className="bg-[#1a365d] text-white text-[10px] font-semibold px-2 py-0.5 rounded-full">
+                            {form.categoryIds.length} dipilih
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setForm({
+                              ...form,
+                              categoryIds: categories.map((c) => c.id),
+                            })
+                          }
+                          className="text-[11px] font-medium text-[#1a365d] dark:text-amber-300 hover:underline"
+                        >
+                          Pilih Semua
+                        </button>
+                        {form.categoryIds.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setForm({ ...form, categoryIds: [] })
+                            }
+                            className="text-[11px] font-medium text-red-500 hover:underline"
+                          >
+                            Reset
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                       {categories.map((c) => {
                         const selected = form.categoryIds.includes(c.id);
+                        const color = c.color || "#1a365d";
                         return (
                           <button
                             key={c.id}
                             type="button"
                             onClick={() => toggleCategory(c.id)}
-                            className={`px-3 py-1.5 rounded-full text-xs font-medium border-2 transition-all flex items-center gap-1.5 ${
+                            aria-pressed={selected}
+                            className={`flex items-center gap-2 rounded-xl border-2 px-3 py-2.5 text-left text-xs font-medium transition-all ${
                               selected
                                 ? "text-white shadow"
-                                : "bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-600 hover:border-slate-400 dark:hover:border-slate-500"
+                                : "bg-white dark:bg-slate-800/40 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600"
                             }`}
                             style={
                               selected
-                                ? {
-                                    background: c.color || "#1a365d",
-                                    borderColor: c.color || "#1a365d",
-                                  }
+                                ? { background: color, borderColor: color }
                                 : undefined
                             }
                           >
                             <span
-                              className="h-2.5 w-2.5 rounded-full shrink-0"
-                              style={{
-                                background: c.color || "currentColor",
-                              }}
+                              className={`h-2.5 w-2.5 rounded-full shrink-0 border ${
+                                selected
+                                  ? "bg-white/90 border-white/40"
+                                  : "border-transparent"
+                              }`}
+                              style={
+                                selected ? undefined : { background: color }
+                              }
                             />
-                            {c.name}
-                            {selected && <Check className="h-3 w-3" />}
+                            <span className="flex-1 truncate">{c.name}</span>
+                            <span
+                              className={`h-4 w-4 rounded-full flex items-center justify-center shrink-0 ${
+                                selected
+                                  ? "bg-white/25"
+                                  : "border border-slate-300 dark:border-slate-600"
+                              }`}
+                            >
+                              {selected && <Check className="h-3 w-3" />}
+                            </span>
                           </button>
                         );
                       })}
                     </div>
                     <p className="text-xs text-muted-foreground">
                       Tidak memilih kategori = field berlaku untuk{" "}
-                      <b>semua kategori</b>. {form.categoryIds.length} kategori
-                      dipilih • klik untuk pilih/hapus.
+                      <b>semua kategori</b>.
                     </p>
                   </div>
                 )}

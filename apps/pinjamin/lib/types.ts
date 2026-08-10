@@ -34,6 +34,8 @@ export interface Location {
   description?: string;
   address?: string;
   parentId?: string | null;
+  /** Lokasi induk (gedung/area) yang menaungi sub-lokasi. */
+  isParent?: boolean;
   image?: string;
   createdAt: string;
 }

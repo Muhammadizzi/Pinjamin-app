@@ -236,7 +236,7 @@ export default function AssetDetailPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="flex flex-col items-center gap-4">
-                <div className="bg-white p-4 rounded-2xl shadow">
+                <div id="asset-qr" className="bg-white p-4 rounded-2xl shadow">
                   <QRCodeSVG
                     value={`${
                       typeof window !== "undefined"
@@ -265,7 +265,7 @@ export default function AssetDetailPage() {
                   <Button
                     className="flex-1 rounded-xl text-xs"
                     onClick={() => {
-                      const svg = document.querySelector("svg");
+                      const svg = document.querySelector("#asset-qr svg");
                       if (!svg) return;
                       const data = new XMLSerializer().serializeToString(svg);
                       const blob = new Blob([data], { type: "image/svg+xml" });

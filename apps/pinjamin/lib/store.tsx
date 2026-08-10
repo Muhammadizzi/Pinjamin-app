@@ -65,7 +65,7 @@ type StoreContextType = AppData & {
   addTag: (t: Omit<Tag, "id" | "createdAt">) => void;
   updateTag: (id: string, patch: Partial<Tag>) => void;
   deleteTag: (id: string) => void;
-  addLocation: (l: Omit<Location, "id" | "createdAt">) => void;
+  addLocation: (l: Omit<Location, "id" | "createdAt">) => string;
   updateLocation: (id: string, patch: Partial<Location>) => void;
   deleteLocation: (id: string) => void;
   addCustomField: (f: Omit<CustomField, "id" | "createdAt">) => void;
@@ -652,6 +652,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       } as Location;
       if (isSupabaseConfigured()) supaInsert("locations", row);
       setData((d) => ({ ...d, locations: [row, ...d.locations] }));
+      return row.id;
     },
     updateLocation: (id, patch) => {
       if (isSupabaseConfigured()) supaUpdate("locations", id, patch);

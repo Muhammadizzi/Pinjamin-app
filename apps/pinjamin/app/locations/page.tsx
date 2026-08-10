@@ -24,46 +24,11 @@ export default function LocationsPage() {
     name: "",
     description: "",
     parentId: "",
+    isParent: false,
     image: "",
   });
 
-  const startEdit = (l: any) => {
-    setForm({
-      name: l.name,
-      description: l.description || "",
-      parentId: l.parentId || "",
-      image: l.image || "",
-    });
-    setEdit(l.id);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
-
-  const submitEdit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!form.name || !edit) return;
-    ask({
-      title: `Simpan perubahan lokasi "${form.name}"?`,
-      confirmLabel: "Ya, Simpan",
-      variant: "primary",
-      action: () => {
-        updateLocation(edit, {
-          name: form.name,
-          description: form.description,
-          parentId: form.parentId || null,
-          image: form.image || undefined,
-        } as any);
-        setEdit(null);
-        setForm({ name: "", description: "", parentId: "", image: "" });
-      },
-    });
-  };
-
-  const cancelEdit = () => {
-    setEdit(null);
-    setForm({ name: "", description: "", parentId: "", image: "" });
-  };
-
-  // ---- Struktur data: pisah parent vs lokasi biasa ----
+  // ---- Struktur data ----
   const locationById = new Map(locations.map((l) => [l.id, l]));
   const hasValidParent = (l: Location) =>
     !!l.parentId && locationById.has(l.parentId);
@@ -75,29 +40,18 @@ export default function LocationsPage() {
       childrenMap.set(l.parentId!, arr);
     }
   });
-  const isParent = (id: string) => (childrenMap.get(id)?.length ?? 0) > 0;
-  // Parent top-level: punya anak & tidak ditampilkan di bawah parent lain
-  const parentLocs = locations.filter(
-    (l) => isParent(l.id) && !hasValidParent(l)
-  );
-  // Lokasi biasa: tidak punya anak & tidak tampil di bawah parent lain
-  const regularLocs = locations.filter(
-    (l) => !isParent(l.id) && !hasValidParent(l)
-  );
+  const hasChildren = (id: string) => (childrenMap.get(id)?.length ?? 0) > 0;
+  // Parent efektif = ditandai isParent ATAU memang punya sub-lokasi
+  const isEffectiveParent = (l: Location) => !!l.isParent || hasChildren(l.id);
 
-  // Opsi dropdown parent: urut sesuai pohon dengan indentasi kedalaman
-  const flatOptions: { l: Location; depth: number }[] = [];
-  const walk = (parentId: string | null, depth: number) => {
-    locations
-      .filter((l) =>
-        parentId === null ? !hasValidParent(l) : l.parentId === parentId
-      )
-      .forEach((l) => {
-        flatOptions.push({ l, depth });
-        walk(l.id, depth + 1);
-      });
-  };
-  walk(null, 0);
+  // Seksi parent: parent efektif yang tidak tampil di bawah parent lain
+  const parentLocs = locations.filter(
+    (l) => isEffectiveParent(l) && !hasValidParent(l)
+  );
+  // Seksi biasa: bukan parent efektif & tidak tampil di bawah parent lain
+  const regularLocs = locations.filter(
+    (l) => !isEffectiveParent(l) && !hasValidParent(l)
+  );
 
   // Cegah siklus: saat edit, sembunyikan diri sendiri + semua turunannya
   const descendantIds = (id: string): Set<string> => {
@@ -115,9 +69,61 @@ export default function LocationsPage() {
     return out;
   };
 
+  const startEdit = (l: Location) => {
+    setForm({
+      name: l.name,
+      description: l.description || "",
+      parentId: l.parentId || "",
+      isParent: !!l.isParent,
+      image: l.image || "",
+    });
+    setEdit(l.id);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const submitEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.name || !edit) return;
+    ask({
+      title: `Simpan perubahan lokasi "${form.name}"?`,
+      confirmLabel: "Ya, Simpan",
+      variant: "primary",
+      action: () => {
+        updateLocation(edit, {
+          name: form.name,
+          description: form.description,
+          isParent: form.isParent,
+          // Lokasi parent tidak punya induk; yang biasa boleh punya parent
+          parentId: form.isParent ? null : form.parentId || null,
+          image: form.image || undefined,
+        } as any);
+        setEdit(null);
+        setForm({
+          name: "",
+          description: "",
+          parentId: "",
+          isParent: false,
+          image: "",
+        });
+      },
+    });
+  };
+
+  const cancelEdit = () => {
+    setEdit(null);
+    setForm({
+      name: "",
+      description: "",
+      parentId: "",
+      isParent: false,
+      image: "",
+    });
+  };
+
   const LocRow = ({ l, child = false }: { l: Location; child?: boolean }) => {
     const assetCount = assets.filter((a) => a.locationId === l.id).length;
     const parent = hasValidParent(l) ? locationById.get(l.parentId!) : null;
+    const childCount = childrenMap.get(l.id)?.length ?? 0;
     return (
       <div
         className={`flex items-center gap-3 ${
@@ -149,9 +155,10 @@ export default function LocationsPage() {
         <div className="flex-1 min-w-0">
           <div className="font-medium text-sm truncate flex items-center gap-2">
             {l.name}
-            {isParent(l.id) && (
+            {isEffectiveParent(l) && (
               <span className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-[#CBA12C]/15 text-[#8a6d1d] dark:text-[#CBA12C] text-[10px] font-semibold">
                 <FolderTree className="h-3 w-3" /> Parent
+                {childCount > 0 ? ` • ${childCount} sub` : ""}
               </span>
             )}
           </div>
@@ -179,7 +186,7 @@ export default function LocationsPage() {
               description: `"${
                 l.name
               }" akan dihapus permanen. Aset di lokasi ini tidak ikut terhapus.${
-                isParent(l.id)
+                isEffectiveParent(l)
                   ? " Sub-lokasi di dalamnya menjadi lokasi biasa."
                   : ""
               }`,
@@ -198,7 +205,7 @@ export default function LocationsPage() {
     (childrenMap.get(parentId) || []).map((l) => (
       <div key={l.id} className="space-y-2">
         <LocRow l={l} child />
-        {isParent(l.id) && (
+        {hasChildren(l.id) && (
           <div className="ml-5 pl-3 border-l-2 border-slate-200 dark:border-slate-700 space-y-2">
             {renderChildren(l.id)}
           </div>
@@ -249,29 +256,82 @@ export default function LocationsPage() {
                     required
                   />
                 </div>
+
+                {/* Tipe lokasi: Biasa vs Parent */}
                 <div className="space-y-2">
-                  <Label>Parent Lokasi</Label>
-                  <Select
-                    value={form.parentId}
-                    onChange={(e) =>
-                      setForm({ ...form, parentId: e.target.value })
-                    }
-                  >
-                    <option value="">— Tidak ada (root) —</option>
-                    {flatOptions
-                      .filter(({ l }) => !descendantIds(edit).has(l.id))
-                      .map(({ l, depth }) => (
-                        <option key={l.id} value={l.id}>
-                          {"\u00A0\u00A0".repeat(depth)}
-                          {depth > 0 ? "└ " : ""}
-                          {l.name}
-                        </option>
-                      ))}
-                  </Select>
-                  <p className="text-xs text-muted-foreground">
-                    "└" menandakan lokasi anak.
-                  </p>
+                  <Label>Tipe Lokasi</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setForm({ ...form, isParent: false })}
+                      className={`flex items-center gap-2.5 rounded-xl border-2 p-3 text-left transition-all ${
+                        !form.isParent
+                          ? "border-[#1a365d] bg-[#1a365d]/5 dark:bg-[#1a365d]/20"
+                          : "border-slate-200 dark:border-slate-700 hover:border-slate-300"
+                      }`}
+                    >
+                      <MapPin className="h-4 w-4 shrink-0 text-[#1a365d] dark:text-slate-300" />
+                      <span>
+                        <span className="block text-sm font-semibold">
+                          Lokasi Biasa
+                        </span>
+                        <span className="block text-[11px] text-muted-foreground">
+                          Ruangan/titik — bisa masuk parent
+                        </span>
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setForm({ ...form, isParent: true, parentId: "" })
+                      }
+                      className={`flex items-center gap-2.5 rounded-xl border-2 p-3 text-left transition-all ${
+                        form.isParent
+                          ? "border-[#CBA12C] bg-[#CBA12C]/10"
+                          : "border-slate-200 dark:border-slate-700 hover:border-slate-300"
+                      }`}
+                    >
+                      <FolderTree className="h-4 w-4 shrink-0 text-[#8a6d1d] dark:text-[#CBA12C]" />
+                      <span>
+                        <span className="block text-sm font-semibold">
+                          Lokasi Parent
+                        </span>
+                        <span className="block text-[11px] text-muted-foreground">
+                          Gedung/area — menaungi sub-lokasi
+                        </span>
+                      </span>
+                    </button>
+                  </div>
                 </div>
+
+                {!form.isParent && (
+                  <div className="space-y-2">
+                    <Label>Parent Lokasi</Label>
+                    <Select
+                      value={form.parentId}
+                      onChange={(e) =>
+                        setForm({ ...form, parentId: e.target.value })
+                      }
+                    >
+                      <option value="">— Tidak ada (mandiri) —</option>
+                      {locations
+                        .filter(
+                          (l) =>
+                            isEffectiveParent(l) &&
+                            !descendantIds(edit).has(l.id)
+                        )
+                        .map((l) => (
+                          <option key={l.id} value={l.id}>
+                            {l.name}
+                          </option>
+                        ))}
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      Dropdown hanya menampilkan lokasi bertipe parent.
+                    </p>
+                  </div>
+                )}
+
                 <ImageUpload
                   value={form.image}
                   onChange={(url) => setForm({ ...form, image: url })}
@@ -318,16 +378,21 @@ export default function LocationsPage() {
                 {parentLocs.length}
               </span>
             </h2>
-            {parentLocs.map((p) => (
-              <Card key={p.id} className="overflow-hidden">
-                <CardContent className="p-3 space-y-2">
-                  <LocRow l={p} />
-                  <div className="ml-5 pl-3 border-l-2 border-[#CBA12C]/40 space-y-2">
-                    {renderChildren(p.id)}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+            {parentLocs.map((p) => {
+              const children = childrenMap.get(p.id) || [];
+              return (
+                <Card key={p.id} className="overflow-hidden">
+                  <CardContent className="p-3 space-y-2">
+                    <LocRow l={p} />
+                    {children.length > 0 && (
+                      <div className="ml-5 pl-3 border-l-2 border-[#CBA12C]/40 space-y-2">
+                        {renderChildren(p.id)}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         )}
 
