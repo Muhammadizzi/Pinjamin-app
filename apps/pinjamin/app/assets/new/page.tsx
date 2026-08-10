@@ -43,6 +43,11 @@ export default function NewAssetPage() {
   // Serial otomatis: 001, 002, dst berdasarkan jumlah aset + 1
   const nextSerial = String(assets.length + 1).padStart(3, "0");
 
+  // Custom field mengikuti kategori yang dipilih (tanpa kategori = semua)
+  const visibleCustomFields = customFields.filter(
+    (cf) => !cf.categoryIds?.length || cf.categoryIds.includes(form.categoryId)
+  );
+
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name) return alert("Nama wajib");
@@ -52,6 +57,13 @@ export default function NewAssetPage() {
       confirmLabel: "Ya, Tambah",
       variant: "primary",
       action: () => {
+        // Buang nilai custom field yang tidak berlaku untuk kategori terpilih
+        const allowed = new Set(visibleCustomFields.map((cf) => cf.id));
+        const customValues = Object.fromEntries(
+          Object.entries(form.customValues as Record<string, string>).filter(
+            ([k]) => allowed.has(k)
+          )
+        );
         addAsset({
           name: form.name,
           description: form.description,
@@ -62,7 +74,7 @@ export default function NewAssetPage() {
           // Nilai dihilangkan sesuai request
           serialNumber: nextSerial,
           tagIds: form.tagIds,
-          customValues: form.customValues,
+          customValues,
           mainImage: form.mainImage,
           custodianId: null,
         });
@@ -235,8 +247,8 @@ export default function NewAssetPage() {
                     {form.tagIds.length} tag dipilih • klik untuk pilih/hapus
                   </p>
                 </div>
-                {/* Custom fields opsional */}
-                {customFields.length > 0 && (
+                {/* Custom fields opsional — mengikuti kategori terpilih */}
+                {visibleCustomFields.length > 0 && (
                   <div className="sm:col-span-2">
                     <button
                       type="button"
@@ -249,16 +261,17 @@ export default function NewAssetPage() {
                       <span className="text-xs bg-[#1a365d] text-white px-2.5 py-1 rounded-full">
                         {showCustom
                           ? "Sembunyikan"
-                          : `${customFields.length} field`}
+                          : `${visibleCustomFields.length} field`}
                       </span>
                     </button>
                     {showCustom && (
                       <div className="mt-3 space-y-3 border rounded-xl p-4 bg-slate-50/30 dark:bg-slate-800/20">
                         <p className="text-xs text-muted-foreground">
                           Semua field di bawah ini <b>opsional</b> — boleh
-                          dikosongkan.
+                          dikosongkan. Field mengikuti kategori aset yang
+                          dipilih.
                         </p>
-                        {customFields.map((cf) => (
+                        {visibleCustomFields.map((cf) => (
                           <div key={cf.id} className="space-y-1">
                             <Label className="text-xs font-medium">
                               {cf.name}{" "}

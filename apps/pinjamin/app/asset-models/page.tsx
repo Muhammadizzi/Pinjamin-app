@@ -19,7 +19,6 @@ export default function AssetModelsPage() {
   const [form, setForm] = useState({
     name: "",
     brand: "",
-    modelNo: "",
     categoryId: "",
   });
   const submit = (e: React.FormEvent) => {
@@ -31,7 +30,7 @@ export default function AssetModelsPage() {
       variant: "primary",
       action: () => {
         addAssetModel(form);
-        setForm({ name: "", brand: "", modelNo: "", categoryId: "" });
+        setForm({ name: "", brand: "", categoryId: "" });
       },
     });
   };
@@ -73,17 +72,6 @@ export default function AssetModelsPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Nomor Model</Label>
-                  <Input
-                    value={form.modelNo}
-                    onChange={(e) =>
-                      setForm({ ...form, modelNo: e.target.value })
-                    }
-                    placeholder="MLY33"
-                    className="h-11 rounded-xl"
-                  />
-                </div>
-                <div className="space-y-2 sm:col-span-2">
                   <Label>Kategori</Label>
                   <Select
                     value={form.categoryId}

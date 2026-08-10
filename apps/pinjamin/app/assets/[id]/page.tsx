@@ -169,24 +169,32 @@ export default function AssetDetailPage() {
                       </span>
                     </div>
                   </div>
-                  {customFields.length > 0 && (
-                    <div className="sm:col-span-2 border-t pt-4 space-y-2">
-                      <div className="font-medium text-sm">Custom Fields</div>
-                      {customFields.map((cf) => (
-                        <div
-                          key={cf.id}
-                          className="flex justify-between text-sm border-b py-1"
-                        >
-                          <span className="text-muted-foreground">
-                            {cf.name}
-                          </span>
-                          <span className="font-medium">
-                            {asset.customValues[cf.id] || "-"}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                  {(() => {
+                    const visibleCustomFields = customFields.filter(
+                      (cf) =>
+                        !cf.categoryIds?.length ||
+                        (!!asset.categoryId &&
+                          cf.categoryIds.includes(asset.categoryId))
+                    );
+                    return visibleCustomFields.length > 0 ? (
+                      <div className="sm:col-span-2 border-t pt-4 space-y-2">
+                        <div className="font-medium text-sm">Custom Fields</div>
+                        {visibleCustomFields.map((cf) => (
+                          <div
+                            key={cf.id}
+                            className="flex justify-between text-sm border-b py-1"
+                          >
+                            <span className="text-muted-foreground">
+                              {cf.name}
+                            </span>
+                            <span className="font-medium">
+                              {asset.customValues[cf.id] || "-"}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null;
+                  })()}
                 </div>
               </CardContent>
             </Card>

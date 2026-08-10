@@ -12,7 +12,8 @@ import { Select } from "@/components/ui/select";
 import { useStore } from "@/lib/store";
 import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useT } from "@/lib/i18n";
-import { Plus, Trash2, MapPin, Pencil } from "lucide-react";
+import { Plus, Trash2, MapPin, Pencil, FolderTree } from "lucide-react";
+import type { Location } from "@/lib/types";
 
 export default function LocationsPage() {
   const { locations, assets, updateLocation, deleteLocation } = useStore();
@@ -62,61 +63,148 @@ export default function LocationsPage() {
     setForm({ name: "", description: "", parentId: "", image: "" });
   };
 
-  const tree = (parent: string | null, depth = 0) =>
+  // ---- Struktur data: pisah parent vs lokasi biasa ----
+  const locationById = new Map(locations.map((l) => [l.id, l]));
+  const hasValidParent = (l: Location) =>
+    !!l.parentId && locationById.has(l.parentId);
+  const childrenMap = new Map<string, Location[]>();
+  locations.forEach((l) => {
+    if (hasValidParent(l)) {
+      const arr = childrenMap.get(l.parentId!) || [];
+      arr.push(l);
+      childrenMap.set(l.parentId!, arr);
+    }
+  });
+  const isParent = (id: string) => (childrenMap.get(id)?.length ?? 0) > 0;
+  // Parent top-level: punya anak & tidak ditampilkan di bawah parent lain
+  const parentLocs = locations.filter(
+    (l) => isParent(l.id) && !hasValidParent(l)
+  );
+  // Lokasi biasa: tidak punya anak & tidak tampil di bawah parent lain
+  const regularLocs = locations.filter(
+    (l) => !isParent(l.id) && !hasValidParent(l)
+  );
+
+  // Opsi dropdown parent: urut sesuai pohon dengan indentasi kedalaman
+  const flatOptions: { l: Location; depth: number }[] = [];
+  const walk = (parentId: string | null, depth: number) => {
     locations
-      .filter((l) => (l.parentId || null) === parent)
-      .map((l) => (
-        <div key={l.id} style={{ marginLeft: depth * 16 }}>
-          <Card className="mb-2 overflow-hidden">
-            <CardContent className="p-3 flex items-center gap-3">
-              {l.image ? (
-                <img
-                  src={l.image}
-                  alt={l.name}
-                  className="h-10 w-10 rounded-lg object-cover border shrink-0"
-                />
-              ) : (
-                <div className="h-10 w-10 rounded-lg bg-[#1a365d] flex items-center justify-center shrink-0">
-                  <MapPin className="h-5 w-5 text-white" strokeWidth={1.5} />
-                </div>
-              )}
-              <div className="flex-1 min-w-0">
-                <div className="font-medium text-sm truncate">{l.name}</div>
-                <div className="text-xs text-muted-foreground truncate">
-                  {l.description || "-"}
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  {assets.filter((a) => a.locationId === l.id).length} aset
-                </div>
-              </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => startEdit(l)}
-              >
-                <Pencil className="h-4 w-4" strokeWidth={1.5} />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
-                onClick={() =>
-                  ask({
-                    title: "Hapus lokasi?",
-                    description: `"${l.name}" akan dihapus permanen. Aset di lokasi ini tidak ikut terhapus.`,
-                    confirmLabel: "Ya, Hapus",
-                    action: () => deleteLocation(l.id),
-                  })
-                }
-              >
-                <Trash2 className="h-4 w-4" strokeWidth={1.5} />
-              </Button>
-            </CardContent>
-          </Card>
-          {tree(l.id, depth + 1)}
+      .filter((l) =>
+        parentId === null ? !hasValidParent(l) : l.parentId === parentId
+      )
+      .forEach((l) => {
+        flatOptions.push({ l, depth });
+        walk(l.id, depth + 1);
+      });
+  };
+  walk(null, 0);
+
+  // Cegah siklus: saat edit, sembunyikan diri sendiri + semua turunannya
+  const descendantIds = (id: string): Set<string> => {
+    const out = new Set<string>([id]);
+    const queue = [id];
+    while (queue.length) {
+      const cur = queue.pop()!;
+      for (const c of childrenMap.get(cur) || []) {
+        if (!out.has(c.id)) {
+          out.add(c.id);
+          queue.push(c.id);
+        }
+      }
+    }
+    return out;
+  };
+
+  const LocRow = ({ l, child = false }: { l: Location; child?: boolean }) => {
+    const assetCount = assets.filter((a) => a.locationId === l.id).length;
+    const parent = hasValidParent(l) ? locationById.get(l.parentId!) : null;
+    return (
+      <div
+        className={`flex items-center gap-3 ${
+          child
+            ? "rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700/60 p-2.5"
+            : ""
+        }`}
+      >
+        {l.image ? (
+          <img
+            src={l.image}
+            alt={l.name}
+            className="h-10 w-10 rounded-lg object-cover border shrink-0"
+          />
+        ) : (
+          <div
+            className={`h-10 w-10 rounded-lg flex items-center justify-center shrink-0 ${
+              child ? "bg-white dark:bg-slate-700 border" : "bg-[#1a365d]"
+            }`}
+          >
+            <MapPin
+              className={`h-5 w-5 ${
+                child ? "text-slate-500 dark:text-slate-300" : "text-white"
+              }`}
+              strokeWidth={1.5}
+            />
+          </div>
+        )}
+        <div className="flex-1 min-w-0">
+          <div className="font-medium text-sm truncate flex items-center gap-2">
+            {l.name}
+            {isParent(l.id) && (
+              <span className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-[#CBA12C]/15 text-[#8a6d1d] dark:text-[#CBA12C] text-[10px] font-semibold">
+                <FolderTree className="h-3 w-3" /> Parent
+              </span>
+            )}
+          </div>
+          <div className="text-xs text-muted-foreground truncate">
+            {parent ? `Di dalam: ${parent.name} • ` : ""}
+            {l.description || "-"}
+          </div>
+          <div className="text-xs text-muted-foreground">{assetCount} aset</div>
         </div>
-      ));
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 shrink-0"
+          onClick={() => startEdit(l)}
+        >
+          <Pencil className="h-4 w-4" strokeWidth={1.5} />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 shrink-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+          onClick={() =>
+            ask({
+              title: "Hapus lokasi?",
+              description: `"${
+                l.name
+              }" akan dihapus permanen. Aset di lokasi ini tidak ikut terhapus.${
+                isParent(l.id)
+                  ? " Sub-lokasi di dalamnya menjadi lokasi biasa."
+                  : ""
+              }`,
+              confirmLabel: "Ya, Hapus",
+              action: () => deleteLocation(l.id),
+            })
+          }
+        >
+          <Trash2 className="h-4 w-4" strokeWidth={1.5} />
+        </Button>
+      </div>
+    );
+  };
+
+  const renderChildren = (parentId: string): React.ReactNode =>
+    (childrenMap.get(parentId) || []).map((l) => (
+      <div key={l.id} className="space-y-2">
+        <LocRow l={l} child />
+        {isParent(l.id) && (
+          <div className="ml-5 pl-3 border-l-2 border-slate-200 dark:border-slate-700 space-y-2">
+            {renderChildren(l.id)}
+          </div>
+        )}
+      </div>
+    ));
 
   return (
     <AppShell>
@@ -125,7 +213,8 @@ export default function LocationsPage() {
           <div>
             <h1 className="text-2xl font-bold">{t("locations")}</h1>
             <p className="text-sm text-muted-foreground">
-              Daftar lokasi terdaftar • Hierarkis gedung → lantai → ruang
+              {parentLocs.length} lokasi parent • {regularLocs.length} lokasi
+              biasa
             </p>
           </div>
           <Link href="/locations/new">
@@ -169,14 +258,19 @@ export default function LocationsPage() {
                     }
                   >
                     <option value="">— Tidak ada (root) —</option>
-                    {locations
-                      .filter((l) => l.id !== edit)
-                      .map((l) => (
+                    {flatOptions
+                      .filter(({ l }) => !descendantIds(edit).has(l.id))
+                      .map(({ l, depth }) => (
                         <option key={l.id} value={l.id}>
+                          {"\u00A0\u00A0".repeat(depth)}
+                          {depth > 0 ? "└ " : ""}
                           {l.name}
                         </option>
                       ))}
                   </Select>
+                  <p className="text-xs text-muted-foreground">
+                    "└" menandakan lokasi anak.
+                  </p>
                 </div>
                 <ImageUpload
                   value={form.image}
@@ -215,7 +309,46 @@ export default function LocationsPage() {
           </Card>
         )}
 
-        <div>{tree(null)}</div>
+        {/* Seksi 1: Lokasi Parent */}
+        {parentLocs.length > 0 && (
+          <div className="space-y-2">
+            <h2 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+              <FolderTree className="h-4 w-4" /> Lokasi Parent
+              <span className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[10px] px-2 py-0.5 rounded-full">
+                {parentLocs.length}
+              </span>
+            </h2>
+            {parentLocs.map((p) => (
+              <Card key={p.id} className="overflow-hidden">
+                <CardContent className="p-3 space-y-2">
+                  <LocRow l={p} />
+                  <div className="ml-5 pl-3 border-l-2 border-[#CBA12C]/40 space-y-2">
+                    {renderChildren(p.id)}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+
+        {/* Seksi 2: Lokasi Biasa */}
+        {regularLocs.length > 0 && (
+          <div className="space-y-2">
+            <h2 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+              <MapPin className="h-4 w-4" /> Lokasi Biasa
+              <span className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[10px] px-2 py-0.5 rounded-full">
+                {regularLocs.length}
+              </span>
+            </h2>
+            {regularLocs.map((l) => (
+              <Card key={l.id} className="overflow-hidden">
+                <CardContent className="p-3">
+                  <LocRow l={l} />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
 
         {locations.length === 0 && (
           <Card className="border-dashed">
@@ -233,6 +366,12 @@ export default function LocationsPage() {
             </CardContent>
           </Card>
         )}
+
+        {/*
+          Catatan edge case: lokasi anak yatim (parentId menunjuk lokasi yang
+          sudah dihapus) otomatis diperlakukan sebagai lokasi biasa agar tidak
+          hilang dari daftar.
+        */}
       </div>
 
       {confirmDialog}

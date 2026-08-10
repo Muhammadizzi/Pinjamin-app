@@ -10,10 +10,11 @@ import { Badge } from "@/components/ui/badge";
 import { useStore } from "@/lib/store";
 import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useT } from "@/lib/i18n";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Check } from "lucide-react";
 
 export default function CustomFieldsPage() {
-  const { customFields, addCustomField, deleteCustomField } = useStore();
+  const { customFields, categories, addCustomField, deleteCustomField } =
+    useStore();
   const { t } = useT();
   const { ask, confirmDialog } = useConfirmDialog();
   const [form, setForm] = useState({
@@ -21,12 +22,30 @@ export default function CustomFieldsPage() {
     type: "text" as any,
     required: false,
     options: "",
+    categoryIds: [] as string[],
   });
+
+  const toggleCategory = (id: string) =>
+    setForm((f) => ({
+      ...f,
+      categoryIds: f.categoryIds.includes(id)
+        ? f.categoryIds.filter((x) => x !== id)
+        : [...f.categoryIds, id],
+    }));
+
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name) return;
+    const catNames =
+      form.categoryIds.length === 0
+        ? "semua kategori"
+        : categories
+            .filter((c) => form.categoryIds.includes(c.id))
+            .map((c) => c.name)
+            .join(", ");
     ask({
       title: `Tambah custom field "${form.name}"?`,
+      description: `Field ini akan dipakai untuk: ${catNames}.`,
       confirmLabel: "Ya, Tambah",
       variant: "primary",
       action: () => {
@@ -41,18 +60,27 @@ export default function CustomFieldsPage() {
                   .map((s) => s.trim())
                   .filter(Boolean)
               : undefined,
+          categoryIds:
+            form.categoryIds.length > 0 ? form.categoryIds : undefined,
         });
-        setForm({ name: "", type: "text", required: false, options: "" });
+        setForm({
+          name: "",
+          type: "text",
+          required: false,
+          options: "",
+          categoryIds: [],
+        });
       },
     });
   };
+
   return (
     <AppShell>
       <div className="max-w-3xl mx-auto space-y-6">
         <div>
           <h1 className="text-2xl font-bold">{t("customFields")}</h1>
           <p className="text-sm text-muted-foreground">
-            Kolom metadata tambahan untuk aset
+            Kolom metadata tambahan untuk aset • bisa dibatasi per kategori
           </p>
         </div>
         <Card>
@@ -100,6 +128,53 @@ export default function CustomFieldsPage() {
                     />
                   </div>
                 )}
+
+                {/* Use for select kategori */}
+                {categories.length > 0 && (
+                  <div className="sm:col-span-2 space-y-2">
+                    <Label>Gunakan untuk Kategori</Label>
+                    <div className="flex flex-wrap gap-2 p-3 rounded-xl border bg-slate-50/50 dark:bg-slate-800/30 border-slate-200 dark:border-slate-700">
+                      {categories.map((c) => {
+                        const selected = form.categoryIds.includes(c.id);
+                        return (
+                          <button
+                            key={c.id}
+                            type="button"
+                            onClick={() => toggleCategory(c.id)}
+                            className={`px-3 py-1.5 rounded-full text-xs font-medium border-2 transition-all flex items-center gap-1.5 ${
+                              selected
+                                ? "text-white shadow"
+                                : "bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-600 hover:border-slate-400 dark:hover:border-slate-500"
+                            }`}
+                            style={
+                              selected
+                                ? {
+                                    background: c.color || "#1a365d",
+                                    borderColor: c.color || "#1a365d",
+                                  }
+                                : undefined
+                            }
+                          >
+                            <span
+                              className="h-2.5 w-2.5 rounded-full shrink-0"
+                              style={{
+                                background: c.color || "currentColor",
+                              }}
+                            />
+                            {c.name}
+                            {selected && <Check className="h-3 w-3" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Tidak memilih kategori = field berlaku untuk{" "}
+                      <b>semua kategori</b>. {form.categoryIds.length} kategori
+                      dipilih • klik untuk pilih/hapus.
+                    </p>
+                  </div>
+                )}
+
                 <div className="flex items-center gap-2 sm:col-span-2">
                   <input
                     type="checkbox"
@@ -119,35 +194,62 @@ export default function CustomFieldsPage() {
           </CardContent>
         </Card>
         <div className="grid gap-3">
-          {customFields.map((cf) => (
-            <Card key={cf.id}>
-              <CardContent className="p-4 flex items-center gap-4">
-                <div className="flex-1">
-                  <div className="font-medium">{cf.name}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {cf.type} {cf.required && "• wajib"}{" "}
-                    {cf.options && `• ${cf.options.join(", ")}`}
+          {customFields.map((cf) => {
+            const assignedCats = (cf.categoryIds || [])
+              .map((id) => categories.find((c) => c.id === id))
+              .filter(Boolean);
+            return (
+              <Card key={cf.id}>
+                <CardContent className="p-4 flex items-center gap-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium">{cf.name}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {cf.type} {cf.required && "• wajib"}{" "}
+                      {cf.options && `• ${cf.options.join(", ")}`}
+                    </div>
+                    <div className="flex flex-wrap gap-1 mt-1.5">
+                      {assignedCats.length === 0 ? (
+                        <Badge variant="secondary" className="text-[10px]">
+                          Semua kategori
+                        </Badge>
+                      ) : (
+                        assignedCats.map(
+                          (c: any) =>
+                            c && (
+                              <span
+                                key={c.id}
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold text-white"
+                                style={{ background: c.color || "#64748b" }}
+                              >
+                                {c.name}
+                              </span>
+                            )
+                        )
+                      )}
+                    </div>
                   </div>
-                </div>
-                <Badge variant="outline">{cf.type}</Badge>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() =>
-                    ask({
-                      title: "Hapus custom field?",
-                      description: `Field "${cf.name}" akan dihapus permanen dari semua aset.`,
-                      confirmLabel: "Ya, Hapus",
-                      action: () => deleteCustomField(cf.id),
-                    })
-                  }
-                  className="text-red-600"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </CardContent>
-            </Card>
-          ))}
+                  <Badge variant="outline" className="shrink-0">
+                    {cf.type}
+                  </Badge>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() =>
+                      ask({
+                        title: "Hapus custom field?",
+                        description: `Field "${cf.name}" akan dihapus permanen dari semua aset.`,
+                        confirmLabel: "Ya, Hapus",
+                        action: () => deleteCustomField(cf.id),
+                      })
+                    }
+                    className="text-red-600 shrink-0"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </CardContent>
+              </Card>
+            );
+          })}
           {customFields.length === 0 && (
             <p className="text-center text-muted-foreground py-8">
               Belum ada custom field.

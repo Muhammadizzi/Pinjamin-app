@@ -128,11 +128,34 @@ export default function NewLocationPage() {
                   }
                 >
                   <option value="">— Tidak ada (root) —</option>
-                  {locations.map((l) => (
-                    <option key={l.id} value={l.id}>
-                      {l.name}
-                    </option>
-                  ))}
+                  {(() => {
+                    // Urutkan sesuai pohon: parent dulu, anak menjorok ("└")
+                    const ids = new Set(locations.map((l) => l.id));
+                    const out: {
+                      l: (typeof locations)[number];
+                      depth: number;
+                    }[] = [];
+                    const walk = (pid: string | null, depth: number) => {
+                      locations
+                        .filter((l) =>
+                          pid === null
+                            ? !l.parentId || !ids.has(l.parentId)
+                            : l.parentId === pid
+                        )
+                        .forEach((l) => {
+                          out.push({ l, depth });
+                          walk(l.id, depth + 1);
+                        });
+                    };
+                    walk(null, 0);
+                    return out.map(({ l, depth }) => (
+                      <option key={l.id} value={l.id}>
+                        {"\u00A0\u00A0".repeat(depth)}
+                        {depth > 0 ? "└ " : ""}
+                        {l.name}
+                      </option>
+                    ));
+                  })()}
                 </Select>
                 {showParentCreate && (
                   <div className="rounded-xl border-2 border-[#CBA12C]/30 bg-amber-50 dark:bg-slate-800 p-3 space-y-2 animate-in fade-in">

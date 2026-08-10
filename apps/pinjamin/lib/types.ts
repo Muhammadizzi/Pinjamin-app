@@ -44,6 +44,8 @@ export interface CustomField {
   type: "text" | "number" | "date" | "boolean" | "option";
   required: boolean;
   options?: string[];
+  /** Kategori yang memakai field ini. Kosong/undefined = semua kategori. */
+  categoryIds?: string[];
   createdAt: string;
 }
 

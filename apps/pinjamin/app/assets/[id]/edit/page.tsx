@@ -41,6 +41,13 @@ export default function EditAssetPage() {
       </AppShell>
     );
   if (!form) return null;
+
+  // Custom field mengikuti kategori yang dipilih (tanpa kategori = semua)
+  const visibleCustomFields = customFields.filter(
+    (cf) =>
+      !cf.categoryIds?.length || cf.categoryIds.includes(form.categoryId || "")
+  );
+
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     ask({
@@ -49,7 +56,14 @@ export default function EditAssetPage() {
       confirmLabel: "Ya, Simpan",
       variant: "primary",
       action: () => {
-        updateAsset(id, { ...form });
+        // Buang nilai custom field yang tidak berlaku untuk kategori terpilih
+        const allowed = new Set(visibleCustomFields.map((cf) => cf.id));
+        const customValues = Object.fromEntries(
+          Object.entries(
+            (form.customValues || {}) as Record<string, string>
+          ).filter(([k]) => allowed.has(k))
+        );
+        updateAsset(id, { ...form, customValues });
         router.push(`/assets/${id}`);
       },
     });
@@ -202,7 +216,7 @@ export default function EditAssetPage() {
                   )}
                 </div>
               </div>
-              {customFields.length > 0 && (
+              {visibleCustomFields.length > 0 && (
                 <div>
                   <button
                     type="button"
@@ -215,15 +229,16 @@ export default function EditAssetPage() {
                     <span className="text-xs bg-[#1a365d] text-white px-2.5 py-1 rounded-full">
                       {showCustom
                         ? "Sembunyikan"
-                        : `${customFields.length} field`}
+                        : `${visibleCustomFields.length} field`}
                     </span>
                   </button>
                   {showCustom && (
                     <div className="mt-3 space-y-3 border rounded-xl p-4 bg-slate-50/30 dark:bg-slate-800/20">
                       <p className="text-xs text-muted-foreground">
-                        Semua field opsional — boleh dikosongkan.
+                        Semua field opsional — boleh dikosongkan. Field
+                        mengikuti kategori aset yang dipilih.
                       </p>
-                      {customFields.map((cf) => (
+                      {visibleCustomFields.map((cf) => (
                         <div key={cf.id} className="space-y-1">
                           <Label className="text-xs font-medium">
                             {cf.name}{" "}
