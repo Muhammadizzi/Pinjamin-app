@@ -7,6 +7,7 @@ const sizeMap = {
   md: "h-14 w-14 rounded-xl",
   lg: "h-20 w-20 rounded-2xl",
   xl: "h-28 w-28 rounded-2xl",
+  xxl: "h-36 w-36 sm:h-44 sm:w-44 rounded-2xl",
 } as const;
 
 const iconSizeMap = {
@@ -15,6 +16,7 @@ const iconSizeMap = {
   md: "h-6 w-6",
   lg: "h-8 w-8",
   xl: "h-10 w-10",
+  xxl: "h-12 w-12",
 } as const;
 
 type Props = {

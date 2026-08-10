@@ -63,6 +63,7 @@ type StoreContextType = AppData & {
   updateCategory: (id: string, patch: Partial<Category>) => void;
   deleteCategory: (id: string) => void;
   addTag: (t: Omit<Tag, "id" | "createdAt">) => void;
+  updateTag: (id: string, patch: Partial<Tag>) => void;
   deleteTag: (id: string) => void;
   addLocation: (l: Omit<Location, "id" | "createdAt">) => void;
   updateLocation: (id: string, patch: Partial<Location>) => void;
@@ -629,9 +630,19 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       if (isSupabaseConfigured()) supaInsert("tags", row);
       setData((d) => ({ ...d, tags: [row, ...d.tags] }));
     },
+    updateTag: (id, patch) => {
+      if (isSupabaseConfigured()) supaUpdate("tags", id, patch);
+      setData((d) => ({
+        ...d,
+        tags: d.tags.map((x) => (x.id === id ? { ...x, ...patch } : x)),
+      }));
+    },
     deleteTag: (id) => {
       if (isSupabaseConfigured()) supaDelete("tags", id);
-      setData((d) => ({ ...d, tags: d.tags.filter((x) => x.id !== id) }));
+      setData((d) => ({
+        ...d,
+        tags: d.tags.filter((x) => x.id !== id),
+      }));
     },
     addLocation: (l) => {
       const row = {

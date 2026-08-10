@@ -180,9 +180,17 @@ export default function EditAssetPage() {
                       }
                       className={`px-3.5 py-1.5 rounded-full text-sm font-medium border-2 transition-all ${
                         form.tagIds.includes(tItem.id)
-                          ? "bg-[#1a365d] text-white border-[#1a365d] shadow"
-                          : "bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-600 hover:border-[#1a365d]"
+                          ? "text-white shadow"
+                          : "bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-600 hover:border-slate-400 dark:hover:border-slate-500"
                       }`}
+                      style={
+                        form.tagIds.includes(tItem.id)
+                          ? {
+                              background: tItem.color || "#1a365d",
+                              borderColor: tItem.color || "#1a365d",
+                            }
+                          : undefined
+                      }
                     >
                       {tItem.name}
                     </button>

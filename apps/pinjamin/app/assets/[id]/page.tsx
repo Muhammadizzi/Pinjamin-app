@@ -18,9 +18,9 @@ import {
   MapPin,
   Tag as TagIcon,
   User,
-  DollarSign,
   Calendar,
 } from "lucide-react";
+import { AssetImage } from "@/components/ui/asset-image";
 
 export default function AssetDetailPage() {
   const params = useParams();
@@ -79,110 +79,115 @@ export default function AssetDetailPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
-            <Card className="overflow-hidden">
-              <div className="h-64 bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 flex items-center justify-center relative">
-                {asset.mainImage ? (
-                  <img
-                    src={asset.mainImage}
-                    alt={asset.name}
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <div className="text-6xl">📦</div>
-                )}
-                <Badge
-                  className="absolute top-4 right-4"
-                  variant={
-                    asset.status === "AVAILABLE"
-                      ? "success"
-                      : asset.status === "CHECKED_OUT"
-                      ? "info"
-                      : asset.status === "MAINTENANCE"
-                      ? "warning"
-                      : "secondary"
-                  }
-                >
-                  {asset.status}
-                </Badge>
-              </div>
-              <CardHeader>
-                <CardTitle className="text-xl">{asset.name}</CardTitle>
-                <p className="text-sm text-muted-foreground">
-                  {asset.description || "Tanpa deskripsi"}
-                </p>
-              </CardHeader>
-              <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <TagIcon className="h-4 w-4 text-muted-foreground" />{" "}
-                    Kategori:{" "}
-                    <span className="font-medium">{cat?.name || "-"}</span>{" "}
-                    {cat && (
-                      <span
-                        className="h-3 w-3 rounded-full inline-block"
-                        style={{ background: cat.color }}
-                      />
+            <Card>
+              <CardContent className="p-5 sm:p-6 space-y-5">
+                {/* Foto kotak rapi (bukan banner memanjang) + identitas aset */}
+                <div className="flex flex-col sm:flex-row gap-5 sm:items-center">
+                  <div className="relative shrink-0 mx-auto sm:mx-0">
+                    <AssetImage
+                      src={asset.mainImage}
+                      alt={asset.name}
+                      size="xxl"
+                    />
+                    <Badge
+                      className="absolute -top-2.5 -right-2.5 shadow"
+                      variant={
+                        asset.status === "AVAILABLE"
+                          ? "success"
+                          : asset.status === "CHECKED_OUT"
+                          ? "info"
+                          : asset.status === "MAINTENANCE"
+                          ? "warning"
+                          : "secondary"
+                      }
+                    >
+                      {asset.status}
+                    </Badge>
+                  </div>
+                  <div className="flex-1 min-w-0 space-y-2 text-center sm:text-left">
+                    <h1 className="text-xl font-bold truncate">{asset.name}</h1>
+                    <p className="text-sm text-muted-foreground line-clamp-3">
+                      {asset.description || "Tanpa deskripsi"}
+                    </p>
+                    {asset.tagIds.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 pt-1 justify-center sm:justify-start">
+                        {asset.tagIds.map((tid) => {
+                          const tg = tags.find((x) => x.id === tid);
+                          return tg ? (
+                            <span
+                              key={tid}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold text-white shadow-sm"
+                              style={{ background: tg.color || "#64748b" }}
+                            >
+                              <TagIcon className="h-3 w-3" />
+                              {tg.name}
+                            </span>
+                          ) : null;
+                        })}
+                      </div>
                     )}
                   </div>
-                  <div className="flex items-center gap-2">
-                    <MapPin className="h-4 w-4 text-muted-foreground" /> Lokasi:{" "}
-                    <span className="font-medium">{loc?.name || "-"}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <User className="h-4 w-4 text-muted-foreground" />{" "}
-                    Custodian:{" "}
-                    <span className="font-medium">{cust?.name || "-"}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-muted-foreground" />{" "}
-                    Dibuat: {formatDate(asset.createdAt)}
-                  </div>
                 </div>
-                <div className="space-y-3">
-                  <div>
-                    Model:{" "}
-                    <span className="font-medium">{model?.name || "-"}</span>
+
+                <div className="border-t pt-5 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <TagIcon className="h-4 w-4 text-muted-foreground" />{" "}
+                      Kategori:{" "}
+                      <span className="font-medium">{cat?.name || "-"}</span>{" "}
+                      {cat && (
+                        <span
+                          className="h-3 w-3 rounded-full inline-block"
+                          style={{ background: cat.color }}
+                        />
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <MapPin className="h-4 w-4 text-muted-foreground" />{" "}
+                      Lokasi:{" "}
+                      <span className="font-medium">{loc?.name || "-"}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <User className="h-4 w-4 text-muted-foreground" />{" "}
+                      Custodian:{" "}
+                      <span className="font-medium">{cust?.name || "-"}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4 text-muted-foreground" />{" "}
+                      Dibuat: {formatDate(asset.createdAt)}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <DollarSign className="h-4 w-4 text-muted-foreground" />{" "}
-                    Nilai:{" "}
-                    <span className="font-medium">
-                      Rp {asset.value?.toLocaleString("id-ID") || "-"}
-                    </span>
+                  <div className="space-y-3">
+                    <div>
+                      Model:{" "}
+                      <span className="font-medium">{model?.name || "-"}</span>
+                    </div>
+                    <div>
+                      Serial:{" "}
+                      <span className="font-mono text-xs bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded">
+                        {asset.serialNumber || "-"}
+                      </span>
+                    </div>
                   </div>
-                  <div>
-                    Serial:{" "}
-                    <span className="font-mono text-xs bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded">
-                      {asset.serialNumber || "-"}
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap gap-1">
-                    {asset.tagIds.map((tid) => {
-                      const t = tags.find((x) => x.id === tid);
-                      return t ? (
-                        <Badge key={tid} variant="secondary">
-                          {t.name}
-                        </Badge>
-                      ) : null;
-                    })}
-                  </div>
+                  {customFields.length > 0 && (
+                    <div className="sm:col-span-2 border-t pt-4 space-y-2">
+                      <div className="font-medium text-sm">Custom Fields</div>
+                      {customFields.map((cf) => (
+                        <div
+                          key={cf.id}
+                          className="flex justify-between text-sm border-b py-1"
+                        >
+                          <span className="text-muted-foreground">
+                            {cf.name}
+                          </span>
+                          <span className="font-medium">
+                            {asset.customValues[cf.id] || "-"}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
-                {customFields.length > 0 && (
-                  <div className="sm:col-span-2 border-t pt-4 space-y-2">
-                    <div className="font-medium text-sm">Custom Fields</div>
-                    {customFields.map((cf) => (
-                      <div
-                        key={cf.id}
-                        className="flex justify-between text-sm border-b py-1"
-                      >
-                        <span className="text-muted-foreground">{cf.name}</span>
-                        <span className="font-medium">
-                          {asset.customValues[cf.id] || "-"}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
               </CardContent>
             </Card>
 
