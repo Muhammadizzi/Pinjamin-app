@@ -8,20 +8,50 @@ import { Badge } from "@/components/ui/badge";
 import { useStore } from "@/lib/store";
 import { useT } from "@/lib/i18n";
 import Link from "next/link";
-import { QrCode, Camera, Keyboard, Check, Upload, ShieldAlert, Sparkles } from "lucide-react";
+import {
+  QrCode,
+  Camera,
+  Keyboard,
+  Check,
+  Upload,
+  ShieldAlert,
+  Sparkles,
+} from "lucide-react";
+
+/**
+ * Id unik untuk elemen host html5-qrcode. Elemen ini dibuat dan dihapus
+ * SEPENUHNYA oleh effect secara imperatif (bukan oleh JSX/React), sehingga
+ * React tidak pernah mencoba removeChild pada node yang sudah hilang —
+ * inilah sumber crash sebelumnya:
+ *
+ *   NotFoundError: The object can not be found here (removeChild)
+ *
+ * Bug lama: `<div id="pinjamin-qr-reader">` di-render lewat JSX, lalu
+ * cleanup effect memanggil `el.parentNode.removeChild(el)` di belakang
+ * React. Saat user pindah ke tab "Input Manual" (atau StrictMode dev
+ * me-remount effect), React reconcile menyentuh node yang sudah dihapus
+ * manual → crash. `videoRef.current.innerHTML = ""` juga menyapu overlay
+ * placeholder milik React — pola crash yang sama.
+ */
+const QR_READER_ID = "pinjamin-qr-reader";
 
 export default function ScannerPage() {
-  const { assets, kits, updateAsset } = useStore(); const { t } = useT();
+  const { assets, kits, updateAsset } = useStore();
+  const { t } = useT();
   const [mode, setMode] = useState<"scan" | "manual">("scan");
   const [manual, setManual] = useState("");
   const [result, setResult] = useState<any>(null);
   const [status, setStatus] = useState("");
   const [isSecure, setIsSecure] = useState(true);
   const [fileScanning, setFileScanning] = useState(false);
+  /**
+   * Container yang anak-anaknya dimiliki effect (html5-qrcode), BUKAN React.
+   * React hanya merender pembungkus kosong ini; overlay placeholder dipindah
+   * menjadi sibling absolute agar tidak pernah tersapu manipulasi DOM library.
+   */
+  const readerHostRef = useRef<HTMLDivElement>(null);
   const scannerRef = useRef<any>(null);
-  const videoRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const isMounted = useRef(true);
 
   const findByCode = (code: string) => {
     const a = assets.find((x) => x.qrCode === code || x.id === code);
@@ -30,6 +60,10 @@ export default function ScannerPage() {
     if (k) return { type: "kit", data: k };
     return null;
   };
+
+  // Ref agar callback decode kamera selalu memanggil handleCode versi terbaru
+  // (data assets/kits terkini) walau effect scanner hanya jalan sekali per mode.
+  const handleCodeRef = useRef<(code: string) => void>(() => {});
 
   const handleCode = (code: string) => {
     const found = findByCode(code.trim());
@@ -41,6 +75,7 @@ export default function ScannerPage() {
       setStatus(`Tidak ditemukan: ${code}`);
     }
   };
+  handleCodeRef.current = handleCode;
 
   // Check secure context
   useEffect(() => {
@@ -48,118 +83,122 @@ export default function ScannerPage() {
       const secure = window.isSecureContext;
       setIsSecure(secure);
       if (!secure) {
-        setStatus("Kamera butuh HTTPS. Gunakan localhost atau upload gambar QR.");
+        setStatus(
+          "Kamera butuh HTTPS. Gunakan localhost atau upload gambar QR."
+        );
       }
     }
   }, []);
 
   useEffect(() => {
-    isMounted.current = true;
     if (mode !== "scan") return;
     if (typeof window !== "undefined" && !window.isSecureContext) {
       // Don't auto-start on insecure
       return;
     }
+    const host = readerHostRef.current;
+    if (!host) return;
 
-    let html5QrCode: any = null;
     let cancelled = false;
+
+    // Elemen host html5-qrcode: dibuat imperatif, dimiliki effect ini.
+    // React tidak merender-nya, jadi pembuatan/penghapusan manual aman
+    // terhadap proses reconcile (fix NotFoundError removeChild).
+    const el = document.createElement("div");
+    el.id = QR_READER_ID;
+    el.style.width = "100%";
+    host.appendChild(el);
+
+    let instance: any = null;
 
     (async () => {
       try {
         const { Html5Qrcode } = await import("html5-qrcode");
-        if (cancelled || !isMounted.current || !videoRef.current) return;
-        const id = "pinjamin-qr-reader";
-        let el = document.getElementById(id);
-        if (!el) {
-          el = document.createElement("div");
-          el.id = id;
-          el.style.width = "100%";
-          if (videoRef.current) {
-            videoRef.current.innerHTML = "";
-            videoRef.current.appendChild(el);
-          }
-        }
-        html5QrCode = new Html5Qrcode(id);
-        scannerRef.current = html5QrCode;
-        await html5QrCode.start(
+        if (cancelled) return;
+        instance = new Html5Qrcode(QR_READER_ID);
+        scannerRef.current = instance;
+        await instance.start(
           { facingMode: "environment" },
           { fps: 10, qrbox: { width: 250, height: 250 } },
           (decoded: string) => {
-            if (isMounted.current) handleCode(decoded);
+            handleCodeRef.current(decoded);
           },
           () => {}
         );
-        if (isMounted.current) setStatus("Kamera aktif — arahkan ke QR");
+        if (cancelled) {
+          // User pindah tab/unmount saat kamera masih starting:
+          // hentikan segera agar stream tidak bocor.
+          try {
+            await instance.stop();
+            instance.clear();
+          } catch {}
+          return;
+        }
+        setStatus("Kamera aktif — arahkan ke QR");
       } catch (e: any) {
-        if (isMounted.current) {
-          const msg = e?.message || String(e);
-          if (msg.includes("NotAllowedError") || msg.includes("Permission")) {
-            setStatus("Izin kamera ditolak. Aktifkan izin di browser atau gunakan Input Manual.");
-          } else if (!window.isSecureContext || msg.includes("not supported")) {
-            setStatus("Camera streaming not supported — butuh HTTPS. Gunakan Input Manual atau Upload Gambar.");
-          } else {
-            setStatus("Gagal akses kamera: " + msg + " — gunakan Input Manual.");
-          }
+        if (cancelled) return;
+        const msg = e?.message || String(e);
+        if (msg.includes("NotAllowedError") || msg.includes("Permission")) {
+          setStatus(
+            "Izin kamera ditolak. Aktifkan izin di browser atau gunakan Input Manual."
+          );
+        } else if (!window.isSecureContext || msg.includes("not supported")) {
+          setStatus(
+            "Camera streaming not supported — butuh HTTPS. Gunakan Input Manual atau Upload Gambar."
+          );
+        } else {
+          setStatus("Gagal akses kamera: " + msg + " — gunakan Input Manual.");
         }
       }
     })();
 
     return () => {
       cancelled = true;
-      isMounted.current = false;
-      const instance = scannerRef.current;
+      const inst = instance;
+      instance = null;
       scannerRef.current = null;
-      if (instance) {
+      // Hanya instance + elemen milik effect ini yang disentuh — tidak ada
+      // removeChild pada node yang di-render React.
+      (async () => {
+        if (inst) {
+          try {
+            const state =
+              typeof inst.getState === "function" ? inst.getState() : null;
+            if (state === 2 || state === 3) {
+              await inst.stop();
+            }
+          } catch {}
+          try {
+            inst.clear();
+          } catch {}
+        }
+        // el dimiliki effect ini (bukan node React). `.remove()` pada node
+        // tanpa parent adalah no-op — aman saat host sudah di-unmount React.
         try {
-          const state = typeof instance.getState === "function" ? instance.getState() : null;
-          if (state === 2 || state === 3) {
-            const p = instance.stop();
-            if (p && typeof p.catch === "function") p.catch(() => {});
-          }
+          el.remove();
         } catch {}
-        try {
-          instance.clear();
-        } catch {}
-      }
-      const el = document.getElementById("pinjamin-qr-reader");
-      if (el && el.parentNode) {
-        try {
-          el.parentNode.removeChild(el);
-        } catch {}
-      }
+      })();
     };
   }, [mode]);
-
-  useEffect(() => {
-    return () => {
-      isMounted.current = false;
-    };
-  }, []);
 
   const handleFileScan = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setFileScanning(true);
     setStatus("Memproses gambar...");
+    // Temporary off-DOM host khusus scanFile — dibuat & dihapus imperatif,
+    // tidak beririsan dengan tree React.
+    const tempId = "pinjamin-qr-reader-file";
+    const el = document.createElement("div");
+    el.id = tempId;
+    el.style.display = "none";
+    document.body.appendChild(el);
     try {
       const { Html5Qrcode } = await import("html5-qrcode");
-      // Need a temporary instance for scanFile
-      const tempId = "pinjamin-qr-reader-file";
-      let el = document.getElementById(tempId);
-      if (!el) {
-        el = document.createElement("div");
-        el.id = tempId;
-        el.style.display = "none";
-        document.body.appendChild(el);
-      }
       const tmp = new Html5Qrcode(tempId);
       const decoded = await tmp.scanFile(file, true);
-      // cleanup temp
       try {
         tmp.clear();
-      } catch {}
-      try {
-        el.remove();
       } catch {}
       handleCode(decoded);
       setStatus(`QR dari file: ${decoded}`);
@@ -167,33 +206,53 @@ export default function ScannerPage() {
       setStatus("Gagal baca QR dari gambar. Pastikan QR jelas dan coba lagi.");
       console.warn(err);
     } finally {
+      // Selalu bersihkan host temporer (sebelumnya bocor saat error).
+      try {
+        el.remove();
+      } catch {}
       setFileScanning(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
-  const isCameraError = status.includes("not supported") || status.includes("HTTPS") || status.includes("not supported by the browser");
+  const isCameraError =
+    status.includes("not supported") ||
+    status.includes("HTTPS") ||
+    status.includes("not supported by the browser");
 
   return (
     <AppShell>
       <div className="max-w-2xl mx-auto space-y-6">
         <div>
-          <h1 className="text-2xl font-extrabold tracking-tight">{t("scanner")}</h1>
-          <p className="text-sm text-muted-foreground">Scan cepat dengan kamera, upload gambar, atau input manual — semua jalan</p>
+          <h1 className="text-2xl font-extrabold tracking-tight">
+            {t("scanner")}
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Scan cepat dengan kamera, upload gambar, atau input manual — semua
+            jalan
+          </p>
         </div>
 
         <div className="grid grid-cols-2 gap-2 p-1 rounded-2xl bg-slate-100 dark:bg-slate-800">
           <Button
             variant={mode === "scan" ? "default" : "ghost"}
             onClick={() => setMode("scan")}
-            className={`rounded-xl h-11 font-semibold ${mode === "scan" ? "bg-[#123367] dark:bg-amber-400 dark:text-[#0a2240] text-white shadow" : ""}`}
+            className={`rounded-xl h-11 font-semibold ${
+              mode === "scan"
+                ? "bg-[#123367] dark:bg-amber-400 dark:text-[#0a2240] text-white shadow"
+                : ""
+            }`}
           >
             <Camera className="h-4 w-4" /> Scan Kamera
           </Button>
           <Button
             variant={mode === "manual" ? "default" : "ghost"}
             onClick={() => setMode("manual")}
-            className={`rounded-xl h-11 font-semibold ${mode === "manual" ? "bg-[#123367] dark:bg-amber-400 dark:text-[#0a2240] text-white shadow" : ""}`}
+            className={`rounded-xl h-11 font-semibold ${
+              mode === "manual"
+                ? "bg-[#123367] dark:bg-amber-400 dark:text-[#0a2240] text-white shadow"
+                : ""
+            }`}
           >
             <Keyboard className="h-4 w-4" /> Input Manual
           </Button>
@@ -203,11 +262,23 @@ export default function ScannerPage() {
           <div className="rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 p-4 flex gap-3">
             <ShieldAlert className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
             <div className="text-sm">
-              <div className="font-semibold text-amber-900 dark:text-amber-200">Mode tidak aman (Not Secure)</div>
+              <div className="font-semibold text-amber-900 dark:text-amber-200">
+                Mode tidak aman (Not Secure)
+              </div>
               <div className="text-amber-800 dark:text-amber-300 text-xs leading-relaxed">
-                Browser blokir kamera di <code className="bg-white dark:bg-slate-900 px-1 rounded">http://0.0.0.0:5003</code>. Buka via{" "}
-                <code className="bg-white dark:bg-slate-900 px-1 rounded">http://localhost:5003</code> atau{" "}
-                <code className="bg-white dark:bg-slate-900 px-1 rounded">https://…e2b.app</code> untuk kamera, atau pakai <b>Upload Gambar QR</b> di bawah.
+                Browser blokir kamera di{" "}
+                <code className="bg-white dark:bg-slate-900 px-1 rounded">
+                  http://0.0.0.0:5003
+                </code>
+                . Buka via{" "}
+                <code className="bg-white dark:bg-slate-900 px-1 rounded">
+                  http://localhost:5003
+                </code>{" "}
+                atau{" "}
+                <code className="bg-white dark:bg-slate-900 px-1 rounded">
+                  https://…e2b.app
+                </code>{" "}
+                untuk kamera, atau pakai <b>Upload Gambar QR</b> di bawah.
               </div>
             </div>
           </div>
@@ -228,25 +299,42 @@ export default function ScannerPage() {
           <CardContent className="space-y-4">
             {mode === "scan" ? (
               <div className="space-y-3">
-                <div
-                  ref={videoRef}
-                  className="rounded-2xl overflow-hidden bg-gradient-to-br from-slate-900 to-black aspect-[4/3] flex items-center justify-center border shadow-inner relative"
-                >
-                  <div id="pinjamin-qr-reader" className="w-full" />
-                  {/* Placeholder when not scanning */}
-                  <div className="absolute inset-0 flex flex-col items-center justify-center text-white/70 pointer-events-none" style={{ display: isCameraError || !isSecure ? "flex" : "none" }}>
+                <div className="relative">
+                  {/*
+                    Host kamera: React HANYA merender pembungkus kosong ini.
+                    Anak (elemen #pinjamin-qr-reader + video/canvas library)
+                    dibuat & dihapus imperatif oleh effect — jangan pernah
+                    merender anak React di dalamnya.
+                  */}
+                  <div
+                    ref={readerHostRef}
+                    className="rounded-2xl overflow-hidden bg-gradient-to-br from-slate-900 to-black aspect-[4/3] w-full border shadow-inner"
+                  />
+                  {/* Placeholder when not scanning (sibling sibling, murni React) */}
+                  <div
+                    className="absolute inset-0 flex flex-col items-center justify-center text-white/70 pointer-events-none rounded-2xl"
+                    style={{
+                      display: isCameraError || !isSecure ? "flex" : "none",
+                    }}
+                  >
                     <div className="h-16 w-16 rounded-2xl bg-white/10 backdrop-blur border border-white/20 flex items-center justify-center mb-3">
                       <Camera className="h-8 w-8" />
                     </div>
-                    <div className="text-sm font-medium">Kamera tidak tersedia di sini</div>
-                    <div className="text-xs text-white/50">Upload gambar QR di bawah</div>
+                    <div className="text-sm font-medium">
+                      Kamera tidak tersedia di sini
+                    </div>
+                    <div className="text-xs text-white/50">
+                      Upload gambar QR di bawah
+                    </div>
                   </div>
                 </div>
 
                 {/* Single status - no duplicate */}
                 <div
                   className={`text-xs text-center rounded-full py-2.5 px-4 border ${
-                    isCameraError ? "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-900 text-amber-800 dark:text-amber-200" : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-muted-foreground"
+                    isCameraError
+                      ? "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-900 text-amber-800 dark:text-amber-200"
+                      : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-muted-foreground"
                   }`}
                 >
                   {status || "Menunggu kamera..."}
@@ -258,18 +346,34 @@ export default function ScannerPage() {
                     <div className="w-full border-t border-slate-200 dark:border-slate-700" />
                   </div>
                   <div className="relative flex justify-center">
-                    <span className="bg-white dark:bg-slate-900 px-3 text-xs text-muted-foreground">atau</span>
+                    <span className="bg-white dark:bg-slate-900 px-3 text-xs text-muted-foreground">
+                      atau
+                    </span>
                   </div>
                 </div>
 
                 <label className="flex flex-col items-center gap-2 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/30 p-4 cursor-pointer hover:bg-white dark:hover:bg-slate-800 transition-colors">
-                  <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileScan} />
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleFileScan}
+                  />
                   <div className="h-10 w-10 rounded-xl bg-[#123367] dark:bg-amber-400 text-white dark:text-[#0a2240] flex items-center justify-center">
-                    {fileScanning ? <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Upload className="h-5 w-5" />}
+                    {fileScanning ? (
+                      <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <Upload className="h-5 w-5" />
+                    )}
                   </div>
                   <div className="text-center">
-                    <div className="text-sm font-semibold">{fileScanning ? "Memproses..." : "Upload Gambar QR"}</div>
-                    <div className="text-xs text-muted-foreground">Pilih foto QR dari galeri — jalan tanpa kamera</div>
+                    <div className="text-sm font-semibold">
+                      {fileScanning ? "Memproses..." : "Upload Gambar QR"}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      Pilih foto QR dari galeri — jalan tanpa kamera
+                    </div>
                   </div>
                 </label>
               </div>
@@ -292,14 +396,19 @@ export default function ScannerPage() {
                     Cari
                   </Button>
                 </div>
-                <p className="text-xs text-muted-foreground text-center">Contoh: PIN-MBP001A, PIN-PRJ002B, KIT-001 • Tekan Enter untuk cari</p>
+                <p className="text-xs text-muted-foreground text-center">
+                  Contoh: PIN-MBP001A, PIN-PRJ002B, KIT-001 • Tekan Enter untuk
+                  cari
+                </p>
 
                 <div className="relative">
                   <div className="absolute inset-0 flex items-center">
                     <div className="w-full border-t border-slate-200 dark:border-slate-700" />
                   </div>
                   <div className="relative flex justify-center">
-                    <span className="bg-white dark:bg-slate-900 px-3 text-xs text-muted-foreground">atau</span>
+                    <span className="bg-white dark:bg-slate-900 px-3 text-xs text-muted-foreground">
+                      atau
+                    </span>
                   </div>
                 </div>
 
@@ -309,10 +418,24 @@ export default function ScannerPage() {
                   </div>
                   <div className="flex-1">
                     <div className="text-sm font-medium">Upload Gambar QR</div>
-                    <div className="text-xs text-muted-foreground">Foto QR dari kamera galeri</div>
+                    <div className="text-xs text-muted-foreground">
+                      Foto QR dari kamera galeri
+                    </div>
                   </div>
-                  <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileScan} />
-                  <Button type="button" variant="outline" size="sm" className="rounded-lg" onClick={() => fileInputRef.current?.click()}>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleFileScan}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="rounded-lg"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
                     Pilih File
                   </Button>
                 </label>
@@ -322,54 +445,87 @@ export default function ScannerPage() {
             {result && (
               <div className="rounded-2xl border bg-gradient-to-br from-white to-slate-50 dark:from-slate-800 dark:to-slate-900 p-4 space-y-3 shadow-lg backdrop-blur">
                 <div className="flex items-center gap-2">
-                  <Badge variant="info" className="bg-[#123367] text-white dark:bg-amber-400 dark:text-[#0a2240]">
+                  <Badge
+                    variant="info"
+                    className="bg-[#123367] text-white dark:bg-amber-400 dark:text-[#0a2240]"
+                  >
                     {result.type.toUpperCase()}
                   </Badge>
                   <span className="font-semibold">{result.data.name}</span>
                   <span className="ml-auto h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
                 </div>
-                <div className="text-sm text-muted-foreground">{result.data.description || "-"}</div>
+                <div className="text-sm text-muted-foreground">
+                  {result.data.description || "-"}
+                </div>
                 {result.type === "asset" && (
                   <div className="grid grid-cols-2 gap-2 text-xs">
                     <div className="bg-white dark:bg-slate-900 rounded-xl p-3 border shadow-sm">
-                      <div className="text-muted-foreground text-[11px] tracking-wide uppercase">QR</div>
-                      <div className="font-mono font-bold">{result.data.qrCode}</div>
+                      <div className="text-muted-foreground text-[11px] tracking-wide uppercase">
+                        QR
+                      </div>
+                      <div className="font-mono font-bold">
+                        {result.data.qrCode}
+                      </div>
                     </div>
                     <div className="bg-white dark:bg-slate-900 rounded-xl p-3 border shadow-sm">
-                      <div className="text-muted-foreground text-[11px] tracking-wide uppercase">Status</div>
-                      <Badge variant={result.data.status === "AVAILABLE" ? "success" : "info"}>{result.data.status}</Badge>
+                      <div className="text-muted-foreground text-[11px] tracking-wide uppercase">
+                        Status
+                      </div>
+                      <Badge
+                        variant={
+                          result.data.status === "AVAILABLE"
+                            ? "success"
+                            : "info"
+                        }
+                      >
+                        {result.data.status}
+                      </Badge>
                     </div>
                   </div>
                 )}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  <Link href={result.type === "asset" ? `/assets/${result.data.id}` : `/kits/${result.data.id}`}>
-                    <Button className="w-full rounded-xl bg-[#123367] hover:bg-[#1a3d6d] text-white" size="sm">
+                  <Link
+                    href={
+                      result.type === "asset"
+                        ? `/assets/${result.data.id}`
+                        : `/kits/${result.data.id}`
+                    }
+                  >
+                    <Button
+                      className="w-full rounded-xl bg-[#123367] hover:bg-[#1a3d6d] text-white"
+                      size="sm"
+                    >
                       Lihat Detail
                     </Button>
                   </Link>
                   {result.type === "asset" && (
                     <Link href={`/bookings/new`}>
-                      <Button variant="outline" className="w-full rounded-xl" size="sm">
+                      <Button
+                        variant="outline"
+                        className="w-full rounded-xl"
+                        size="sm"
+                      >
                         Pinjamkan
                       </Button>
                     </Link>
                   )}
-                  {result.type === "asset" && result.data.status === "CHECKED_OUT" && (
-                    <Button
-                      variant="secondary"
-                      className="w-full rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-900 dark:bg-amber-900 dark:text-amber-100"
-                      size="sm"
-                      onClick={() => {
-                        updateAsset(result.data.id, {
-                          status: "AVAILABLE",
-                          custodianId: null,
-                        });
-                        setStatus("Aset ditandai kembali (AVAILABLE)");
-                      }}
-                    >
-                      <Check className="h-4 w-4" /> Kembalikan
-                    </Button>
-                  )}
+                  {result.type === "asset" &&
+                    result.data.status === "CHECKED_OUT" && (
+                      <Button
+                        variant="secondary"
+                        className="w-full rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-900 dark:bg-amber-900 dark:text-amber-100"
+                        size="sm"
+                        onClick={() => {
+                          updateAsset(result.data.id, {
+                            status: "AVAILABLE",
+                            custodianId: null,
+                          });
+                          setStatus("Aset ditandai kembali (AVAILABLE)");
+                        }}
+                      >
+                        <Check className="h-4 w-4" /> Kembalikan
+                      </Button>
+                    )}
                 </div>
               </div>
             )}
@@ -383,7 +539,9 @@ export default function ScannerPage() {
                 <QrCode className="h-4 w-4" />
               </div>
               Aset Terbaru
-              <span className="text-xs font-normal text-muted-foreground">tap untuk simulasi</span>
+              <span className="text-xs font-normal text-muted-foreground">
+                tap untuk simulasi
+              </span>
             </CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -393,7 +551,9 @@ export default function ScannerPage() {
                 onClick={() => handleCode(a.qrCode)}
                 className="group border rounded-xl p-3 text-left hover:bg-white dark:hover:bg-slate-800 bg-white/50 dark:bg-slate-800/30 backdrop-blur transition-all hover:shadow-md hover:scale-[1.02] hover:border-[#123367]/20"
               >
-                <div className="font-medium text-sm truncate group-hover:text-[#123367] dark:group-hover:text-amber-200">{a.name}</div>
+                <div className="font-medium text-sm truncate group-hover:text-[#123367] dark:group-hover:text-amber-200">
+                  {a.name}
+                </div>
                 <div className="text-xs font-mono text-muted-foreground flex items-center gap-1">
                   <QrCode className="h-3 w-3" />
                   {a.qrCode}
