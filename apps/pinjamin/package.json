@@ -1,0 +1,48 @@
+{
+  "name": "@pinjamin/web",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -H 0.0.0.0 -p 5003",
+    "dev:http": "next dev -H 0.0.0.0 -p 5003",
+    "dev:https": "next dev --experimental-https -H 0.0.0.0 -p 5003",
+    "build": "next build",
+    "start": "next start -H 0.0.0.0 -p 5003",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.112.1",
+    "animejs": "^4.5.0",
+    "bcryptjs": "^2.4.3",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "date-fns": "^4.1.0",
+    "html5-qrcode": "^2.3.8",
+    "jsonwebtoken": "^9.0.2",
+    "jspdf": "^3.0.1",
+    "lucide-react": "^0.468.0",
+    "next": "16.3.0",
+    "next-themes": "^0.4.4",
+    "papaparse": "^5.4.1",
+    "qrcode.react": "^4.2.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "tailwind-merge": "^2.5.4",
+    "xlsx": "^0.18.5",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/jsonwebtoken": "^9.0.7",
+    "@types/node": "^20.19.0",
+    "@types/papaparse": "^5.3.15",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.0.0",
+    "eslint": "^9.0.0",
+    "eslint-config-next": "16.3.0",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^5.9.0"
+  },
+  "packageManager": "pnpm@9.15.9"
+}
