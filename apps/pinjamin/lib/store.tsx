@@ -1,14 +1,35 @@
 "use client";
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { seedData } from "./seed";
-import type { AppData, Asset, Booking, BookingStatus, Category, Tag, Location, CustomField, AssetModel, Custodian, Kit, Audit } from "./types";
+import type {
+  AppData,
+  Asset,
+  Booking,
+  BookingStatus,
+  Category,
+  Tag,
+  Location,
+  CustomField,
+  AssetModel,
+  Custodian,
+  Kit,
+  Audit,
+} from "./types";
 import { generateId, generateQRCode } from "./utils";
 import { getSupabase, isSupabaseConfigured } from "./supabase";
 
 const STORAGE_KEY = "pinjamin_data_v2_clean";
 
 type StoreContextType = AppData & {
-  addAsset: (a: Omit<Asset, "id" | "qrCode" | "createdAt" | "updatedAt" | "notes">) => void;
+  addAsset: (
+    a: Omit<Asset, "id" | "qrCode" | "createdAt" | "updatedAt" | "notes">
+  ) => void;
   updateAsset: (id: string, patch: Partial<Asset>) => void;
   deleteAsset: (id: string) => void;
   addCategory: (c: Omit<Category, "id" | "createdAt">) => void;
@@ -28,11 +49,26 @@ type StoreContextType = AppData & {
   deleteCustodian: (id: string) => void;
   addKit: (k: Omit<Kit, "id" | "qrCode" | "createdAt">) => void;
   deleteKit: (id: string) => void;
-  addBooking: (b: Omit<Booking, "id" | "createdAt" | "history" | "status" | "createdBy"> & { status?: BookingStatus }) => { ok: boolean; error?: string; id?: string };
-  updateBookingStatus: (id: string, status: BookingStatus, extra?: Partial<Booking>) => void;
+  addBooking: (
+    b: Omit<
+      Booking,
+      "id" | "createdAt" | "history" | "status" | "createdBy"
+    > & { status?: BookingStatus }
+  ) => { ok: boolean; error?: string; id?: string };
+  updateBookingStatus: (
+    id: string,
+    status: BookingStatus,
+    extra?: Partial<Booking>
+  ) => void;
   deleteBooking: (id: string) => void;
-  addAudit: (a: Omit<Audit, "id" | "createdAt" | "items"> & { assetIds: string[] }) => void;
-  updateAuditItem: (auditId: string, assetId: string, patch: Partial<import("./types").AuditItem>) => void;
+  addAudit: (
+    a: Omit<Audit, "id" | "createdAt" | "items"> & { assetIds: string[] }
+  ) => void;
+  updateAuditItem: (
+    auditId: string,
+    assetId: string,
+    patch: Partial<import("./types").AuditItem>
+  ) => void;
   completeAudit: (id: string) => void;
   deleteAudit: (id: string) => void;
   resetData: () => void;
@@ -43,8 +79,10 @@ type StoreContextType = AppData & {
 const StoreContext = createContext<StoreContextType | null>(null);
 
 // Helpers to convert camelCase <-> snake_case for Supabase
-const toSnake = (s: string) => s.replace(/[A-Z]/g, (l) => `_${l.toLowerCase()}`);
-const toCamel = (s: string) => s.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
+const toSnake = (s: string) =>
+  s.replace(/[A-Z]/g, (l) => `_${l.toLowerCase()}`);
+const toCamel = (s: string) =>
+  s.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
 function toDbRow(obj: any): any {
   const out: any = {};
   for (const [k, v] of Object.entries(obj)) {
@@ -59,7 +97,8 @@ function fromDbRow(obj: any): any {
     out[toCamel(k)] = v;
   }
   // fix dates
-  if (out.createdAt && typeof out.createdAt === "string") out.createdAt = out.createdAt;
+  if (out.createdAt && typeof out.createdAt === "string")
+    out.createdAt = out.createdAt;
   if (out.updatedAt) out.updatedAt = out.updatedAt;
   return out;
 }
@@ -77,6 +116,51 @@ function saveToStorage(data: AppData) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 }
 
+/**
+ * Shared server store (app/api/store/route.ts) — sumber kebenaran lintas
+ * browser saat Supabase TIDAK dikonfigurasi.
+ *
+ * Sebelum ini, AppData hanya hidup di localStorage per browser: data yang
+ * dibuat di Safari tidak pernah muncul di Chrome. Sekarang client memuat
+ * dari server; browser pertama yang menemukan server kosong mengunggah
+ * data localStorage-nya (migrasi satu kali), lalu semua browser berbagi
+ * data yang sama. localStorage tetap dipakai sebagai cache offline.
+ */
+async function fetchServerStore(): Promise<AppData | null> {
+  const res = await fetch("/api/store", { cache: "no-store" });
+  if (!res.ok) throw new Error(`GET /api/store -> ${res.status}`);
+  const json = await res.json();
+  return (json?.data as AppData | undefined) ?? null;
+}
+
+async function pushServerStore(data: AppData): Promise<void> {
+  const res = await fetch("/api/store", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ data }),
+  });
+  if (!res.ok) throw new Error(`PUT /api/store -> ${res.status}`);
+}
+
+/** Ada isi nyata di salah satu koleksi? (seedData = semuanya kosong) */
+function hasAnyItems(d: AppData): boolean {
+  return Object.values(d).some((v) => Array.isArray(v) && v.length > 0);
+}
+
+/** Tandai booking yang lewat jatuh tempo sebagai OVERDUE (komputasi tampilan). */
+function normalizeOverdueBookings(d: AppData): AppData {
+  const now = new Date();
+  return {
+    ...d,
+    bookings: d.bookings.map((b) =>
+      (b.status === "ONGOING" || b.status === "RESERVED") &&
+      new Date(b.toDate) < now
+        ? { ...b, status: "OVERDUE" as BookingStatus }
+        : b
+    ),
+  };
+}
+
 // Supabase force helpers
 async function supaInsert(table: string, row: any) {
   const supa = getSupabase();
@@ -91,7 +175,8 @@ async function supaInsert(table: string, row: any) {
       } catch {}
     }
     const { error } = await supa.from(table).insert(dbRow);
-    if (error) console.warn(`[Supabase] insert ${table} failed:`, error.message);
+    if (error)
+      console.warn(`[Supabase] insert ${table} failed:`, error.message);
     else console.log(`[Supabase] inserted ${table} ${row.id}`);
   } catch (e) {
     console.warn(`[Supabase] insert ${table} exception`, e);
@@ -103,7 +188,8 @@ async function supaUpdate(table: string, id: string, patch: any) {
   try {
     const dbPatch = toDbRow(patch);
     const { error } = await supa.from(table).update(dbPatch).eq("id", id);
-    if (error) console.warn(`[Supabase] update ${table} failed:`, error.message);
+    if (error)
+      console.warn(`[Supabase] update ${table} failed:`, error.message);
   } catch (e) {
     console.warn(`[Supabase] update ${table} exception`, e);
   }
@@ -113,7 +199,8 @@ async function supaDelete(table: string, id: string) {
   if (!supa) return;
   try {
     const { error } = await supa.from(table).delete().eq("id", id);
-    if (error) console.warn(`[Supabase] delete ${table} failed:`, error.message);
+    if (error)
+      console.warn(`[Supabase] delete ${table} failed:`, error.message);
   } catch (e) {
     console.warn(`[Supabase] delete ${table} exception`, e);
   }
@@ -123,6 +210,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [data, setData] = useState<AppData>(seedData);
   const [isHydrated, setHydrated] = useState(false);
   const [isSupabase, setIsSupabase] = useState(false);
+  /**
+   * true setelah server store berhasil dihubungi saat hidrasi — mulai saat
+   * itu setiap perubahan data di-PUT ke server (debounced) supaya semua
+   * browser berbagi state yang sama. Tetap false pada mode Supabase (yang
+   * punya jalur sinkron sendiri) dan saat server tak terjangkau.
+   */
+  const serverSyncRef = useRef(false);
+  const pushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     try {
@@ -137,7 +232,18 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       (async () => {
         const supa = getSupabase()!;
         try {
-          const tables: (keyof AppData)[] = ["categories", "tags", "locations", "customFields", "assetModels", "custodians", "assets", "kits", "bookings", "audits"];
+          const tables: (keyof AppData)[] = [
+            "categories",
+            "tags",
+            "locations",
+            "customFields",
+            "assetModels",
+            "custodians",
+            "assets",
+            "kits",
+            "bookings",
+            "audits",
+          ];
           // Map JS keys to DB table names
           const tableMap: Record<string, string> = {
             categories: "categories",
@@ -155,11 +261,17 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           for (const key of tables) {
             const dbTable = tableMap[key as string] || key;
             try {
-              const { data: rows, error } = await supa.from(dbTable).select("*").limit(100);
+              const { data: rows, error } = await supa
+                .from(dbTable)
+                .select("*")
+                .limit(100);
               if (!error && rows) {
                 (results as any)[key] = rows.map(fromDbRow);
               } else if (error) {
-                console.warn(`[Supabase] fetch ${dbTable} error:`, error.message);
+                console.warn(
+                  `[Supabase] fetch ${dbTable} error:`,
+                  error.message
+                );
                 (results as any)[key] = (seedData as any)[key] || [];
               }
             } catch (e) {
@@ -171,13 +283,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           if (results.bookings) {
             const now = new Date();
             results.bookings = (results.bookings as any).map((b: any) => {
-              if ((b.status === "ONGOING" || b.status === "RESERVED") && new Date(b.toDate) < now) {
+              if (
+                (b.status === "ONGOING" || b.status === "RESERVED") &&
+                new Date(b.toDate) < now
+              ) {
                 return { ...b, status: "OVERDUE" as BookingStatus };
               }
               return b;
             });
           }
-          setData((prev) => ({ ...prev, ...results } as AppData));
+          setData((prev) => ({ ...prev, ...results }) as AppData);
         } catch (e) {
           console.warn("[Supabase] load failed, fallback to localStorage", e);
           const loaded = loadFromStorage();
@@ -187,16 +302,44 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         }
       })();
     } else {
-      const loaded = loadFromStorage();
-      const now = new Date();
-      loaded.bookings = loaded.bookings.map((b) => {
-        if ((b.status === "ONGOING" || b.status === "RESERVED") && new Date(b.toDate) < now) {
-          return { ...b, status: "OVERDUE" as BookingStatus };
+      void (async () => {
+        // Tampilkan cache lokal dengan normalisasi overdue (dipakai bila
+        // server kosong atau tak terjangkau).
+        const loaded = normalizeOverdueBookings(loadFromStorage());
+        try {
+          const serverData = await fetchServerStore();
+          // Server terjangkau → aktifkan sinkron dua arah mulai sekarang.
+          serverSyncRef.current = true;
+
+          if (serverData) {
+            // Server sudah punya data → server jadi sumber kebenaran,
+            // apa pun isi localStorage browser ini.
+            const normalized = normalizeOverdueBookings(serverData);
+            setData(normalized);
+            saveToStorage(normalized); // segarkan cache offline
+          } else {
+            // Server masih kosong → MIGRASI: browser pertama dengan data
+            // lokal (mis. Safari) mengunggahnya agar browser lain ikut
+            // memakai data yang sama.
+            setData(loaded);
+            if (hasAnyItems(loaded)) {
+              pushServerStore(loaded).catch((e) =>
+                console.warn("[store] migrasi ke server gagal", e)
+              );
+            }
+          }
+        } catch (e) {
+          // Server store tidak tersedia → kembali ke mode lokal per-browser
+          // (perilaku lama; data tidak hilang, hanya tidak tersinkron).
+          console.warn(
+            "[store] Server store tidak tersedia, memakai localStorage saja",
+            e
+          );
+          setData(loaded);
+        } finally {
+          setHydrated(true);
         }
-        return b;
-      });
-      setData(loaded);
-      setHydrated(true);
+      })();
     }
   }, []);
 
@@ -204,8 +347,28 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     if (isHydrated) saveToStorage(data);
   }, [data, isHydrated]);
 
+  // Sinkron ke server store (lintas-browser): satu PUT debounced per burst
+  // mutasi. PUT terakhir-menang — cukup untuk pemakaian single-user demo;
+  // model ini juga dipakai gerbang migrasi saat hidrasi.
+  useEffect(() => {
+    if (!isHydrated || isSupabase || !serverSyncRef.current) return;
+    if (pushTimerRef.current) clearTimeout(pushTimerRef.current);
+    pushTimerRef.current = setTimeout(() => {
+      pushServerStore(data).catch((e) =>
+        console.warn("[store] sinkron ke server gagal", e)
+      );
+    }, 400);
+    return () => {
+      if (pushTimerRef.current) clearTimeout(pushTimerRef.current);
+    };
+  }, [data, isHydrated, isSupabase]);
+
   const computedBookings = data.bookings.map((b) => {
-    if ((b.status === "ONGOING" || b.status === "RESERVED") && new Date(b.toDate) < new Date() && !b.actualReturnDate) {
+    if (
+      (b.status === "ONGOING" || b.status === "RESERVED") &&
+      new Date(b.toDate) < new Date() &&
+      !b.actualReturnDate
+    ) {
       return { ...b, status: "OVERDUE" as BookingStatus };
     }
     return b;
@@ -217,17 +380,35 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     isHydrated,
     isSupabase,
     addAsset: (a) => {
-      const newAsset = { ...a, id: generateId(), qrCode: generateQRCode(), notes: [], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } as Asset;
+      const newAsset = {
+        ...a,
+        id: generateId(),
+        qrCode: generateQRCode(),
+        notes: [],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      } as Asset;
       // Force to Supabase
       if (isSupabaseConfigured()) {
-        supaInsert("assets", { ...newAsset, tagIds: undefined, customValues: undefined, notes: undefined });
+        supaInsert("assets", {
+          ...newAsset,
+          tagIds: undefined,
+          customValues: undefined,
+          notes: undefined,
+        });
         // handle asset_tags
         if (a.tagIds?.length) {
           (async () => {
             const supa = getSupabase();
             if (!supa) return;
             for (const tagId of a.tagIds) {
-              await supa.from("asset_tags").insert({ asset_id: newAsset.id, tag_id: tagId }).then(({ error }) => error && console.warn("asset_tags insert", error.message));
+              await supa
+                .from("asset_tags")
+                .insert({ asset_id: newAsset.id, tag_id: tagId })
+                .then(
+                  ({ error }) =>
+                    error && console.warn("asset_tags insert", error.message)
+                );
             }
           })();
         }
@@ -236,27 +417,50 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     },
     updateAsset: (id, patch) => {
       if (isSupabaseConfigured()) supaUpdate("assets", id, patch);
-      setData((d) => ({ ...d, assets: d.assets.map((x) => (x.id === id ? { ...x, ...patch, updatedAt: new Date().toISOString() } : x)) }));
+      setData((d) => ({
+        ...d,
+        assets: d.assets.map((x) =>
+          x.id === id
+            ? { ...x, ...patch, updatedAt: new Date().toISOString() }
+            : x
+        ),
+      }));
     },
     deleteAsset: (id) => {
       if (isSupabaseConfigured()) supaDelete("assets", id);
       setData((d) => ({ ...d, assets: d.assets.filter((x) => x.id !== id) }));
     },
     addCategory: (c) => {
-      const row = { ...c, id: generateId(), createdAt: new Date().toISOString() } as Category;
+      const row = {
+        ...c,
+        id: generateId(),
+        createdAt: new Date().toISOString(),
+      } as Category;
       if (isSupabaseConfigured()) supaInsert("categories", row);
       setData((d) => ({ ...d, categories: [row, ...d.categories] }));
     },
     updateCategory: (id, patch) => {
       if (isSupabaseConfigured()) supaUpdate("categories", id, patch);
-      setData((d) => ({ ...d, categories: d.categories.map((x) => (x.id === id ? { ...x, ...patch } : x)) }));
+      setData((d) => ({
+        ...d,
+        categories: d.categories.map((x) =>
+          x.id === id ? { ...x, ...patch } : x
+        ),
+      }));
     },
     deleteCategory: (id) => {
       if (isSupabaseConfigured()) supaDelete("categories", id);
-      setData((d) => ({ ...d, categories: d.categories.filter((x) => x.id !== id) }));
+      setData((d) => ({
+        ...d,
+        categories: d.categories.filter((x) => x.id !== id),
+      }));
     },
     addTag: (t) => {
-      const row = { ...t, id: generateId(), createdAt: new Date().toISOString() } as Tag;
+      const row = {
+        ...t,
+        id: generateId(),
+        createdAt: new Date().toISOString(),
+      } as Tag;
       if (isSupabaseConfigured()) supaInsert("tags", row);
       setData((d) => ({ ...d, tags: [row, ...d.tags] }));
     },
@@ -265,51 +469,94 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       setData((d) => ({ ...d, tags: d.tags.filter((x) => x.id !== id) }));
     },
     addLocation: (l) => {
-      const row = { ...l, id: generateId(), createdAt: new Date().toISOString() } as Location;
+      const row = {
+        ...l,
+        id: generateId(),
+        createdAt: new Date().toISOString(),
+      } as Location;
       if (isSupabaseConfigured()) supaInsert("locations", row);
       setData((d) => ({ ...d, locations: [row, ...d.locations] }));
     },
     updateLocation: (id, patch) => {
       if (isSupabaseConfigured()) supaUpdate("locations", id, patch);
-      setData((d) => ({ ...d, locations: d.locations.map((x) => (x.id === id ? { ...x, ...patch } : x)) }));
+      setData((d) => ({
+        ...d,
+        locations: d.locations.map((x) =>
+          x.id === id ? { ...x, ...patch } : x
+        ),
+      }));
     },
     deleteLocation: (id) => {
       if (isSupabaseConfigured()) supaDelete("locations", id);
-      setData((d) => ({ ...d, locations: d.locations.filter((x) => x.id !== id) }));
+      setData((d) => ({
+        ...d,
+        locations: d.locations.filter((x) => x.id !== id),
+      }));
     },
     addCustomField: (f) => {
-      const row = { ...f, id: generateId(), createdAt: new Date().toISOString() } as CustomField;
+      const row = {
+        ...f,
+        id: generateId(),
+        createdAt: new Date().toISOString(),
+      } as CustomField;
       if (isSupabaseConfigured()) supaInsert("custom_fields", row);
       setData((d) => ({ ...d, customFields: [row, ...d.customFields] }));
     },
     deleteCustomField: (id) => {
       if (isSupabaseConfigured()) supaDelete("custom_fields", id);
-      setData((d) => ({ ...d, customFields: d.customFields.filter((x) => x.id !== id) }));
+      setData((d) => ({
+        ...d,
+        customFields: d.customFields.filter((x) => x.id !== id),
+      }));
     },
     addAssetModel: (m) => {
-      const row = { ...m, id: generateId(), createdAt: new Date().toISOString() } as AssetModel;
+      const row = {
+        ...m,
+        id: generateId(),
+        createdAt: new Date().toISOString(),
+      } as AssetModel;
       if (isSupabaseConfigured()) supaInsert("asset_models", row);
       setData((d) => ({ ...d, assetModels: [row, ...d.assetModels] }));
     },
     deleteAssetModel: (id) => {
       if (isSupabaseConfigured()) supaDelete("asset_models", id);
-      setData((d) => ({ ...d, assetModels: d.assetModels.filter((x) => x.id !== id) }));
+      setData((d) => ({
+        ...d,
+        assetModels: d.assetModels.filter((x) => x.id !== id),
+      }));
     },
     addCustodian: (c) => {
-      const row = { ...c, id: generateId(), createdAt: new Date().toISOString() } as Custodian;
+      const row = {
+        ...c,
+        id: generateId(),
+        createdAt: new Date().toISOString(),
+      } as Custodian;
       if (isSupabaseConfigured()) supaInsert("custodians", row);
       setData((d) => ({ ...d, custodians: [row, ...d.custodians] }));
     },
     updateCustodian: (id, patch) => {
       if (isSupabaseConfigured()) supaUpdate("custodians", id, patch);
-      setData((d) => ({ ...d, custodians: d.custodians.map((x) => (x.id === id ? { ...x, ...patch } : x)) }));
+      setData((d) => ({
+        ...d,
+        custodians: d.custodians.map((x) =>
+          x.id === id ? { ...x, ...patch } : x
+        ),
+      }));
     },
     deleteCustodian: (id) => {
       if (isSupabaseConfigured()) supaDelete("custodians", id);
-      setData((d) => ({ ...d, custodians: d.custodians.filter((x) => x.id !== id) }));
+      setData((d) => ({
+        ...d,
+        custodians: d.custodians.filter((x) => x.id !== id),
+      }));
     },
     addKit: (k) => {
-      const row = { ...k, id: generateId(), qrCode: "KIT-" + generateId().slice(0, 6), createdAt: new Date().toISOString() } as Kit;
+      const row = {
+        ...k,
+        id: generateId(),
+        qrCode: "KIT-" + generateId().slice(0, 6),
+        createdAt: new Date().toISOString(),
+      } as Kit;
       if (isSupabaseConfigured()) supaInsert("kits", row);
       setData((d) => ({ ...d, kits: [row, ...d.kits] }));
     },
@@ -326,15 +573,21 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         const exTo = new Date(ex.toDate);
         const overlap = newFrom <= exTo && newTo >= exFrom;
         if (!overlap) continue;
-        const intersectAssets = b.assetIds.some((aid) => ex.assetIds.includes(aid));
+        const intersectAssets = b.assetIds.some((aid) =>
+          ex.assetIds.includes(aid)
+        );
         if (intersectAssets) {
-          return { ok: false, error: `Bentrok dengan booking "${ex.name}" (${ex.id}) pada rentang tanggal yang sama.` };
+          return {
+            ok: false,
+            error: `Bentrok dengan booking "${ex.name}" (${ex.id}) pada rentang tanggal yang sama.`,
+          };
         }
       }
       const id = generateId();
       const nowIso = new Date().toISOString();
       const from = new Date(b.fromDate);
-      const status: BookingStatus = b.status || (from > new Date() ? "RESERVED" : "ONGOING");
+      const status: BookingStatus =
+        b.status || (from > new Date() ? "RESERVED" : "ONGOING");
       const booking: Booking = {
         id,
         name: b.name,
@@ -356,40 +609,82 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           const supa = getSupabase();
           if (!supa) return;
           for (const aid of b.assetIds) {
-            await supa.from("booking_assets").insert({ booking_id: id, asset_id: aid });
+            await supa
+              .from("booking_assets")
+              .insert({ booking_id: id, asset_id: aid });
           }
         })();
       }
       setData((d) => {
         let assets = d.assets;
         if (status === "ONGOING") {
-          assets = assets.map((a) => (b.assetIds.includes(a.id) ? { ...a, status: "CHECKED_OUT" as const, custodianId: b.custodianId } : a));
+          assets = assets.map((a) =>
+            b.assetIds.includes(a.id)
+              ? {
+                  ...a,
+                  status: "CHECKED_OUT" as const,
+                  custodianId: b.custodianId,
+                }
+              : a
+          );
         }
         return { ...d, assets, bookings: [booking, ...d.bookings] };
       });
       return { ok: true, id };
     },
     updateBookingStatus: (id, status, extra) => {
-      if (isSupabaseConfigured()) supaUpdate("bookings", id, { status, ...extra });
+      if (isSupabaseConfigured())
+        supaUpdate("bookings", id, { status, ...extra });
       setData((d) => {
         const bookings = d.bookings.map((bk) => {
           if (bk.id !== id) return bk;
-          const hist = [...bk.history, { status, at: new Date().toISOString(), by: "adminsystem" }];
-          return { ...bk, ...extra, status, history: hist, ...(status === "COMPLETE" ? { actualReturnDate: new Date().toISOString() } : {}) };
+          const hist = [
+            ...bk.history,
+            { status, at: new Date().toISOString(), by: "adminsystem" },
+          ];
+          return {
+            ...bk,
+            ...extra,
+            status,
+            history: hist,
+            ...(status === "COMPLETE"
+              ? { actualReturnDate: new Date().toISOString() }
+              : {}),
+          };
         });
         const target = d.bookings.find((x) => x.id === id);
         let assets = d.assets;
         if (target) {
           if (status === "COMPLETE" || status === "CANCELLED") {
-            assets = assets.map((a) => (target.assetIds.includes(a.id) ? { ...a, status: "AVAILABLE" as const, custodianId: null } : a));
+            assets = assets.map((a) =>
+              target.assetIds.includes(a.id)
+                ? { ...a, status: "AVAILABLE" as const, custodianId: null }
+                : a
+            );
             if (isSupabaseConfigured()) {
               // update assets status in supabase
-              for (const aid of target.assetIds) supaUpdate("assets", aid, { status: "AVAILABLE", custodian_id: null });
+              for (const aid of target.assetIds)
+                supaUpdate("assets", aid, {
+                  status: "AVAILABLE",
+                  custodian_id: null,
+                });
             }
           } else if (status === "ONGOING") {
-            assets = assets.map((a) => (target.assetIds.includes(a.id) ? { ...a, status: "CHECKED_OUT" as const, custodianId: target.custodianId } : a));
+            assets = assets.map((a) =>
+              target.assetIds.includes(a.id)
+                ? {
+                    ...a,
+                    status: "CHECKED_OUT" as const,
+                    custodianId: target.custodianId,
+                  }
+                : a
+            );
             if (isSupabaseConfigured()) {
-              for (const aid of target.assetIds) supaUpdate("assets", aid, { status: "CHECKED_OUT", custodian_id: target.custodianId });
+              for (const aid of target.assetIds)
+                supaUpdate("assets", aid, {
+                  status: "CHECKED_OUT",
+                  custodian_id: target.custodianId,
+                });
             }
           }
         }
@@ -398,11 +693,32 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     },
     deleteBooking: (id) => {
       if (isSupabaseConfigured()) supaDelete("bookings", id);
-      setData((d) => ({ ...d, bookings: d.bookings.filter((x) => x.id !== id) }));
+      setData((d) => ({
+        ...d,
+        bookings: d.bookings.filter((x) => x.id !== id),
+      }));
     },
     addAudit: (a) => {
-      const newAudit = { id: generateId(), name: a.name, status: "OPEN" as const, createdBy: "adminsystem", createdAt: new Date().toISOString(), items: a.assetIds.map((aid) => ({ id: generateId(), auditId: "", assetId: aid, result: null })) } as Audit;
-      if (isSupabaseConfigured()) supaInsert("audits", { id: newAudit.id, name: newAudit.name, status: newAudit.status, createdBy: newAudit.createdBy });
+      const newAudit = {
+        id: generateId(),
+        name: a.name,
+        status: "OPEN" as const,
+        createdBy: "adminsystem",
+        createdAt: new Date().toISOString(),
+        items: a.assetIds.map((aid) => ({
+          id: generateId(),
+          auditId: "",
+          assetId: aid,
+          result: null,
+        })),
+      } as Audit;
+      if (isSupabaseConfigured())
+        supaInsert("audits", {
+          id: newAudit.id,
+          name: newAudit.name,
+          status: newAudit.status,
+          createdBy: newAudit.createdBy,
+        });
       setData((d) => ({ ...d, audits: [newAudit, ...d.audits] }));
     },
     updateAuditItem: (auditId, assetId, patch) => {
@@ -411,17 +727,38 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         (async () => {
           const supa = getSupabase();
           if (!supa) return;
-          await supa.from("audit_items").update(toDbRow(patch)).eq("audit_id", auditId).eq("asset_id", assetId);
+          await supa
+            .from("audit_items")
+            .update(toDbRow(patch))
+            .eq("audit_id", auditId)
+            .eq("asset_id", assetId);
         })();
       }
       setData((d) => ({
         ...d,
-        audits: d.audits.map((aud) => (aud.id === auditId ? { ...aud, items: aud.items.map((it) => (it.assetId === assetId ? { ...it, ...patch, scannedAt: new Date().toISOString() } : it)) } : aud)),
+        audits: d.audits.map((aud) =>
+          aud.id === auditId
+            ? {
+                ...aud,
+                items: aud.items.map((it) =>
+                  it.assetId === assetId
+                    ? { ...it, ...patch, scannedAt: new Date().toISOString() }
+                    : it
+                ),
+              }
+            : aud
+        ),
       }));
     },
     completeAudit: (id) => {
-      if (isSupabaseConfigured()) supaUpdate("audits", id, { status: "COMPLETED" });
-      setData((d) => ({ ...d, audits: d.audits.map((a) => (a.id === id ? { ...a, status: "COMPLETED" as const } : a)) }));
+      if (isSupabaseConfigured())
+        supaUpdate("audits", id, { status: "COMPLETED" });
+      setData((d) => ({
+        ...d,
+        audits: d.audits.map((a) =>
+          a.id === id ? { ...a, status: "COMPLETED" as const } : a
+        ),
+      }));
     },
     deleteAudit: (id) => {
       if (isSupabaseConfigured()) supaDelete("audits", id);
@@ -432,7 +769,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       setData(seedData);
       // Also clear Supabase if configured (optional)
       if (isSupabaseConfigured()) {
-        console.log("[Supabase] reset requested - clear local only, use SQL 00-reset for DB");
+        console.log(
+          "[Supabase] reset requested - clear local only, use SQL 00-reset for DB"
+        );
       }
     },
   };
