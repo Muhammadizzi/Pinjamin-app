@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 import Papa from "papaparse";
 import { parseCsvRows } from "@/lib/csv";
+import { AssetImage } from "@/components/ui/asset-image";
 
 export default function AssetsPage() {
   const {
@@ -528,6 +529,7 @@ export default function AssetsPage() {
               <table className="w-full text-sm">
                 <thead className="bg-slate-50 dark:bg-slate-800 text-left text-xs uppercase tracking-widest text-muted-foreground">
                   <tr>
+                    <th className="px-4 py-3 w-14">Foto</th>
                     <th className="px-4 py-3">Nama</th>
                     <th className="px-4 py-3">Kategori</th>
                     <th className="px-4 py-3">Status</th>
@@ -551,6 +553,18 @@ export default function AssetsPage() {
                         key={a.id}
                         className="border-t hover:bg-slate-50 dark:hover:bg-slate-800/50"
                       >
+                        <td className="px-4 py-3">
+                          <Link
+                            href={`/assets/${a.id}`}
+                            aria-label={`Lihat ${a.name}`}
+                          >
+                            <AssetImage
+                              src={a.mainImage}
+                              alt={a.name}
+                              size="md"
+                            />
+                          </Link>
+                        </td>
                         <td className="px-4 py-3">
                           <div className="font-medium">{a.name}</div>
                           <div className="text-xs text-muted-foreground flex items-center gap-1">
@@ -610,7 +624,13 @@ export default function AssetsPage() {
               {paged.map((a) => (
                 <Card key={a.id} className="overflow-hidden">
                   <CardContent className="p-4 space-y-3">
-                    <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-3">
+                      <Link
+                        href={`/assets/${a.id}`}
+                        aria-label={`Lihat ${a.name}`}
+                      >
+                        <AssetImage src={a.mainImage} alt={a.name} size="md" />
+                      </Link>
                       <div className="flex-1 min-w-0">
                         <div className="font-semibold truncate">{a.name}</div>
                         <div className="text-xs text-muted-foreground truncate">
@@ -663,7 +683,7 @@ export default function AssetsPage() {
                 key={a.id}
                 className="overflow-hidden hover:shadow-md transition-shadow"
               >
-                <div className="h-32 bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-900 flex items-center justify-center">
+                <div className="h-32 bg-slate-100 dark:bg-slate-800 flex items-center justify-center border-b border-slate-200/70 dark:border-slate-700/70">
                   {a.mainImage ? (
                     <img
                       src={a.mainImage}
@@ -671,7 +691,7 @@ export default function AssetsPage() {
                       className="h-full w-full object-cover"
                     />
                   ) : (
-                    <PackageIconLarge />
+                    <AssetImage src={null} alt={a.name} size="lg" />
                   )}
                 </div>
                 <CardContent className="p-4 space-y-2">
@@ -760,12 +780,5 @@ function PackageIcon() {
       <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" />
       <path d="M3.3 7 12 12l8.7-5M12 22V12" />
     </svg>
-  );
-}
-function PackageIconLarge() {
-  return (
-    <div className="h-16 w-16 rounded-2xl bg-white dark:bg-slate-700 flex items-center justify-center shadow">
-      <PackageIcon />
-    </div>
   );
 }

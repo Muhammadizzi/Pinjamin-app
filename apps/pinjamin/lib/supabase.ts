@@ -6,7 +6,9 @@ function getEnv(name: string): string | undefined {
   // Support both NEXT_PUBLIC and plain (for compatibility with .env.example shelf)
   if (typeof window !== "undefined") {
     // client: only NEXT_PUBLIC is exposed
-    return (process.env as any)[`NEXT_PUBLIC_${name}`] || (process.env as any)[name];
+    return (
+      (process.env as any)[`NEXT_PUBLIC_${name}`] || (process.env as any)[name]
+    );
   }
   return (
     process.env[`NEXT_PUBLIC_${name}` as any] ||
@@ -30,7 +32,12 @@ export function getSupabase(): SupabaseClient | null {
     getEnv("SUPABASE_ANON_PUBLIC") ||
     getEnv("SUPABASE_ANON_KEY");
 
-  if (!url || !anon || url.includes("{YOUR_INSTANCE") || anon.includes("{ANON")) {
+  if (
+    !url ||
+    !anon ||
+    url.includes("{YOUR_INSTANCE") ||
+    anon.includes("{ANON")
+  ) {
     return null;
   }
   try {
@@ -46,14 +53,18 @@ export function isSupabaseConfigured(): boolean {
 }
 
 // Upload helper - tries Supabase Storage, falls back to base64 data URL
-export async function uploadImage(file: File): Promise<{ url: string; via: "supabase" | "base64" }> {
+export async function uploadImage(
+  file: File
+): Promise<{ url: string; via: "supabase" | "base64" }> {
   const supa = getSupabase();
   if (supa) {
     // 1. Try client-side storage (anon)
     try {
       const bucket = "assets";
       const ext = file.name.split(".").pop() || "jpg";
-      const path = `pinjamin/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      const path = `pinjamin/${Date.now()}-${Math.random()
+        .toString(36)
+        .slice(2, 8)}.${ext}`;
       const { error } = await supa.storage.from(bucket).upload(path, file, {
         cacheControl: "3600",
         upsert: false,
@@ -65,7 +76,10 @@ export async function uploadImage(file: File): Promise<{ url: string; via: "supa
           return { url: data.publicUrl, via: "supabase" };
         }
       } else {
-        console.warn("[Supabase] anon upload failed, try server:", error.message);
+        console.warn(
+          "[Supabase] anon upload failed, try server:",
+          error.message
+        );
         // fall through to server route
       }
     } catch (e) {
@@ -88,14 +102,59 @@ export async function uploadImage(file: File): Promise<{ url: string; via: "supa
       console.warn("[Supabase] server exception:", e);
     }
   }
-  // Fallback: base64 (works offline, no env needed)
-  const base64: string = await new Promise((resolve, reject) => {
+  // Fallback: base64 (works offline, no env needed).
+  // Kompres dulu via canvas supaya tidak memenuhi localStorage / payload sync.
+  const base64 = await fileToCompactDataUrl(file).catch(() =>
+    fileToDataUrl(file)
+  );
+  return { url: base64, via: "base64" };
+}
+
+const MAX_IMG_EDGE = 1200; // px — cukup untuk thumbnail & detail
+const JPEG_QUALITY = 0.85;
+
+/** Resize + kompres gambar ke data URL (maks 1200px; PNG tetap PNG agar transparan). */
+async function fileToCompactDataUrl(file: File): Promise<string> {
+  // GIF / SVG: jangan disentuh canvas (animasi/vector hilang) — pakai apa adanya.
+  if (file.type === "image/gif" || file.type === "image/svg+xml") {
+    return fileToDataUrl(file);
+  }
+  const srcUrl = URL.createObjectURL(file);
+  try {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const el = new Image();
+      el.onload = () => resolve(el);
+      el.onerror = reject;
+      el.src = srcUrl;
+    });
+    const { width, height } = img;
+    if (!width || !height) return fileToDataUrl(file);
+    const scale = Math.min(1, MAX_IMG_EDGE / Math.max(width, height));
+    // Gambar sudah kecil & file tidak besar: tidak perlu re-encode.
+    if (scale >= 1 && file.size <= 400 * 1024) return fileToDataUrl(file);
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(width * scale));
+    canvas.height = Math.max(1, Math.round(height * scale));
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return fileToDataUrl(file);
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    const outType = file.type === "image/png" ? "image/png" : "image/jpeg";
+    const dataUrl = canvas.toDataURL(outType, JPEG_QUALITY);
+    return dataUrl && dataUrl.startsWith("data:")
+      ? dataUrl
+      : fileToDataUrl(file);
+  } finally {
+    URL.revokeObjectURL(srcUrl);
+  }
+}
+
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result as string);
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
-  return { url: base64, via: "base64" };
 }
 
 export function isBase64Image(str?: string): boolean {
