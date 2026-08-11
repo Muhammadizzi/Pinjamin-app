@@ -9,14 +9,14 @@ export const metadata: Metadata = {
     "Sistem peminjaman aset Garuda Food — kelola aset, kit, booking, audit, dan laporan dengan QR. Single dark theme, bilingual ID/EN.",
   manifest: "/site.webmanifest",
   icons: {
-    // ?v=2 → cache-buster: /favicon.ico dilayani dengan header immutable,
-    // sehingga ikon lama nyangkut di browser walau file sudah diganti.
+    // ?v=3 → cache-buster: Safari menyimpan cache favicon sangat agresif;
+    // URL yang belum pernah dilihat memaksa browser fetch ulang ikon baru.
     icon: [
-      { url: "/favicon.ico?v=2", sizes: "any" },
-      { url: "/favicon-32x32.png?v=2", type: "image/png", sizes: "32x32" },
-      { url: "/favicon-16x16.png?v=2", type: "image/png", sizes: "16x16" },
+      { url: "/favicon-32x32.png?v=3", type: "image/png", sizes: "32x32" },
+      { url: "/favicon-16x16.png?v=3", type: "image/png", sizes: "16x16" },
+      { url: "/favicon.ico?v=3", sizes: "any" },
     ],
-    apple: "/apple-touch-icon.png?v=2",
+    apple: "/apple-touch-icon.png?v=3",
   },
 };
 
