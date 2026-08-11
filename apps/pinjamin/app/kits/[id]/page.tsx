@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { useStore } from "@/lib/store";
 import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useT } from "@/lib/i18n";
-import { downloadQrPng } from "@/lib/qr-download";
+import { downloadQrPng, printQrPng } from "@/lib/qr-download";
 import { QRCodeSVG } from "qrcode.react";
 import { AssetImage } from "@/components/ui/asset-image";
 import {
@@ -20,6 +20,8 @@ import {
   Tag as TagIcon,
   Boxes,
   Pencil,
+  Download,
+  Printer,
 } from "lucide-react";
 
 export default function KitDetailPage() {
@@ -30,6 +32,23 @@ export default function KitDetailPage() {
   const { t } = useT();
   const { ask, confirmDialog } = useConfirmDialog();
   const [downloadingQr, setDownloadingQr] = useState(false);
+  const [printingQr, setPrintingQr] = useState(false);
+
+  const printQr = async () => {
+    try {
+      setPrintingQr(true);
+      await printQrPng({
+        svgSelector: "#kit-qr svg",
+        code: kit.qrCode,
+        title: kit.name,
+      });
+    } catch (e) {
+      console.error(e);
+      alert("Gagal menyiapkan print QR. Coba lagi.");
+    } finally {
+      setPrintingQr(false);
+    }
+  };
   const kit = kits.find((k) => k.id === id) as any;
   if (!kit)
     return (
@@ -46,6 +65,7 @@ export default function KitDetailPage() {
       await downloadQrPng({
         svgSelector: "#kit-qr svg",
         code: kit.qrCode,
+        title: kit.name,
       });
     } catch (e) {
       console.error(e);
@@ -178,16 +198,20 @@ export default function KitDetailPage() {
                   <Button
                     variant="outline"
                     className="flex-1 rounded-xl text-xs"
-                    onClick={() => window.print()}
-                  >
-                    Print
-                  </Button>
-                  <Button
-                    className="flex-1 rounded-xl text-xs"
                     disabled={downloadingQr}
                     onClick={downloadQr}
                   >
-                    {downloadingQr ? "Membuat PNG..." : "Download PNG"}
+                    <Download className="h-3.5 w-3.5" />
+                    {downloadingQr ? "Membuat..." : "Download"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="flex-1 rounded-xl text-xs"
+                    disabled={printingQr}
+                    onClick={printQr}
+                  >
+                    <Printer className="h-3.5 w-3.5" />
+                    {printingQr ? "Menyiapkan..." : "Print"}
                   </Button>
                 </div>
               </CardContent>
