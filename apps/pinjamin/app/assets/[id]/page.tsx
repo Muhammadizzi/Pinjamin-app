@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { useStore } from "@/lib/store";
 import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useT } from "@/lib/i18n";
-import { formatDate } from "@/lib/utils";
+import { formatDate, contrastTextColor } from "@/lib/utils";
 import { QRCodeSVG } from "qrcode.react";
 import {
   ArrowLeft,
@@ -116,8 +116,11 @@ export default function AssetDetailPage() {
                           return tg ? (
                             <span
                               key={tid}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold text-white shadow-sm"
-                              style={{ background: tg.color || "#64748b" }}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold shadow-sm"
+                              style={{
+                                background: tg.color || "#64748b",
+                                color: contrastTextColor(tg.color || "#64748b"),
+                              }}
                             >
                               <TagIcon className="h-3 w-3" />
                               {tg.name}

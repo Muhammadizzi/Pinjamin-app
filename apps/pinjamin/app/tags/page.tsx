@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { useStore } from "@/lib/store";
 import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useT } from "@/lib/i18n";
+import { contrastTextColor } from "@/lib/utils";
 import { Plus, Trash2, Tag as TagIcon, Pipette, Check } from "lucide-react";
 
 /** Palet warna preset untuk tag (bisa juga warna custom via color picker). */
@@ -92,7 +93,10 @@ export default function TagsPage() {
                   style={{ background: c }}
                 >
                   {color === c && (
-                    <Check className="h-3.5 w-3.5 text-white drop-shadow" />
+                    <Check
+                      className="h-3.5 w-3.5 drop-shadow"
+                      style={{ color: contrastTextColor(c) }}
+                    />
                   )}
                 </button>
               ))}
@@ -104,7 +108,10 @@ export default function TagsPage() {
                 }}
               >
                 {!TAG_COLORS.includes(color) && (
-                  <Check className="h-3.5 w-3.5 text-white drop-shadow absolute" />
+                  <Check
+                    className="h-3.5 w-3.5 drop-shadow absolute"
+                    style={{ color: contrastTextColor(color) }}
+                  />
                 )}
                 <Pipette
                   className={`h-3.5 w-3.5 ${
@@ -120,8 +127,8 @@ export default function TagsPage() {
               </label>
               {/* Preview */}
               <span
-                className="ml-1 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold text-white shadow-sm"
-                style={{ background: color }}
+                className="ml-1 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold shadow-sm"
+                style={{ background: color, color: contrastTextColor(color) }}
               >
                 <TagIcon className="h-3 w-3" />
                 {name || "Preview tag"}
@@ -143,9 +150,12 @@ export default function TagsPage() {
                 <CardContent className="p-4 flex items-center gap-3">
                   <div
                     className="h-9 w-9 rounded-xl flex items-center justify-center shadow-sm"
-                    style={{ background: tagColor }}
+                    style={{
+                      background: tagColor,
+                      color: contrastTextColor(tagColor),
+                    }}
                   >
-                    <TagIcon className="h-4 w-4 text-white" />
+                    <TagIcon className="h-4 w-4" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="font-medium truncate">{tg.name}</div>

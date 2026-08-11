@@ -11,6 +11,7 @@ import { Select } from "@/components/ui/select";
 import { useStore } from "@/lib/store";
 import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useT } from "@/lib/i18n";
+import { contrastTextColor } from "@/lib/utils";
 import { ImageUpload } from "@/components/ui/image-upload";
 
 export default function EditAssetPage() {
@@ -194,7 +195,7 @@ export default function EditAssetPage() {
                       }
                       className={`px-3.5 py-1.5 rounded-full text-sm font-medium border-2 transition-all ${
                         form.tagIds.includes(tItem.id)
-                          ? "text-white shadow"
+                          ? "shadow"
                           : "bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-600 hover:border-slate-400 dark:hover:border-slate-500"
                       }`}
                       style={
@@ -202,6 +203,9 @@ export default function EditAssetPage() {
                           ? {
                               background: tItem.color || "#1a365d",
                               borderColor: tItem.color || "#1a365d",
+                              color: contrastTextColor(
+                                tItem.color || "#1a365d"
+                              ),
                             }
                           : undefined
                       }

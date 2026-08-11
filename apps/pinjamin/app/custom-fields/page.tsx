@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { useStore } from "@/lib/store";
 import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useT } from "@/lib/i18n";
+import { contrastTextColor } from "@/lib/utils";
 import { Plus, Trash2, Check } from "lucide-react";
 
 export default function CustomFieldsPage() {
@@ -169,6 +170,11 @@ export default function CustomFieldsPage() {
                       {categories.map((c) => {
                         const selected = form.categoryIds.includes(c.id);
                         const color = c.color || "#4299e1";
+                        const fg = selected ? contrastTextColor(color) : "";
+                        const overlay =
+                          fg === "#ffffff"
+                            ? "rgba(255,255,255,.25)"
+                            : "rgba(15,23,42,.12)";
                         return (
                           <button
                             key={c.id}
@@ -178,21 +184,27 @@ export default function CustomFieldsPage() {
                             title={c.name}
                             className={`flex items-center gap-2 rounded-xl border-2 px-3 py-2.5 text-left text-xs font-medium transition-all ${
                               selected
-                                ? "text-white shadow"
+                                ? "shadow"
                                 : "bg-[#12263f] text-slate-200 border-[#243a5e] hover:border-[#35507c]"
                             }`}
                             style={
                               selected
-                                ? { background: color, borderColor: color }
+                                ? {
+                                    background: color,
+                                    borderColor: color,
+                                    color: fg,
+                                  }
                                 : undefined
                             }
                           >
                             <span
                               className="h-2.5 w-2.5 rounded-full shrink-0 border"
                               style={{
-                                background: selected ? "#ffffff" : color,
+                                background: selected ? fg || color : color,
                                 borderColor: selected
-                                  ? "rgba(255,255,255,.4)"
+                                  ? fg === "#ffffff"
+                                    ? "rgba(255,255,255,.4)"
+                                    : "rgba(15,23,42,.25)"
                                   : "transparent",
                               }}
                             />
@@ -204,13 +216,16 @@ export default function CustomFieldsPage() {
                               {c.name?.trim() ? c.name : "(tanpa nama)"}
                             </span>
                             <span
-                              className={`h-4 w-4 rounded-full flex items-center justify-center shrink-0 ${
-                                selected
-                                  ? "bg-white/25"
-                                  : "border border-slate-500"
-                              }`}
+                              className="h-4 w-4 rounded-full flex items-center justify-center shrink-0"
+                              style={
+                                selected ? { background: overlay } : undefined
+                              }
                             >
-                              {selected && <Check className="h-3 w-3" />}
+                              {selected ? (
+                                <Check className="h-3 w-3" />
+                              ) : (
+                                <span className="h-4 w-4 rounded-full border border-slate-500" />
+                              )}
                             </span>
                           </button>
                         );
@@ -266,8 +281,13 @@ export default function CustomFieldsPage() {
                             c && (
                               <span
                                 key={c.id}
-                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold text-white"
-                                style={{ background: c.color || "#64748b" }}
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold"
+                                style={{
+                                  background: c.color || "#64748b",
+                                  color: contrastTextColor(
+                                    c.color || "#64748b"
+                                  ),
+                                }}
                               >
                                 {c.name}
                               </span>
