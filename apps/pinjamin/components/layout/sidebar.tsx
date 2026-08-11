@@ -151,11 +151,21 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <div className="flex h-full flex-col bg-[var(--sidebar)] text-[var(--sidebar-foreground)]">
       <div className="flex items-center gap-3 px-6 py-6 border-b border-[var(--sidebar-border)] bg-gradient-to-br from-[#1a365d] to-[#243a5e]">
-        <div className="h-11 w-11 rounded-xl bg-transparent p-0 flex items-center justify-center shrink-0">
+        <div className="relative h-11 w-11 flex items-center justify-center shrink-0">
+          {/* Efek cahaya di belakang logo: inti putih terang + halo emas,
+              supaya logo navy terangkat dari latar sidebar yang gelap */}
+          <div
+            aria-hidden="true"
+            className="absolute inset-0 scale-90 rounded-full bg-white/85 blur-[6px]"
+          />
+          <div
+            aria-hidden="true"
+            className="absolute -inset-2.5 rounded-full bg-amber-300/25 blur-[12px]"
+          />
           <img
             src="/logo-pinjamin.png"
             alt="Pinjamin"
-            className="h-full w-full object-contain drop-shadow-[0_4px_12px_rgba(0,0,0,0.4)]"
+            className="relative h-full w-full object-contain"
             style={{ background: "transparent" }}
           />
         </div>
@@ -368,15 +378,22 @@ export function TopBar({ onMenu }: { onMenu: () => void }) {
         <Menu className="h-6 w-6" strokeWidth={1.5} />
       </Button>
       <Link href="/" className="flex items-center gap-2 lg:hidden">
-        <img
-          src="/logo-pinjamin.png"
-          alt="Pinjamin"
-          className="h-7 w-auto object-contain"
-          style={{
-            background: "transparent",
-            filter: "drop-shadow(0 2px 6px rgba(0,0,0,0.3))",
-          }}
-        />
+        <span className="relative flex items-center justify-center">
+          <span
+            aria-hidden="true"
+            className="absolute h-7 w-7 rounded-full bg-white/85 blur-[5px]"
+          />
+          <span
+            aria-hidden="true"
+            className="absolute h-10 w-10 rounded-full bg-amber-300/25 blur-[10px]"
+          />
+          <img
+            src="/logo-pinjamin.png"
+            alt="Pinjamin"
+            className="relative h-7 w-auto object-contain"
+            style={{ background: "transparent" }}
+          />
+        </span>
         <span className="font-extrabold tracking-tight text-white">
           Pinjamin
         </span>
