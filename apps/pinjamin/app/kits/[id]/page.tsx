@@ -1,4 +1,5 @@
 "use client";
+import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { AppShell } from "@/components/layout/sidebar";
@@ -8,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { useStore } from "@/lib/store";
 import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useT } from "@/lib/i18n";
+import { downloadQrPng } from "@/lib/qr-download";
 import { QRCodeSVG } from "qrcode.react";
 import { AssetImage } from "@/components/ui/asset-image";
 import {
@@ -27,6 +29,7 @@ export default function KitDetailPage() {
   const { kits, assets, categories, locations, deleteKit } = useStore();
   const { t } = useT();
   const { ask, confirmDialog } = useConfirmDialog();
+  const [downloadingQr, setDownloadingQr] = useState(false);
   const kit = kits.find((k) => k.id === id) as any;
   if (!kit)
     return (
@@ -37,17 +40,19 @@ export default function KitDetailPage() {
   const cat = categories.find((c) => c.id === kit.categoryId);
   const loc = locations.find((l) => l.id === kit.locationId);
 
-  const downloadQr = () => {
-    const svg = document.querySelector("#kit-qr svg");
-    if (!svg) return;
-    const data = new XMLSerializer().serializeToString(svg);
-    const blob = new Blob([data], { type: "image/svg+xml" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${kit.qrCode}.svg`;
-    a.click();
-    URL.revokeObjectURL(url);
+  const downloadQr = async () => {
+    try {
+      setDownloadingQr(true);
+      await downloadQrPng({
+        svgSelector: "#kit-qr svg",
+        code: kit.qrCode,
+      });
+    } catch (e) {
+      console.error(e);
+      alert("Gagal membuat PNG QR. Coba lagi.");
+    } finally {
+      setDownloadingQr(false);
+    }
   };
 
   return (
@@ -179,9 +184,10 @@ export default function KitDetailPage() {
                   </Button>
                   <Button
                     className="flex-1 rounded-xl text-xs"
+                    disabled={downloadingQr}
                     onClick={downloadQr}
                   >
-                    Download
+                    {downloadingQr ? "Membuat PNG..." : "Download PNG"}
                   </Button>
                 </div>
               </CardContent>

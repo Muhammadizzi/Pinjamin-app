@@ -61,18 +61,44 @@ export default function ScannerPage() {
     return null;
   };
 
+  /**
+   * Kandidat kode dari teks hasil decode. QR yang di-download dari aplikasi
+   * berisi URL penuh (mis. "http://localhost:5003/assets/AB12?qr=PIN-XYZ"),
+   * BUKAN kode polos — tanpa diekstrak, findByCode selalu gagal ("Tidak
+   * ditemukan"). Ambil param ?qr= lalu segmen path /assets|kits/<id>.
+   */
+  const extractCodeCandidates = (raw: string): string[] => {
+    const out: string[] = [];
+    try {
+      const u = new URL(raw);
+      const qr = u.searchParams.get("qr");
+      if (qr) out.push(qr.trim());
+      const m = u.pathname.match(/\/(assets|kits)\/([^/?#]+)/);
+      if (m && m[2]) out.push(decodeURIComponent(m[2]).trim());
+    } catch {
+      /* bukan URL — pakai teks apa adanya */
+    }
+    if (!out.includes(raw)) out.push(raw);
+    return out;
+  };
+
   // Ref agar callback decode kamera selalu memanggil handleCode versi terbaru
   // (data assets/kits terkini) walau effect scanner hanya jalan sekali per mode.
   const handleCodeRef = useRef<(code: string) => void>(() => {});
 
   const handleCode = (code: string) => {
-    const found = findByCode(code.trim());
+    const raw = code.trim();
+    let found: any = null;
+    for (const candidate of extractCodeCandidates(raw)) {
+      found = findByCode(candidate);
+      if (found) break;
+    }
     if (found) {
       setResult(found);
       setStatus(`Ditemukan ${found.type}: ${found.data.name}`);
     } else {
       setResult(null);
-      setStatus(`Tidak ditemukan: ${code}`);
+      setStatus(`Tidak ditemukan: ${raw}`);
     }
   };
   handleCodeRef.current = handleCode;
@@ -196,14 +222,18 @@ export default function ScannerPage() {
     try {
       const { Html5Qrcode } = await import("html5-qrcode");
       const tmp = new Html5Qrcode(tempId);
-      const decoded = await tmp.scanFile(file, true);
+      // showImage=false — container disembunyikan, preview tak perlu dirender
+      const decoded = await tmp.scanFile(file, false);
       try {
         tmp.clear();
       } catch {}
       handleCode(decoded);
       setStatus(`QR dari file: ${decoded}`);
     } catch (err: any) {
-      setStatus("Gagal baca QR dari gambar. Pastikan QR jelas dan coba lagi.");
+      setStatus(
+        "Gagal baca QR dari gambar. Pastikan foto QR jelas & tidak blur, " +
+          "atau crop hanya bagian QR-nya lalu coba lagi."
+      );
       console.warn(err);
     } finally {
       // Selalu bersihkan host temporer (sebelumnya bocor saat error).
@@ -412,7 +442,22 @@ export default function ScannerPage() {
                   </div>
                 </div>
 
-                <label className="flex items-center gap-3 rounded-xl border bg-white dark:bg-slate-800 p-3 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+                {/* CATATAN: jangan pakai <label> + tombol ber-onClick di
+                    dalamnya — label meneruskan klik kedua ke input file
+                    (double-activation) sehingga dialog file batal terbuka
+                    di Safari. Pakai div biasa dengan satu onClick. */}
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => fileInputRef.current?.click()}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      fileInputRef.current?.click();
+                    }
+                  }}
+                  className="flex items-center gap-3 rounded-xl border bg-white dark:bg-slate-800 p-3 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                >
                   <div className="h-10 w-10 rounded-xl bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-200 flex items-center justify-center">
                     <Upload className="h-5 w-5" />
                   </div>
@@ -433,12 +478,12 @@ export default function ScannerPage() {
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="rounded-lg"
-                    onClick={() => fileInputRef.current?.click()}
+                    className="rounded-lg pointer-events-none"
+                    tabIndex={-1}
                   >
                     Pilih File
                   </Button>
-                </label>
+                </div>
               </div>
             )}
 

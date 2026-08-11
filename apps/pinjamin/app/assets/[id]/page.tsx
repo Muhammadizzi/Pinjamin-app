@@ -1,4 +1,5 @@
 "use client";
+import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { AppShell } from "@/components/layout/sidebar";
@@ -9,6 +10,7 @@ import { useStore } from "@/lib/store";
 import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useT } from "@/lib/i18n";
 import { formatDate, contrastTextColor } from "@/lib/utils";
+import { downloadQrPng } from "@/lib/qr-download";
 import { QRCodeSVG } from "qrcode.react";
 import {
   ArrowLeft,
@@ -38,6 +40,7 @@ export default function AssetDetailPage() {
   } = useStore();
   const { t } = useT();
   const { ask, confirmDialog } = useConfirmDialog();
+  const [downloadingQr, setDownloadingQr] = useState(false);
   const asset = assets.find((a) => a.id === id);
   if (!asset)
     return (
@@ -267,19 +270,23 @@ export default function AssetDetailPage() {
                   </Button>
                   <Button
                     className="flex-1 rounded-xl text-xs"
-                    onClick={() => {
-                      const svg = document.querySelector("#asset-qr svg");
-                      if (!svg) return;
-                      const data = new XMLSerializer().serializeToString(svg);
-                      const blob = new Blob([data], { type: "image/svg+xml" });
-                      const url = URL.createObjectURL(blob);
-                      const a = document.createElement("a");
-                      a.href = url;
-                      a.download = `${asset.qrCode}.svg`;
-                      a.click();
+                    disabled={downloadingQr}
+                    onClick={async () => {
+                      try {
+                        setDownloadingQr(true);
+                        await downloadQrPng({
+                          svgSelector: "#asset-qr svg",
+                          code: asset.qrCode,
+                        });
+                      } catch (e) {
+                        console.error(e);
+                        alert("Gagal membuat PNG QR. Coba lagi.");
+                      } finally {
+                        setDownloadingQr(false);
+                      }
                     }}
                   >
-                    Download
+                    {downloadingQr ? "Membuat PNG..." : "Download PNG"}
                   </Button>
                 </div>
               </CardContent>
