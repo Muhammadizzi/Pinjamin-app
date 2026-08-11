@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { LanguageToggle } from "@/components/language-toggle";
@@ -24,18 +24,106 @@ import {
   X,
   LogOut,
   ChevronDown,
+  UserCog,
 } from "lucide-react";
+
+interface AdminProfileInfo {
+  username: string;
+  fullName: string;
+  avatar: string;
+}
+
+/**
+ * Profil admin (nama, username, foto) untuk ditampilkan di sidebar/topbar.
+ * Diambil dari server; langsung ikut berubah saat Account Settings menyimpan
+ * (event `pinjamin:profile`), tanpa perlu refresh halaman.
+ */
+function useAdminProfile(): AdminProfileInfo {
+  const [profile, setProfile] = useState<AdminProfileInfo>({
+    username: "adminsystem",
+    fullName: "Administrator",
+    avatar: "",
+  });
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/auth/me")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (alive && j?.profile) setProfile(j.profile);
+      })
+      .catch(() => {});
+    const onUpdated = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail) setProfile((p) => ({ ...p, ...detail }));
+    };
+    window.addEventListener("pinjamin:profile", onUpdated);
+    return () => {
+      alive = false;
+      window.removeEventListener("pinjamin:profile", onUpdated);
+    };
+  }, []);
+  return profile;
+}
+
+/** Lingkaran avatar admin — foto kalau ada, fallback huruf pertama nama. */
+function AdminAvatar({
+  profile,
+  className,
+}: {
+  profile: AdminProfileInfo;
+  className?: string;
+}) {
+  const initial = (profile.fullName || profile.username || "A")
+    .trim()
+    .charAt(0)
+    .toUpperCase();
+  return (
+    <div
+      className={cn(
+        "rounded-full overflow-hidden bg-[#CBA12C] text-[#1a365d] flex items-center justify-center font-extrabold shrink-0",
+        className
+      )}
+    >
+      {profile.avatar ? (
+        <img
+          src={profile.avatar}
+          alt={profile.fullName || profile.username}
+          className="h-full w-full object-cover"
+        />
+      ) : (
+        initial
+      )}
+    </div>
+  );
+}
 
 export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const router = useRouter();
   const { t } = useT();
   const { assets } = useStore();
+  const profile = useAdminProfile();
   const [bookingsOpen, setBookingsOpen] = useState(
     pathname.startsWith("/bookings")
   );
+  const [acctOpen, setAcctOpen] = useState(false);
+  const acctRef = useRef<HTMLDivElement>(null);
+
+  // Tutup popover saat klik di luar / berpindah halaman
+  useEffect(() => {
+    if (!acctOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (acctRef.current && !acctRef.current.contains(e.target as Node)) {
+        setAcctOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [acctOpen]);
+  useEffect(() => setAcctOpen(false), [pathname]);
 
   const handleLogout = async () => {
+    setAcctOpen(false);
     await fetch("/api/auth/logout", { method: "POST" });
     router.push("/login");
     router.refresh();
@@ -207,28 +295,59 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
         </div>
       </div>
 
-      <div className="border-t border-[var(--sidebar-border)] p-4 bg-[#142a4a]">
-        <div className="flex items-center gap-3 rounded-xl bg-[#1e3250] border border-[#2a4a6b] p-3">
-          <div className="h-9 w-9 rounded-full bg-[#CBA12C] text-[#1a365d] flex items-center justify-center text-sm font-extrabold">
-            A
+      <div
+        ref={acctRef}
+        className="relative border-t border-[var(--sidebar-border)] p-4 bg-[#142a4a]"
+      >
+        {/* Popover: klik blok administrator → Account Setting / Log Out */}
+        {acctOpen && (
+          <div className="absolute left-4 right-4 bottom-[calc(100%-0.75rem)] mb-1 rounded-xl bg-[#1e3250] border border-[#2a4a6b] shadow-2xl overflow-hidden z-30">
+            <Link
+              href="/settings"
+              onClick={() => {
+                setAcctOpen(false);
+                onNavigate?.();
+              }}
+              className="flex items-center gap-2.5 px-4 py-3 text-sm font-medium text-slate-200 hover:bg-[#243a5e] hover:text-white transition-colors"
+            >
+              <UserCog className="h-4 w-4 text-amber-300" strokeWidth={1.75} />
+              {t("accountSetting")}
+            </Link>
+            <div className="h-px bg-[#2a4a6b]" />
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="w-full flex items-center gap-2.5 px-4 py-3 text-sm font-medium text-red-300 hover:bg-[#243a5e] hover:text-red-200 transition-colors"
+            >
+              <LogOut className="h-4 w-4" strokeWidth={1.75} />
+              {t("logOut")}
+            </button>
           </div>
+        )}
+        <button
+          type="button"
+          onClick={() => setAcctOpen((o) => !o)}
+          aria-expanded={acctOpen}
+          title={`${t("accountSetting")} / ${t("logOut")}`}
+          className="w-full flex items-center gap-3 rounded-xl bg-[#1e3250] border border-[#2a4a6b] p-3 text-left hover:bg-[#243a5e] transition-colors"
+        >
+          <AdminAvatar profile={profile} className="h-9 w-9 text-sm" />
           <div className="flex-1 min-w-0">
             <div className="text-sm font-semibold text-white truncate">
-              adminsystem
+              {profile.fullName || profile.username}
             </div>
             <div className="text-xs text-amber-200/70 truncate">
-              Administrator
+              @{profile.username}
             </div>
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleLogout}
-            className="h-9 w-9 text-slate-400 hover:text-white hover:bg-[#243a5e]"
-          >
-            <LogOut className="h-4 w-4" strokeWidth={1.5} />
-          </Button>
-        </div>
+          <ChevronDown
+            className={cn(
+              "h-4 w-4 text-slate-400 transition-transform",
+              acctOpen && "rotate-180"
+            )}
+            strokeWidth={1.5}
+          />
+        </button>
       </div>
     </div>
   );
@@ -236,6 +355,8 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
 
 export function TopBar({ onMenu }: { onMenu: () => void }) {
   const router = useRouter();
+  const { t } = useT();
+  const profile = useAdminProfile();
   return (
     <header className="sticky top-0 z-20 flex h-[64px] items-center gap-3 border-b bg-[#0f1d33]/95 backdrop-blur-xl px-4 border-[#243a5e] shadow-sm">
       <Button
@@ -283,13 +404,14 @@ export function TopBar({ onMenu }: { onMenu: () => void }) {
           <QrCode className="h-5 w-5" strokeWidth={1.5} />
         </Button>
         <button
-          onClick={async () => {
-            await fetch("/api/auth/logout", { method: "POST" });
-            router.push("/login");
-          }}
-          className="h-9 w-9 rounded-full bg-[#CBA12C] text-[#1a365d] flex items-center justify-center text-sm font-extrabold shadow-md border-2 border-[#CBA12C]"
+          onClick={() => router.push("/settings")}
+          title={t("accountSetting")}
+          className="rounded-full shadow-md border-2 border-[#CBA12C]"
         >
-          A
+          <AdminAvatar
+            profile={profile}
+            className="h-[30px] w-[30px] text-sm"
+          />
         </button>
       </div>
     </header>

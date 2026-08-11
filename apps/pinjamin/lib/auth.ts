@@ -1,5 +1,7 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import fs from "node:fs";
+import path from "node:path";
 
 const JWT_SECRET =
   process.env.AUTH_SECRET || "pinjamin-dev-secret-please-change";
@@ -14,8 +16,73 @@ const attempts = new Map<string, { count: number; firstAt: number }>();
 const ADMIN_USERNAME = "adminsystem";
 const ADMIN_PASSWORD_HASH = bcrypt.hashSync("admin123", 10);
 
+/**
+ * Profil admin persisten (fullName, username, avatar, hash password) disimpan
+ * di data/admin.json — folder yang sama dengan store.json (sudah di-gitignore).
+ * File dibuat lazy saat pertama kali dibutuhkan lewat Account Settings;
+ * kalau belum ada, dipakai kredensial default di atas (adminsystem/admin123).
+ */
+const DATA_DIR =
+  process.env.PINJAMIN_DATA_DIR || path.join(process.cwd(), "data");
+const ADMIN_FILE = path.join(DATA_DIR, "admin.json");
+
+export interface AdminProfile {
+  username: string;
+  fullName: string;
+  avatar: string; // URL / data URL
+  hash: string;
+}
+
+let profileCache: AdminProfile | null = null;
+
+export function getAdminProfile(): AdminProfile {
+  if (profileCache) return profileCache;
+  try {
+    const raw = fs.readFileSync(ADMIN_FILE, "utf8");
+    const p = JSON.parse(raw);
+    if (p && typeof p.username === "string" && typeof p.hash === "string") {
+      profileCache = {
+        username: p.username,
+        fullName: typeof p.fullName === "string" ? p.fullName : "Administrator",
+        avatar: typeof p.avatar === "string" ? p.avatar : "",
+        hash: p.hash,
+      };
+      return profileCache;
+    }
+  } catch {
+    /* file belum ada / corrupt → fallback default */
+  }
+  profileCache = {
+    username: ADMIN_USERNAME,
+    fullName: "Administrator",
+    avatar: "",
+    hash: ADMIN_PASSWORD_HASH,
+  };
+  return profileCache;
+}
+
+function persistProfile(next: AdminProfile): AdminProfile {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+  const tmp = `${ADMIN_FILE}.tmp`;
+  fs.writeFileSync(tmp, JSON.stringify(next), "utf8");
+  fs.renameSync(tmp, ADMIN_FILE); // atomic agar tidak setengah-tertulis
+  profileCache = next;
+  return next;
+}
+
+export function updateAdminProfile(
+  patch: Partial<Pick<AdminProfile, "fullName" | "username" | "avatar">>
+): AdminProfile {
+  return persistProfile({ ...getAdminProfile(), ...patch });
+}
+
+export function setAdminPassword(newPlain: string): AdminProfile {
+  return persistProfile({ ...getAdminProfile(), hash: hashPassword(newPlain) });
+}
+
 export function getAdminCredentials() {
-  return { username: ADMIN_USERNAME, hash: ADMIN_PASSWORD_HASH };
+  const p = getAdminProfile();
+  return { username: p.username, hash: p.hash };
 }
 
 export function signSession(payload: { username: string }) {
@@ -63,4 +130,8 @@ export function resetRateLimit(ip: string) {
 
 export async function verifyPassword(plain: string, hash: string) {
   return bcrypt.compare(plain, hash);
+}
+
+export function hashPassword(plain: string) {
+  return bcrypt.hashSync(plain, 10);
 }

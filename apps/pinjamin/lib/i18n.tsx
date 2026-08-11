@@ -19,6 +19,11 @@ const dict = {
     bookings: "Peminjaman",
     reports: "Laporan",
     scanner: "Pemindai QR",
+    accountSetting: "Pengaturan Akun",
+    logOut: "Keluar",
+    profile: "Profil",
+    fullName: "Nama Lengkap",
+    profilePicture: "Foto Profil",
     assetManagement: "Manajemen Aset",
     operations: "Operasional",
     // Common
@@ -114,6 +119,11 @@ const dict = {
     bookings: "Bookings",
     reports: "Reports",
     scanner: "QR Scanner",
+    accountSetting: "Account Settings",
+    logOut: "Log Out",
+    profile: "Profile",
+    fullName: "Full Name",
+    profilePicture: "Profile Picture",
     assetManagement: "Asset Management",
     operations: "Operations",
     search: "Search",
@@ -195,7 +205,11 @@ const dict = {
 type Dict = typeof dict.id;
 type Key = keyof Dict;
 
-const I18nContext = createContext<{ lang: Lang; setLang: (l: Lang) => void; t: (k: Key) => string } | null>(null);
+const I18nContext = createContext<{
+  lang: Lang;
+  setLang: (l: Lang) => void;
+  t: (k: Key) => string;
+} | null>(null);
 
 export function I18nProvider({ children }: { children: React.ReactNode }) {
   const [lang, setLangState] = useState<Lang>("id");
@@ -214,7 +228,11 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     window.dispatchEvent(new CustomEvent("pinjamin:lang", { detail: l }));
   };
   const t = (k: Key) => dict[lang][k] || dict.id[k] || k;
-  return <I18nContext.Provider value={{ lang, setLang, t }}>{children}</I18nContext.Provider>;
+  return (
+    <I18nContext.Provider value={{ lang, setLang, t }}>
+      {children}
+    </I18nContext.Provider>
+  );
 }
 
 export function useT() {
