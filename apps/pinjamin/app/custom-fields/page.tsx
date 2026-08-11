@@ -168,17 +168,18 @@ export default function CustomFieldsPage() {
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                       {categories.map((c) => {
                         const selected = form.categoryIds.includes(c.id);
-                        const color = c.color || "#1a365d";
+                        const color = c.color || "#4299e1";
                         return (
                           <button
                             key={c.id}
                             type="button"
                             onClick={() => toggleCategory(c.id)}
                             aria-pressed={selected}
+                            title={c.name}
                             className={`flex items-center gap-2 rounded-xl border-2 px-3 py-2.5 text-left text-xs font-medium transition-all ${
                               selected
                                 ? "text-white shadow"
-                                : "bg-white dark:bg-slate-800/40 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600"
+                                : "bg-[#12263f] text-slate-200 border-[#243a5e] hover:border-[#35507c]"
                             }`}
                             style={
                               selected
@@ -187,21 +188,26 @@ export default function CustomFieldsPage() {
                             }
                           >
                             <span
-                              className={`h-2.5 w-2.5 rounded-full shrink-0 border ${
-                                selected
-                                  ? "bg-white/90 border-white/40"
-                                  : "border-transparent"
-                              }`}
-                              style={
-                                selected ? undefined : { background: color }
-                              }
+                              className="h-2.5 w-2.5 rounded-full shrink-0 border"
+                              style={{
+                                background: selected ? "#ffffff" : color,
+                                borderColor: selected
+                                  ? "rgba(255,255,255,.4)"
+                                  : "transparent",
+                              }}
                             />
-                            <span className="flex-1 truncate">{c.name}</span>
+                            <span
+                              className={`flex-1 truncate ${
+                                c.name?.trim() ? "" : "italic opacity-60"
+                              }`}
+                            >
+                              {c.name?.trim() ? c.name : "(tanpa nama)"}
+                            </span>
                             <span
                               className={`h-4 w-4 rounded-full flex items-center justify-center shrink-0 ${
                                 selected
                                   ? "bg-white/25"
-                                  : "border border-slate-300 dark:border-slate-600"
+                                  : "border border-slate-500"
                               }`}
                             >
                               {selected && <Check className="h-3 w-3" />}
