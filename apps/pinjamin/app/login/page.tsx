@@ -48,6 +48,9 @@ export default function LoginPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Login gagal");
+      // Beri tahu StoreProvider agar mengaktifkan sinkron server — provider
+      // tidak remount pada client-side navigation di bawah.
+      window.dispatchEvent(new Event("pinjamin:session"));
       router.push("/dashboard");
       router.refresh();
     } catch (e: any) {

@@ -1,11 +1,13 @@
 "use client";
 import React, {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useRef,
   useState,
 } from "react";
+import { usePathname } from "next/navigation";
 import { seedData } from "./seed";
 import type {
   AppData,
@@ -154,8 +156,21 @@ function saveToStorage(data: AppData) {
  * data localStorage-nya (migrasi satu kali), lalu semua browser berbagi
  * data yang sama. localStorage tetap dipakai sebagai cache offline.
  */
+/**
+ * 401 dari /api/store berarti TIDAK ada sesi login admin — ini kondisi wajar
+ * untuk halaman publik (landing/login), BUKAN kegagalan jaringan. Dibedakan
+ * supaya fallback-nya senyap dan sinkron bisa diaktifkan belakangan.
+ */
+class UnauthorizedError extends Error {
+  constructor(msg: string) {
+    super(msg);
+    this.name = "UnauthorizedError";
+  }
+}
+
 async function fetchServerStore(): Promise<AppData | null> {
   const res = await fetch("/api/store", { cache: "no-store" });
+  if (res.status === 401) throw new UnauthorizedError("GET /api/store -> 401");
   if (!res.ok) throw new Error(`GET /api/store -> ${res.status}`);
   const json = await res.json();
   return (json?.data as AppData | undefined) ?? null;
@@ -167,6 +182,7 @@ async function pushServerStore(data: AppData): Promise<void> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ data }),
   });
+  if (res.status === 401) throw new UnauthorizedError("PUT /api/store -> 401");
   if (!res.ok) throw new Error(`PUT /api/store -> ${res.status}`);
 }
 
@@ -238,6 +254,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [data, setData] = useState<AppData>(seedData);
   const [isHydrated, setHydrated] = useState(false);
   const [isSupabase, setIsSupabase] = useState(false);
+  const pathname = usePathname();
   /**
    * true setelah server store berhasil dihubungi saat hidrasi — mulai saat
    * itu setiap perubahan data di-PUT ke server (debounced) supaya semua
@@ -245,7 +262,79 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
    * punya jalur sinkron sendiri) dan saat server tak terjangkau.
    */
   const serverSyncRef = useRef(false);
+  /**
+   * true bila sinkron server TERTUNDA karena belum login (GET /api/store
+   * kena 401 di landing/login). Provider ini tidak ikut remount saat login
+   * (client-side navigation), jadi hidrasi harus diulang begitu sesi ada —
+   * lihat efek retry di bawah.
+   */
+  const authRetryRef = useRef(false);
+  const hydratingRef = useRef(false);
   const pushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  /** Nonaktifkan sinkron server & persenjatai retry setelah login. */
+  const disarmServerSync = (guestLog?: string) => {
+    if (!authRetryRef.current && guestLog) console.info(guestLog);
+    serverSyncRef.current = false;
+    authRetryRef.current = true;
+  };
+
+  /**
+   * Hidrasi dari server store — dipanggil saat mount DAN diulang setelah
+   * login sukses. Idempotent: hydratingRef mencegah panggilan tumpang-tindih.
+   */
+  const hydrateFromServer = useCallback(async () => {
+    if (isSupabaseConfigured() || hydratingRef.current) return;
+    hydratingRef.current = true;
+    // Tampilkan cache lokal dengan normalisasi overdue (dipakai bila
+    // server kosong atau tak terjangkau).
+    const loaded = normalizeOverdueBookings(loadFromStorage());
+    try {
+      const serverData = await fetchServerStore();
+      // Server terjangkau & sesi valid → aktifkan sinkron dua arah.
+      serverSyncRef.current = true;
+      authRetryRef.current = false;
+
+      if (serverData) {
+        // Server sudah punya data → server jadi sumber kebenaran,
+        // apa pun isi localStorage browser ini.
+        const normalized = normalizeOverdueBookings(serverData);
+        setData(normalized);
+        saveToStorage(normalized); // segarkan cache offline
+      } else {
+        // Server masih kosong → MIGRASI: browser pertama dengan data
+        // lokal (mis. Safari) mengunggahnya agar browser lain ikut
+        // memakai data yang sama.
+        setData(loaded);
+        if (hasAnyItems(loaded)) {
+          pushServerStore(loaded).catch((e) => {
+            if (e instanceof UnauthorizedError) disarmServerSync();
+            else console.warn("[store] migrasi ke server gagal", e);
+          });
+        }
+      }
+    } catch (e) {
+      if (e instanceof UnauthorizedError) {
+        // Mode tamu (landing/login tanpa sesi) — kondisi WAJAR, jangan
+        // berisik; sinkron otomatis aktif setelah login admin.
+        disarmServerSync(
+          "[store] Mode tamu: sinkron server otomatis aktif setelah login admin."
+        );
+      } else {
+        // Server store tidak tersedia → kembali ke mode lokal per-browser
+        // (perilaku lama; data tidak hilang, hanya tidak tersinkron).
+        console.warn(
+          "[store] Server store tidak tersedia, memakai localStorage saja",
+          e
+        );
+      }
+      setData(loaded);
+    } finally {
+      hydratingRef.current = false;
+      setHydrated(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     try {
@@ -330,46 +419,37 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         }
       })();
     } else {
-      void (async () => {
-        // Tampilkan cache lokal dengan normalisasi overdue (dipakai bila
-        // server kosong atau tak terjangkau).
-        const loaded = normalizeOverdueBookings(loadFromStorage());
-        try {
-          const serverData = await fetchServerStore();
-          // Server terjangkau → aktifkan sinkron dua arah mulai sekarang.
-          serverSyncRef.current = true;
-
-          if (serverData) {
-            // Server sudah punya data → server jadi sumber kebenaran,
-            // apa pun isi localStorage browser ini.
-            const normalized = normalizeOverdueBookings(serverData);
-            setData(normalized);
-            saveToStorage(normalized); // segarkan cache offline
-          } else {
-            // Server masih kosong → MIGRASI: browser pertama dengan data
-            // lokal (mis. Safari) mengunggahnya agar browser lain ikut
-            // memakai data yang sama.
-            setData(loaded);
-            if (hasAnyItems(loaded)) {
-              pushServerStore(loaded).catch((e) =>
-                console.warn("[store] migrasi ke server gagal", e)
-              );
-            }
-          }
-        } catch (e) {
-          // Server store tidak tersedia → kembali ke mode lokal per-browser
-          // (perilaku lama; data tidak hilang, hanya tidak tersinkron).
-          console.warn(
-            "[store] Server store tidak tersedia, memakai localStorage saja",
-            e
-          );
-          setData(loaded);
-        } finally {
-          setHydrated(true);
-        }
-      })();
+      void hydrateFromServer();
     }
-  }, []);
+  }, [hydrateFromServer]);
+
+  /**
+   * AKTIVASI sinkron setelah login. Login melakukan client-side navigation
+   * (router.push("/dashboard")), sehingga StoreProvider TIDAK remount dan
+   * hidrasi awal — yang kena 401 di halaman publik — harus diulang di sini;
+   * tanpa ini sinkron lintas-browser tidak pernah aktif sampai user reload
+   * manual (inilah bug "memakai localStorage saja" setelah login).
+   */
+  useEffect(() => {
+    const retry = () => {
+      if (!isSupabase && authRetryRef.current && !serverSyncRef.current) {
+        void hydrateFromServer();
+      }
+    };
+    const onSessionEnd = () => {
+      if (!isSupabase) disarmServerSync();
+    };
+    window.addEventListener("pinjamin:session", retry);
+    window.addEventListener("pinjamin:session-end", onSessionEnd);
+    // Jaring pengaman: berhasil berada di area non-publik berarti sesi
+    // sudah valid (middleware hanya melewatkan request ber-token).
+    if (pathname !== "/" && !pathname.startsWith("/login")) retry();
+    return () => {
+      window.removeEventListener("pinjamin:session", retry);
+      window.removeEventListener("pinjamin:session-end", onSessionEnd);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname, isSupabase, hydrateFromServer]);
 
   useEffect(() => {
     if (isHydrated) saveToStorage(data);
@@ -382,9 +462,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     if (!isHydrated || isSupabase || !serverSyncRef.current) return;
     if (pushTimerRef.current) clearTimeout(pushTimerRef.current);
     pushTimerRef.current = setTimeout(() => {
-      pushServerStore(data).catch((e) =>
-        console.warn("[store] sinkron ke server gagal", e)
-      );
+      pushServerStore(data).catch((e) => {
+        if (e instanceof UnauthorizedError) {
+          // Sesi berakhir (logout/kadaluarsa) → matikan sinkron sementara;
+          // login berikutnya menghidupkannya lagi lewat efek retry.
+          disarmServerSync();
+        } else {
+          console.warn("[store] sinkron ke server gagal", e);
+        }
+      });
     }, 400);
     return () => {
       if (pushTimerRef.current) clearTimeout(pushTimerRef.current);

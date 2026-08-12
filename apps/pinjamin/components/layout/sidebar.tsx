@@ -156,6 +156,9 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const handleLogout = async () => {
     setAcctOpen(false);
     await fetch("/api/auth/logout", { method: "POST" });
+    // Matikan sinkron server store — PUT berikutnya mustahil berhasil tanpa
+    // sesi, dan mekanisme retry perlu dipersenjatai untuk login berikutnya.
+    window.dispatchEvent(new Event("pinjamin:session-end"));
     router.push("/login");
     router.refresh();
   };
