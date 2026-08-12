@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppShell } from "@/components/layout/sidebar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,7 @@ import {
   Mail,
   Phone,
   Calendar,
+  CalendarClock,
   Tag as TagIcon,
   Inbox,
   Loader2,
@@ -23,6 +24,9 @@ import {
   CircleDot,
   Archive,
   Clock,
+  StickyNote,
+  Copy,
+  Check,
 } from "lucide-react";
 
 type TicketStatus = "OPEN" | "IN_PROGRESS" | "RESOLVED" | "CLOSED";
@@ -98,6 +102,19 @@ export default function TicketsPage() {
   const [selected, setSelected] = useState<Ticket | null>(null);
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
+  const [notice, setNotice] = useState<{
+    kind: "ok" | "err";
+    text: string;
+  } | null>(null);
+  const [copied, setCopied] = useState(false);
+  const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const showNotice = useCallback((kind: "ok" | "err", text: string) => {
+    setNotice({ kind, text });
+    if (noticeTimer.current) clearTimeout(noticeTimer.current);
+    noticeTimer.current = setTimeout(() => setNotice(null), 2500);
+  }, []);
 
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -119,6 +136,36 @@ export default function TicketsPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  // Auto-refresh tiap 20 detik (senyap) — tiket baru dari landing page
+  // langsung muncul tanpa perlu klik Muat Ulang. Dijeda saat modal detail
+  // terbuka agar data yang sedang dilirik admin tidak bergeser.
+  useEffect(() => {
+    if (selected) return;
+    pollTimer.current = setInterval(() => load(true), 20000);
+    return () => {
+      if (pollTimer.current) clearInterval(pollTimer.current);
+    };
+  }, [load, selected]);
+
+  // Sinkronkan tiket yang sedang dibuka bila datanya berubah dari luar
+  // (mis. setelah poll saat modal baru ditutup).
+  useEffect(() => {
+    if (!selected) return;
+    const fresh = tickets.find((t) => t.id === selected.id);
+    if (fresh && fresh !== selected) setSelected(fresh);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tickets]);
+
+  // Esc untuk menutup modal detail.
+  useEffect(() => {
+    if (!selected) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSelected(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selected]);
 
   const stats = useMemo(
     () => ({
@@ -159,12 +206,16 @@ export default function TicketsPage() {
       });
       const j = await res.json().catch(() => ({}));
       if (!res.ok) {
-        alert(j.error || "Gagal menyimpan tiket.");
+        showNotice("err", j.error || "Gagal menyimpan tiket.");
         return;
       }
       const updated: Ticket = j.ticket;
       setTickets((prev) => prev.map((t) => (t.id === id ? updated : t)));
       setSelected((prev) => (prev && prev.id === id ? updated : prev));
+      showNotice(
+        "ok",
+        patch.status ? "Status diperbarui ✓" : "Catatan tersimpan ✓"
+      );
     } finally {
       setSaving(false);
     }
@@ -180,33 +231,52 @@ export default function TicketsPage() {
         if (res.ok) {
           setTickets((prev) => prev.filter((x) => x.id !== t.id));
           setSelected(null);
+          showNotice("ok", "Tiket dihapus ✓");
         } else {
-          alert("Gagal menghapus tiket.");
+          showNotice("err", "Gagal menghapus tiket.");
         }
       },
     });
   };
 
-  const statCards = [
+  const copyNumber = async (num: string) => {
+    try {
+      await navigator.clipboard.writeText(num);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {}
+  };
+
+  const statCards: Array<{
+    key: TicketStatus;
+    label: string;
+    value: number;
+    icon: typeof Clock;
+    cls: string;
+  }> = [
     {
+      key: "OPEN",
       label: "Open",
       value: stats.open,
       icon: CircleDot,
       cls: "from-red-500/20 to-red-500/5 text-red-400",
     },
     {
+      key: "IN_PROGRESS",
       label: "Diproses",
       value: stats.inProgress,
       icon: Clock,
       cls: "from-amber-500/20 to-amber-500/5 text-amber-300",
     },
     {
+      key: "RESOLVED",
       label: "Selesai",
       value: stats.resolved,
       icon: CheckCircle2,
       cls: "from-emerald-500/20 to-emerald-500/5 text-emerald-300",
     },
     {
+      key: "CLOSED",
       label: "Ditutup",
       value: stats.closed,
       icon: Archive,
@@ -242,24 +312,41 @@ export default function TicketsPage() {
           </Button>
         </div>
 
-        {/* Statistik */}
+        {/* Statistik — klik kartu untuk memfilter daftar */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          {statCards.map((s) => (
-            <Card
-              key={s.label}
-              className={`bg-gradient-to-br ${s.cls} border-white/10`}
-            >
-              <CardContent className="p-4 flex items-center gap-3">
-                <s.icon className="h-8 w-8 opacity-80" strokeWidth={1.5} />
-                <div>
-                  <div className="text-2xl font-extrabold text-white leading-none">
-                    {s.value}
+          {statCards.map((s) => {
+            const active = filter === s.key;
+            return (
+              <Card
+                key={s.key}
+                role="button"
+                tabIndex={0}
+                onClick={() => setFilter(active ? "ALL" : s.key)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setFilter(active ? "ALL" : s.key);
+                  }
+                }}
+                title={`Filter status ${s.label}`}
+                className={`bg-gradient-to-br ${
+                  s.cls
+                } border-white/10 cursor-pointer transition-all hover:scale-[1.02] hover:border-white/25 ${
+                  active ? "ring-2 ring-[#CBA12C] border-[#CBA12C]/50" : ""
+                }`}
+              >
+                <CardContent className="p-4 flex items-center gap-3">
+                  <s.icon className="h-8 w-8 opacity-80" strokeWidth={1.5} />
+                  <div>
+                    <div className="text-2xl font-extrabold text-white leading-none">
+                      {s.value}
+                    </div>
+                    <div className="text-xs mt-1 opacity-80">{s.label}</div>
                   </div>
-                  <div className="text-xs mt-1 opacity-80">{s.label}</div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
 
         {/* Filter + cari */}
@@ -321,6 +408,14 @@ export default function TicketsPage() {
                     {t.number}
                   </span>
                   <StatusBadge status={t.status} />
+                  {t.adminNote && (
+                    <span
+                      title="Ada catatan admin"
+                      className="inline-flex items-center gap-1 text-[11px] text-slate-500"
+                    >
+                      <StickyNote className="h-3 w-3" /> catatan
+                    </span>
+                  )}
                   <span className="text-xs text-slate-500 ml-auto">
                     {formatDateTime(t.createdAt)}
                   </span>
@@ -355,6 +450,17 @@ export default function TicketsPage() {
                     <span className="font-mono font-bold text-amber-300">
                       {selected.number}
                     </span>
+                    <button
+                      onClick={() => copyNumber(selected.number)}
+                      title="Salin nomor tiket"
+                      className="rounded-lg p-1 hover:bg-white/10 transition-colors"
+                    >
+                      {copied ? (
+                        <Check className="h-3.5 w-3.5 text-emerald-400" />
+                      ) : (
+                        <Copy className="h-3.5 w-3.5 text-slate-400" />
+                      )}
+                    </button>
                     <StatusBadge status={selected.status} />
                   </div>
                   <h2 className="text-lg font-bold text-white mt-1 leading-snug">
@@ -388,7 +494,11 @@ export default function TicketsPage() {
                 </div>
                 <div className="flex items-center gap-2 text-slate-300">
                   <Calendar className="h-4 w-4 text-slate-500 shrink-0" />
-                  {formatDateTime(selected.createdAt)}
+                  dibuat {formatDateTime(selected.createdAt)}
+                </div>
+                <div className="flex items-center gap-2 text-slate-300">
+                  <CalendarClock className="h-4 w-4 text-slate-500 shrink-0" />
+                  update {formatDateTime(selected.updatedAt)}
                 </div>
               </div>
 
@@ -452,6 +562,19 @@ export default function TicketsPage() {
               </div>
             </CardContent>
           </Card>
+        </div>
+      )}
+      {/* Toast feedback (status tersimpan, tiket dihapus, dsb.) */}
+      {notice && (
+        <div
+          role="status"
+          className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] rounded-xl border px-4 py-2.5 text-sm font-medium shadow-2xl backdrop-blur-xl ${
+            notice.kind === "ok"
+              ? "bg-emerald-950/90 border-emerald-500/40 text-emerald-300"
+              : "bg-red-950/90 border-red-500/40 text-red-300"
+          }`}
+        >
+          {notice.text}
         </div>
       )}
       {confirmDialog}
