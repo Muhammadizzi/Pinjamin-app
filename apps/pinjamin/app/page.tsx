@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,6 +27,9 @@ import {
 
 /** HARUS sinkron dengan lib/tickets.ts (file server, tidak bisa di-import ke client). */
 const CATEGORIES = ["Aset & IT", "Fasilitas / Gedung", "Umum", "Lainnya"];
+
+/** Bentuk nomor tiket lengkap yang memicu lacak otomatis (sufiks 6 char). */
+const TICKET_NUMBER_RE = /^TKT-[A-Z0-9]{6}$/;
 
 const STATUS_META: Record<string, { label: string; cls: string; dot: string }> =
   {
@@ -114,12 +117,9 @@ export default function LandingPage() {
     } catch {}
   };
 
-  const trackTicket = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const n = trackNumber.trim();
+  const runTrack = useCallback(async (raw: string) => {
+    const n = raw.trim().toUpperCase();
     if (!n) return;
-    setTrackError("");
-    setTrackResult(null);
     setTracking(true);
     try {
       const res = await fetch(
@@ -127,16 +127,38 @@ export default function LandingPage() {
       );
       const j = await res.json().catch(() => ({}));
       if (!res.ok) {
+        setTrackResult(null);
         setTrackError(j.error || "Tiket tidak ditemukan.");
         return;
       }
+      setTrackError("");
       setTrackResult(j.ticket);
     } catch {
+      setTrackResult(null);
       setTrackError("Tidak bisa terhubung ke server. Coba lagi.");
     } finally {
       setTracking(false);
     }
+  }, []);
+
+  const submitTrack = (e: React.FormEvent) => {
+    e.preventDefault();
+    void runTrack(trackNumber);
   };
+
+  // LACAK OTOMATIS tanpa tombol: begitu nomor lengkap (TKT-XXXXXX) selesai
+  // diketik/ditempel, status dicari sendiri. Debounce agar tidak request di
+  // setiap ketukan, dan hasil direset saat nomor belum lengkap lagi.
+  useEffect(() => {
+    const n = trackNumber.trim().toUpperCase();
+    if (!n || !TICKET_NUMBER_RE.test(n)) {
+      setTrackResult(null);
+      setTrackError("");
+      return;
+    }
+    const t = setTimeout(() => void runTrack(n), 500);
+    return () => clearTimeout(t);
+  }, [trackNumber, runTrack]);
 
   const pinjaminFeatures = [
     { icon: Package, label: "Manajemen Aset" },
@@ -196,34 +218,11 @@ export default function LandingPage() {
 
       <main className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6">
         {/* Hero + form */}
-        <section className="py-10 sm:py-14 grid lg:grid-cols-2 gap-10 items-start">
+        <section className="py-10 sm:py-14 grid lg:grid-cols-2 gap-10 items-center">
           <div className="space-y-6">
             <div className="inline-flex items-center gap-2 rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1 text-xs font-semibold text-amber-200">
               <Sparkles className="h-3.5 w-3.5" />
               Smart Asset Lending &amp; Helpdesk
-            </div>
-            <h1 className="text-3xl sm:text-4xl lg:text-[42px] font-extrabold tracking-tight leading-[1.15]">
-              Butuh Bantuan?
-              <br />
-              <span className="text-[#CBA12C]">Buat Tiket Support</span> Tanpa
-              Ribet.
-            </h1>
-            <p className="text-slate-300 leading-relaxed max-w-lg">
-              Sampaikan kendala Anda lewat tiket bantuan —{" "}
-              <b className="text-white">tanpa perlu login</b>. Tim support
-              Garuda Food akan menerima, melacak, dan menyelesaikannya secara
-              terstruktur. Cukup simpan nomor tiket untuk memantau statusnya.
-            </p>
-            <div className="flex flex-wrap gap-2 text-xs">
-              {["Tanpa login", "Respons cepat", "Mudah dilacak"].map((c) => (
-                <span
-                  key={c}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-[#243a5e] bg-[#12263f] px-3 py-1.5 text-slate-300"
-                >
-                  <Check className="h-3.5 w-3.5 text-emerald-400" />
-                  {c}
-                </span>
-              ))}
             </div>
             {/* Satu platform: Pinjamin + Ticketing */}
             <div className="rounded-2xl border border-[#243a5e] bg-[#12263f]/50 p-4 space-y-3">
@@ -428,29 +427,23 @@ export default function LandingPage() {
                 Lacak Tiket
               </CardTitle>
               <p className="text-xs text-slate-400">
-                Masukkan nomor tiket (mis. TKT-8F3K2A) untuk melihat status
-                terkininya.
+                Ketik nomor tiket lengkap (mis. TKT-8F3K2A) — status muncul
+                otomatis, tanpa klik tombol.
               </p>
             </CardHeader>
             <CardContent className="space-y-4">
-              <form onSubmit={trackTicket} className="flex gap-2">
+              <form onSubmit={submitTrack} className="relative">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 pointer-events-none" />
                 <Input
                   value={trackNumber}
                   onChange={(e) => setTrackNumber(e.target.value)}
                   placeholder="TKT-XXXXXX"
-                  className="h-11 rounded-xl font-mono uppercase"
+                  className="h-11 rounded-xl font-mono uppercase pl-10 pr-10"
+                  autoComplete="off"
                 />
-                <Button
-                  type="submit"
-                  disabled={tracking || !trackNumber.trim()}
-                  className="h-11 rounded-xl px-5"
-                >
-                  {tracking ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    "Lacak"
-                  )}
-                </Button>
+                {tracking && (
+                  <Loader2 className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-amber-300" />
+                )}
               </form>
               {trackError && (
                 <div className="text-sm rounded-xl border border-red-500/30 bg-red-500/10 text-red-300 px-3 py-2">
