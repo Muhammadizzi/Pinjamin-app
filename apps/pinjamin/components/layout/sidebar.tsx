@@ -25,12 +25,42 @@ import {
   LogOut,
   ChevronDown,
   UserCog,
+  LifeBuoy,
 } from "lucide-react";
 
 interface AdminProfileInfo {
   username: string;
   fullName: string;
   avatar: string;
+}
+
+/**
+ * Mode admin: "assets" (Pinjamin) atau "tickets" (Helpdesk).
+ * Disimpan di localStorage + disiarkan lewat event `pinjamin:mode` supaya
+ * TopBar & Sidebar selalu sinkron. Rute /tickets otomatis memaksa mode
+ * tickets agar tampilan konsisten walau masuk lewat URL langsung.
+ */
+type AdminMode = "assets" | "tickets";
+
+function useAdminMode(): [AdminMode, (m: AdminMode) => void] {
+  const pathname = usePathname();
+  const [stored, setStored] = useState<AdminMode>("assets");
+  useEffect(() => {
+    const saved = localStorage.getItem("pinjamin_mode");
+    if (saved === "assets" || saved === "tickets") setStored(saved);
+    const onMode = (e: Event) => {
+      const d = (e as CustomEvent).detail;
+      if (d === "assets" || d === "tickets") setStored(d);
+    };
+    window.addEventListener("pinjamin:mode", onMode);
+    return () => window.removeEventListener("pinjamin:mode", onMode);
+  }, []);
+  const setMode = (m: AdminMode) => {
+    localStorage.setItem("pinjamin_mode", m);
+    window.dispatchEvent(new CustomEvent("pinjamin:mode", { detail: m }));
+  };
+  const mode: AdminMode = pathname.startsWith("/tickets") ? "tickets" : stored;
+  return [mode, setMode];
 }
 
 /**
@@ -103,6 +133,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const { t } = useT();
   const { assets } = useStore();
   const profile = useAdminProfile();
+  const [mode] = useAdminMode();
   const [bookingsOpen, setBookingsOpen] = useState(
     pathname.startsWith("/bookings")
   );
@@ -129,24 +160,27 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
     router.refresh();
   };
 
-  const navItems = [
-    { href: "/", label: t("home"), icon: LayoutDashboard },
-    { href: "/assets", label: t("assets"), icon: Package },
-    { href: "/kits", label: t("kits"), icon: Boxes },
-    { href: "/categories", label: t("categories"), icon: Tag },
-    { href: "/tags", label: t("tags"), icon: Tag },
-    { href: "/locations", label: t("locations"), icon: MapPin },
-    {
-      href: "/custom-fields",
-      label: t("customFields"),
-      icon: SlidersHorizontal,
-    },
-    { href: "/asset-models", label: t("assetModels"), icon: Layers },
-    { href: "/custodians", label: t("custodians"), icon: Users },
-    { href: "/audits", label: t("audits"), icon: ClipboardCheck },
-    { href: "/bookings", label: t("bookings"), icon: CalendarRange },
-    { href: "/reports", label: t("reports"), icon: BarChart3 },
-  ];
+  const navItems =
+    mode === "tickets"
+      ? [{ href: "/tickets", label: "Tiket Bantuan", icon: LifeBuoy }]
+      : [
+          { href: "/dashboard", label: t("home"), icon: LayoutDashboard },
+          { href: "/assets", label: t("assets"), icon: Package },
+          { href: "/kits", label: t("kits"), icon: Boxes },
+          { href: "/categories", label: t("categories"), icon: Tag },
+          { href: "/tags", label: t("tags"), icon: Tag },
+          { href: "/locations", label: t("locations"), icon: MapPin },
+          {
+            href: "/custom-fields",
+            label: t("customFields"),
+            icon: SlidersHorizontal,
+          },
+          { href: "/asset-models", label: t("assetModels"), icon: Layers },
+          { href: "/custodians", label: t("custodians"), icon: Users },
+          { href: "/audits", label: t("audits"), icon: ClipboardCheck },
+          { href: "/bookings", label: t("bookings"), icon: CalendarRange },
+          { href: "/reports", label: t("reports"), icon: BarChart3 },
+        ];
 
   return (
     <div className="flex h-full flex-col bg-[var(--sidebar)] text-[var(--sidebar-foreground)]">
@@ -186,12 +220,12 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
       <div className="flex-1 overflow-y-auto px-3 py-4 space-y-6">
         <div className="space-y-1">
           <div className="px-3 py-2 text-[11px] font-semibold tracking-widest text-slate-400 uppercase">
-            {t("assetManagement")}
+            {mode === "tickets" ? "Helpdesk" : t("assetManagement")}
           </div>
           {navItems.map((item) => {
             const isActive =
-              item.href === "/"
-                ? pathname === "/"
+              item.href === "/dashboard"
+                ? pathname === "/dashboard"
                 : pathname.startsWith(item.href);
             if (item.label === t("bookings")) {
               return (
@@ -281,27 +315,43 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           })}
         </div>
 
-        <Link
-          href="/scanner"
-          onClick={onNavigate}
-          className={cn(
-            "flex items-center justify-center gap-2 rounded-xl px-4 py-4 text-sm font-bold shadow-lg touch-target border transition-all",
-            pathname === "/scanner"
-              ? "bg-[#CBA12C] text-[#1a365d] border-amber-200"
-              : "bg-[#CBA12C] text-[#1a365d] hover:bg-amber-300 border-amber-200 hover:shadow-xl"
-          )}
-        >
-          <QrCode className="h-5 w-5" strokeWidth={1.5} />
-          {t("scanner")}
-        </Link>
+        {mode === "assets" && (
+          <Link
+            href="/scanner"
+            onClick={onNavigate}
+            className={cn(
+              "flex items-center justify-center gap-2 rounded-xl px-4 py-4 text-sm font-bold shadow-lg touch-target border transition-all",
+              pathname === "/scanner"
+                ? "bg-[#CBA12C] text-[#1a365d] border-amber-200"
+                : "bg-[#CBA12C] text-[#1a365d] hover:bg-amber-300 border-amber-200 hover:shadow-xl"
+            )}
+          >
+            <QrCode className="h-5 w-5" strokeWidth={1.5} />
+            {t("scanner")}
+          </Link>
+        )}
 
         <div className="rounded-xl bg-[#1e3250] border border-[#2a4a6b] p-3">
-          <div className="text-xs font-semibold text-amber-200 mb-1">
-            💡 Tips
-          </div>
-          <div className="text-xs text-slate-300 leading-relaxed">
-            Scan QR aset untuk aksi cepat pinjam/kembali tanpa buka menu.
-          </div>
+          {mode === "tickets" ? (
+            <>
+              <div className="text-xs font-semibold text-amber-200 mb-1">
+                🎧 Helpdesk
+              </div>
+              <div className="text-xs text-slate-300 leading-relaxed">
+                Tiket masuk dari landing page tanpa login. Ubah statusnya agar
+                user bisa melacak lewat nomor tiket.
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="text-xs font-semibold text-amber-200 mb-1">
+                💡 Tips
+              </div>
+              <div className="text-xs text-slate-300 leading-relaxed">
+                Scan QR aset untuk aksi cepat pinjam/kembali tanpa buka menu.
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -367,6 +417,11 @@ export function TopBar({ onMenu }: { onMenu: () => void }) {
   const router = useRouter();
   const { t } = useT();
   const profile = useAdminProfile();
+  const [mode, setMode] = useAdminMode();
+  const switchMode = (m: AdminMode) => {
+    setMode(m);
+    router.push(m === "tickets" ? "/tickets" : "/dashboard");
+  };
   return (
     <header className="sticky top-0 z-20 flex h-[64px] items-center gap-3 border-b bg-[#0f1d33]/95 backdrop-blur-xl px-4 border-[#243a5e] shadow-sm">
       <Button
@@ -377,7 +432,7 @@ export function TopBar({ onMenu }: { onMenu: () => void }) {
       >
         <Menu className="h-6 w-6" strokeWidth={1.5} />
       </Button>
-      <Link href="/" className="flex items-center gap-2 lg:hidden">
+      <Link href="/dashboard" className="flex items-center gap-2 lg:hidden">
         <span className="relative flex items-center justify-center">
           <span
             aria-hidden="true"
@@ -411,15 +466,48 @@ export function TopBar({ onMenu }: { onMenu: () => void }) {
         </span>
       </div>
       <div className="ml-auto flex items-center gap-2">
+        {/* Switcher Mode Admin: Pinjamin (aset) vs Ticketing (helpdesk) */}
+        <div className="flex items-center rounded-xl border border-[#243a5e] bg-[#142a4a] p-0.5">
+          <button
+            type="button"
+            onClick={() => switchMode("assets")}
+            title="Mode Admin Pinjamin"
+            className={cn(
+              "flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-all",
+              mode === "assets"
+                ? "bg-[#CBA12C] text-[#1a365d] shadow"
+                : "text-slate-400 hover:text-white"
+            )}
+          >
+            <Package className="h-4 w-4" strokeWidth={1.75} />
+            <span className="hidden md:inline">Pinjamin</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => switchMode("tickets")}
+            title="Mode Admin Ticketing"
+            className={cn(
+              "flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-all",
+              mode === "tickets"
+                ? "bg-[#CBA12C] text-[#1a365d] shadow"
+                : "text-slate-400 hover:text-white"
+            )}
+          >
+            <LifeBuoy className="h-4 w-4" strokeWidth={1.75} />
+            <span className="hidden md:inline">Ticketing</span>
+          </button>
+        </div>
         <LanguageToggle />
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={() => router.push("/scanner")}
-          className="hidden sm:flex bg-white/5 hover:bg-white/10 text-white border-white/15 hover:text-white backdrop-blur"
-        >
-          <QrCode className="h-5 w-5" strokeWidth={1.5} />
-        </Button>
+        {mode === "assets" && (
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => router.push("/scanner")}
+            className="hidden sm:flex bg-white/5 hover:bg-white/10 text-white border-white/15 hover:text-white backdrop-blur"
+          >
+            <QrCode className="h-5 w-5" strokeWidth={1.5} />
+          </Button>
+        )}
         <button
           onClick={() => router.push("/settings")}
           title={t("accountSetting")}

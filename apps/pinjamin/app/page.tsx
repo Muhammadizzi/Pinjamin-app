@@ -1,223 +1,501 @@
 "use client";
-import { useEffect, useRef } from "react";
-import { AppShell } from "@/components/layout/sidebar";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { useStore } from "@/lib/store";
-import { useT } from "@/lib/i18n";
-import { formatDate } from "@/lib/utils";
 import Link from "next/link";
-import { Package, CheckCircle2, AlertTriangle, Wrench, CalendarRange, ArrowRight, QrCode, Plus, TrendingUp, Sparkles } from "lucide-react";
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { formatDateTime } from "@/lib/utils";
+import {
+  LifeBuoy,
+  LogIn,
+  Send,
+  Search,
+  Copy,
+  Check,
+  CheckCircle2,
+  Loader2,
+  Package,
+  QrCode,
+  CalendarRange,
+  BarChart3,
+  Sparkles,
+  Headset,
+} from "lucide-react";
 
-export default function DashboardPage() {
-  const { assets, bookings } = useStore();
-  const { t, lang } = useT();
-  const statsRef = useRef<HTMLDivElement>(null);
+/** HARUS sinkron dengan lib/tickets.ts (file server, tidak bisa di-import ke client). */
+const CATEGORIES = ["Aset & IT", "Fasilitas / Gedung", "Umum", "Lainnya"];
 
-  const total = assets.length;
-  const available = assets.filter((a) => a.status === "AVAILABLE").length;
-  const checked = assets.filter((a) => a.status === "CHECKED_OUT").length;
-  const overdue = bookings.filter((b) => b.status === "OVERDUE").length;
-  const maintenance = assets.filter((a) => a.status === "MAINTENANCE").length;
+const STATUS_META: Record<string, { label: string; cls: string; dot: string }> =
+  {
+    OPEN: {
+      label: "Open",
+      cls: "bg-red-500/15 text-red-300 border-red-500/30",
+      dot: "bg-red-400",
+    },
+    IN_PROGRESS: {
+      label: "Diproses",
+      cls: "bg-amber-500/15 text-amber-300 border-amber-500/30",
+      dot: "bg-amber-400",
+    },
+    RESOLVED: {
+      label: "Selesai",
+      cls: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
+      dot: "bg-emerald-400",
+    },
+    CLOSED: {
+      label: "Ditutup",
+      cls: "bg-slate-500/15 text-slate-400 border-slate-500/30",
+      dot: "bg-slate-400",
+    },
+  };
 
-  const recentBookings = [...bookings].sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt)).slice(0, 5);
-  const upcomingOverdue = bookings.filter((b) => b.status === "OVERDUE" || b.status === "ONGOING").slice(0, 4);
+interface TrackResult {
+  number: string;
+  subject: string;
+  category: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const { animate, stagger } = await import("animejs");
-        if (statsRef.current) {
-          animate(statsRef.current.querySelectorAll(".stat-card"), {
-            translateY: [16, 0],
-            opacity: [0, 1],
-            duration: 650,
-            delay: stagger(90),
-            easing: "easeOutExpo",
-          });
-        }
-        animate(".anime-fade", {
-          opacity: [0, 1],
-          translateY: [10, 0],
-          duration: 600,
-          delay: 350,
-          easing: "easeOutExpo",
-        });
-      } catch {}
-    })();
-  }, []);
+export default function LandingPage() {
+  // --- Buat tiket ---
+  const [form, setForm] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    category: CATEGORIES[0],
+    subject: "",
+    message: "",
+  });
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState("");
+  const [createdNumber, setCreatedNumber] = useState("");
+  const [copied, setCopied] = useState(false);
+
+  // --- Lacak tiket ---
+  const [trackNumber, setTrackNumber] = useState("");
+  const [tracking, setTracking] = useState(false);
+  const [trackError, setTrackError] = useState("");
+  const [trackResult, setTrackResult] = useState<TrackResult | null>(null);
+
+  const submitTicket = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormError("");
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/tickets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setFormError(j.error || "Gagal membuat tiket. Coba lagi.");
+        return;
+      }
+      setCreatedNumber(j.number);
+      setTrackNumber(j.number);
+    } catch {
+      setFormError("Tidak bisa terhubung ke server. Coba lagi.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const copyNumber = async () => {
+    try {
+      await navigator.clipboard.writeText(createdNumber);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } catch {}
+  };
+
+  const trackTicket = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const n = trackNumber.trim();
+    if (!n) return;
+    setTrackError("");
+    setTrackResult(null);
+    setTracking(true);
+    try {
+      const res = await fetch(
+        `/api/tickets/track?number=${encodeURIComponent(n)}`
+      );
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setTrackError(j.error || "Tiket tidak ditemukan.");
+        return;
+      }
+      setTrackResult(j.ticket);
+    } catch {
+      setTrackError("Tidak bisa terhubung ke server. Coba lagi.");
+    } finally {
+      setTracking(false);
+    }
+  };
+
+  const pinjaminFeatures = [
+    { icon: Package, label: "Manajemen Aset" },
+    { icon: QrCode, label: "QR Scanner" },
+    { icon: CalendarRange, label: "Peminjaman" },
+    { icon: BarChart3, label: "Laporan" },
+    { icon: Headset, label: "Helpdesk" },
+  ];
 
   return (
-    <AppShell>
-      <div className="space-y-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="space-y-1">
-            <div className="inline-flex items-center gap-2 rounded-full bg-[#1a365d]/5 dark:bg-white/5 border border-[#1a365d]/10 dark:border-white/10 px-3 py-1.5 text-xs backdrop-blur">
-              <Sparkles className="h-3 w-3 text-[#CBA12C]" strokeWidth={1.5} />
-              <span className="font-semibold tracking-wide">{t("dashboard")} • Garuda Food</span>
-              <span className="h-3 w-px bg-slate-200 dark:bg-white/10" />
-              <span className="text-muted-foreground">{lang === "id" ? `Hari ini ${new Date().toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "short" })}` : `Today ${new Date().toLocaleDateString("en-US", { weekday: "long", day: "numeric", month: "short" })}`}</span>
+    <div className="min-h-screen bg-[#0f1d33] text-white relative overflow-hidden">
+      {/* dekorasi glow latar */}
+      <div className="absolute -top-40 -right-40 h-[420px] w-[420px] rounded-full bg-[#CBA12C]/10 blur-[100px] pointer-events-none" />
+      <div className="absolute -bottom-40 -left-40 h-[420px] w-[420px] rounded-full bg-[#1a365d]/50 blur-[100px] pointer-events-none" />
+
+      {/* Header */}
+      <header className="relative z-10 border-b border-[#243a5e]/60 bg-[#0f1d33]/85 backdrop-blur-xl">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 py-4 flex items-center gap-3">
+          <div className="relative h-10 w-10 flex items-center justify-center shrink-0">
+            <div
+              className="absolute inset-0 scale-90 rounded-full bg-white/85 blur-[5px]"
+              aria-hidden="true"
+            />
+            <div
+              className="absolute -inset-2 rounded-full bg-amber-300/25 blur-[10px]"
+              aria-hidden="true"
+            />
+            <img
+              src="/logo-pinjamin.png"
+              alt="Pinjamin"
+              className="relative h-full w-full object-contain"
+            />
+          </div>
+          <div>
+            <div className="font-extrabold leading-none tracking-tight">
+              Pinjamin
             </div>
-            <h1 className="text-2xl font-extrabold tracking-tight">{t("dashboard")}</h1>
-            <p className="text-sm text-muted-foreground">{t("dashboardSub")}</p>
+            <div className="text-[10px] text-[#fbd38d] font-medium tracking-widest uppercase">
+              Garuda Food
+            </div>
           </div>
-          <div className="flex gap-2">
-            <Link href="/assets/new">
-              <Button className="rounded-xl bg-[#1a365d] hover:bg-[#243a5e] text-white shadow-lg">
-                <Plus className="h-4 w-4" strokeWidth={1.5} /> {t("newAsset")}
+          <nav className="ml-auto flex items-center gap-2">
+            <a
+              href="#lacak"
+              className="hidden sm:inline text-sm text-slate-300 hover:text-white px-3 py-2 transition-colors"
+            >
+              Lacak Tiket
+            </a>
+            <Link href="/login">
+              <Button variant="outline" size="sm" className="rounded-xl">
+                <LogIn className="h-4 w-4" /> Login Admin
               </Button>
             </Link>
-            <Link href="/scanner">
-              <Button variant="outline" className="rounded-xl">
-                <QrCode className="h-4 w-4" strokeWidth={1.5} /> {t("scanQr")}
-              </Button>
-            </Link>
-          </div>
+          </nav>
         </div>
+      </header>
 
-        <div ref={statsRef} className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Card className="stat-card border shadow-lg backdrop-blur-xl bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:shadow-xl transition-all hover:-translate-y-1">
-            <CardHeader className="pb-2 flex flex-row items-center justify-between">
-              <CardTitle className="text-sm font-medium text-muted-foreground">{t("totalAsset")}</CardTitle>
-              <div className="h-9 w-9 rounded-xl bg-[#1a365d] text-white flex items-center justify-center">
-                <Package className="h-5 w-5" strokeWidth={1.5} />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-extrabold">{total}</div>
-              <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                <TrendingUp className="h-3 w-3" strokeWidth={1.5} /> {t("allAssetsTracked")}
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="stat-card border shadow-lg backdrop-blur-xl bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:shadow-xl transition-all hover:-translate-y-1">
-            <CardHeader className="pb-2 flex flex-row items-center justify-between">
-              <CardTitle className="text-sm font-medium text-muted-foreground">{t("available")}</CardTitle>
-              <div className="h-9 w-9 rounded-xl bg-emerald-500 text-white flex items-center justify-center">
-                <CheckCircle2 className="h-5 w-5" strokeWidth={1.5} />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-extrabold text-emerald-600">{available}</div>
-              <p className="text-xs text-muted-foreground mt-1">{Math.round((available / Math.max(1, total)) * 100)}{t("percentOfTotal")}</p>
-            </CardContent>
-          </Card>
-
-          <Card className="stat-card border shadow-lg backdrop-blur-xl bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:shadow-xl transition-all hover:-translate-y-1">
-            <CardHeader className="pb-2 flex flex-row items-center justify-between">
-              <CardTitle className="text-sm font-medium text-muted-foreground">{t("checkedOut")}</CardTitle>
-              <div className="h-9 w-9 rounded-xl bg-blue-500 text-white flex items-center justify-center">
-                <CalendarRange className="h-5 w-5" strokeWidth={1.5} />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-extrabold text-blue-600">{checked}</div>
-              <p className="text-xs text-muted-foreground mt-1">{t("currentlyBorrowed")}</p>
-            </CardContent>
-          </Card>
-
-          <Card className="stat-card border shadow-lg backdrop-blur-xl bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:shadow-xl transition-all hover:-translate-y-1">
-            <CardHeader className="pb-2 flex flex-row items-center justify-between">
-              <CardTitle className="text-sm font-medium text-muted-foreground">{t("overdue")}</CardTitle>
-              <div className="h-9 w-9 rounded-xl bg-red-500 text-white flex items-center justify-center">
-                <AlertTriangle className="h-5 w-5" strokeWidth={1.5} />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-extrabold text-red-600">{overdue}</div>
-              <p className="text-xs text-red-500 mt-1">{overdue > 0 ? t("needFollowUp") : t("noDelay")}</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <Card className="lg:col-span-2 backdrop-blur-xl bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 shadow-lg anime-fade">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="text-base">{t("recentBookings")}</CardTitle>
-              <Link href="/bookings" className="text-sm text-[#1a365d] dark:text-[#CBA12C] hover:underline flex items-center gap-1 font-medium">
-                {t("viewAll")} <ArrowRight className="h-4 w-4" strokeWidth={1.5} />
-              </Link>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {recentBookings.length === 0 && <p className="text-sm text-muted-foreground py-8 text-center">{t("noBookings")}</p>}
-              {recentBookings.map((b) => (
-                <Link key={b.id} href={`/bookings/${b.id}`} className="flex items-center gap-4 rounded-xl border bg-white dark:bg-slate-800 backdrop-blur p-4 hover:bg-white dark:hover:bg-slate-700 transition-all hover:shadow-md hover:scale-[1.01]">
-                  <div className="h-10 w-10 rounded-xl bg-[#1a365d] text-white flex items-center justify-center shrink-0">
-                    <CalendarRange className="h-5 w-5" strokeWidth={1.5} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-semibold truncate text-sm">{b.name}</div>
-                    <div className="text-xs text-muted-foreground truncate">
-                      {formatDate(b.fromDate)} → {formatDate(b.toDate)} • {b.assetIds.length} {t("assets").toLowerCase()}
-                    </div>
-                  </div>
-                  <Badge variant={b.status === "OVERDUE" ? "destructive" : b.status === "ONGOING" ? "info" : b.status === "RESERVED" ? "warning" : b.status === "COMPLETE" ? "success" : "secondary"}>{b.status}</Badge>
-                </Link>
+      <main className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6">
+        {/* Hero + form */}
+        <section className="py-10 sm:py-14 grid lg:grid-cols-2 gap-10 items-start">
+          <div className="space-y-6">
+            <div className="inline-flex items-center gap-2 rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1 text-xs font-semibold text-amber-200">
+              <Sparkles className="h-3.5 w-3.5" />
+              Smart Asset Lending &amp; Helpdesk
+            </div>
+            <h1 className="text-3xl sm:text-4xl lg:text-[42px] font-extrabold tracking-tight leading-[1.15]">
+              Butuh Bantuan?
+              <br />
+              <span className="text-[#CBA12C]">Buat Tiket Support</span> Tanpa
+              Ribet.
+            </h1>
+            <p className="text-slate-300 leading-relaxed max-w-lg">
+              Sampaikan kendala Anda lewat tiket bantuan —{" "}
+              <b className="text-white">tanpa perlu login</b>. Tim support
+              Garuda Food akan menerima, melacak, dan menyelesaikannya secara
+              terstruktur. Cukup simpan nomor tiket untuk memantau statusnya.
+            </p>
+            <div className="flex flex-wrap gap-2 text-xs">
+              {["Tanpa login", "Respons cepat", "Mudah dilacak"].map((c) => (
+                <span
+                  key={c}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-[#243a5e] bg-[#12263f] px-3 py-1.5 text-slate-300"
+                >
+                  <Check className="h-3.5 w-3.5 text-emerald-400" />
+                  {c}
+                </span>
               ))}
-            </CardContent>
-          </Card>
-
-          <div className="space-y-6 anime-fade">
-            <Card className="backdrop-blur-xl bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 shadow-lg">
-              <CardHeader>
-                <CardTitle className="text-base">{t("needAttention")}</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {upcomingOverdue.length === 0 && <p className="text-sm text-muted-foreground">{t("allSafe")}</p>}
-                {upcomingOverdue.map((b) => (
-                  <div key={b.id} className="rounded-xl border-l-4 border-red-500 bg-red-50/80 dark:bg-red-950/20 p-3 backdrop-blur">
-                    <div className="text-sm font-semibold truncate">{b.name}</div>
-                    <div className="text-xs text-muted-foreground">{t("due")} {formatDate(b.toDate)}</div>
-                    <Badge variant="destructive" className="mt-2 text-[11px]">
-                      {b.status}
-                    </Badge>
-                  </div>
+            </div>
+            {/* Satu platform: Pinjamin + Ticketing */}
+            <div className="rounded-2xl border border-[#243a5e] bg-[#12263f]/50 p-4 space-y-3">
+              <div className="text-xs font-semibold tracking-widest uppercase text-slate-400">
+                Satu platform — Pinjamin
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {pinjaminFeatures.map((f) => (
+                  <span
+                    key={f.label}
+                    className="inline-flex items-center gap-2 rounded-xl border border-[#243a5e] bg-[#0f1d33] px-3 py-2 text-xs font-medium text-slate-200"
+                  >
+                    <f.icon
+                      className="h-4 w-4 text-amber-300"
+                      strokeWidth={1.75}
+                    />
+                    {f.label}
+                  </span>
                 ))}
-                {maintenance > 0 && (
-                  <div className="rounded-xl border bg-amber-50/80 dark:bg-amber-950/20 p-3 flex items-center gap-3 backdrop-blur">
-                    <Wrench className="h-5 w-5 text-amber-600" strokeWidth={1.5} />
-                    <div>
-                      <div className="text-sm font-medium">{maintenance} {t("maintenance").toLowerCase()}</div>
-                      <div className="text-xs text-muted-foreground">{lang === "id" ? "Perlu pengecekan" : "Needs check"}</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Form tiket */}
+          <Card className="shadow-2xl border-[#243a5e]" id="buat-tiket">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <LifeBuoy className="h-5 w-5 text-amber-300" />
+                Buat Tiket Bantuan
+              </CardTitle>
+              <p className="text-xs text-slate-400">
+                Isi form di bawah — gratis, tanpa akun, tanpa login.
+              </p>
+            </CardHeader>
+            <CardContent>
+              {createdNumber ? (
+                <div className="text-center space-y-4 py-6">
+                  <CheckCircle2
+                    className="h-14 w-14 text-emerald-400 mx-auto"
+                    strokeWidth={1.5}
+                  />
+                  <div>
+                    <div className="text-lg font-bold">
+                      Tiket Berhasil Dibuat!
+                    </div>
+                    <p className="text-sm text-slate-400 mt-1">
+                      Simpan nomor ini untuk melacak status tiket Anda:
+                    </p>
+                  </div>
+                  <div className="inline-flex items-center gap-2 rounded-2xl border border-amber-400/40 bg-amber-400/10 px-5 py-3">
+                    <span className="font-mono text-2xl font-extrabold text-amber-300 tracking-wide">
+                      {createdNumber}
+                    </span>
+                    <button
+                      onClick={copyNumber}
+                      title="Salin nomor tiket"
+                      className="rounded-lg p-1.5 hover:bg-white/10 transition-colors"
+                    >
+                      {copied ? (
+                        <Check className="h-4 w-4 text-emerald-400" />
+                      ) : (
+                        <Copy className="h-4 w-4 text-slate-300" />
+                      )}
+                    </button>
+                  </div>
+                  <div className="flex items-center justify-center gap-2 pt-1">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="rounded-xl"
+                      onClick={() => {
+                        setCreatedNumber("");
+                        setForm({
+                          name: "",
+                          email: "",
+                          phone: "",
+                          category: CATEGORIES[0],
+                          subject: "",
+                          message: "",
+                        });
+                      }}
+                    >
+                      Buat Tiket Lain
+                    </Button>
+                    <a href="#lacak">
+                      <Button size="sm" className="rounded-xl">
+                        Lacak Sekarang
+                      </Button>
+                    </a>
+                  </div>
+                </div>
+              ) : (
+                <form onSubmit={submitTicket} className="space-y-4">
+                  <div className="space-y-1.5">
+                    <Label>Nama Lengkap</Label>
+                    <Input
+                      value={form.name}
+                      onChange={(e) =>
+                        setForm({ ...form, name: e.target.value })
+                      }
+                      placeholder="Nama Anda"
+                      className="h-11 rounded-xl"
+                      required
+                    />
+                  </div>
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label>Email</Label>
+                      <Input
+                        type="email"
+                        value={form.email}
+                        onChange={(e) =>
+                          setForm({ ...form, email: e.target.value })
+                        }
+                        placeholder="nama@garudafood.com"
+                        className="h-11 rounded-xl"
+                        required
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>No. WhatsApp</Label>
+                      <Input
+                        value={form.phone}
+                        onChange={(e) =>
+                          setForm({ ...form, phone: e.target.value })
+                        }
+                        placeholder="08xxxxxxxxxx"
+                        className="h-11 rounded-xl"
+                        required
+                      />
                     </div>
                   </div>
-                )}
-              </CardContent>
-            </Card>
+                  <div className="space-y-1.5">
+                    <Label>Kategori</Label>
+                    <Select
+                      value={form.category}
+                      onChange={(e) =>
+                        setForm({ ...form, category: e.target.value })
+                      }
+                    >
+                      {CATEGORIES.map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Subjek</Label>
+                    <Input
+                      value={form.subject}
+                      onChange={(e) =>
+                        setForm({ ...form, subject: e.target.value })
+                      }
+                      placeholder="Ringkasan singkat kendala"
+                      className="h-11 rounded-xl"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Pesan</Label>
+                    <Textarea
+                      value={form.message}
+                      onChange={(e) =>
+                        setForm({ ...form, message: e.target.value })
+                      }
+                      placeholder="Jelaskan kendala atau permintaan bantuan Anda secara detail..."
+                      rows={4}
+                      className="rounded-xl"
+                      required
+                    />
+                  </div>
+                  {formError && (
+                    <div className="text-sm rounded-xl border border-red-500/30 bg-red-500/10 text-red-300 px-3 py-2">
+                      {formError}
+                    </div>
+                  )}
+                  <Button
+                    type="submit"
+                    disabled={submitting}
+                    className="w-full h-11 rounded-xl font-bold"
+                  >
+                    {submitting ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Send className="h-4 w-4" />
+                    )}
+                    {submitting ? "Mengirim..." : "Kirim Tiket"}
+                  </Button>
+                </form>
+              )}
+            </CardContent>
+          </Card>
+        </section>
 
-            <Card className="backdrop-blur-xl bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 shadow-lg">
-              <CardHeader>
-                <CardTitle className="text-base">{t("lastActivity")}</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3 text-sm">
-                <div className="flex gap-3 p-2 rounded-xl hover:bg-white/60 dark:hover:bg-slate-700/30 transition-colors">
-                  <div className="h-2 w-2 rounded-full bg-emerald-500 mt-2 animate-pulse" />
-                  <div>
-                    <div className="font-medium">{t("assetCreated")}</div>
-                    <div className="text-xs text-muted-foreground">{t("justNowBy")}</div>
+        {/* Lacak tiket */}
+        <section id="lacak" className="pb-14 scroll-mt-24">
+          <Card className="border-[#243a5e] max-w-2xl mx-auto">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Search className="h-5 w-5 text-amber-300" />
+                Lacak Tiket
+              </CardTitle>
+              <p className="text-xs text-slate-400">
+                Masukkan nomor tiket (mis. TKT-8F3K2A) untuk melihat status
+                terkininya.
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <form onSubmit={trackTicket} className="flex gap-2">
+                <Input
+                  value={trackNumber}
+                  onChange={(e) => setTrackNumber(e.target.value)}
+                  placeholder="TKT-XXXXXX"
+                  className="h-11 rounded-xl font-mono uppercase"
+                />
+                <Button
+                  type="submit"
+                  disabled={tracking || !trackNumber.trim()}
+                  className="h-11 rounded-xl px-5"
+                >
+                  {tracking ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    "Lacak"
+                  )}
+                </Button>
+              </form>
+              {trackError && (
+                <div className="text-sm rounded-xl border border-red-500/30 bg-red-500/10 text-red-300 px-3 py-2">
+                  {trackError}
+                </div>
+              )}
+              {trackResult && (
+                <div className="rounded-2xl border border-[#243a5e] bg-[#0f1d33] p-4 space-y-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-mono font-bold text-amber-300">
+                      {trackResult.number}
+                    </span>
+                    {(() => {
+                      const meta =
+                        STATUS_META[trackResult.status] || STATUS_META.OPEN;
+                      return (
+                        <span
+                          className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${meta.cls}`}
+                        >
+                          <span
+                            className={`h-1.5 w-1.5 rounded-full ${meta.dot}`}
+                          />
+                          {meta.label}
+                        </span>
+                      );
+                    })()}
+                  </div>
+                  <div className="font-semibold">{trackResult.subject}</div>
+                  <div className="text-xs text-slate-400">
+                    {trackResult.category} • dibuat{" "}
+                    {formatDateTime(trackResult.createdAt)} • update terakhir{" "}
+                    {formatDateTime(trackResult.updatedAt)}
                   </div>
                 </div>
-                <div className="flex gap-3 p-2 rounded-xl hover:bg-white/60 transition-colors">
-                  <div className="h-2 w-2 rounded-full bg-blue-500 mt-2" />
-                  <div>
-                    <div className="font-medium">{t("bookingOngoing")}</div>
-                    <div className="text-xs text-muted-foreground">{t("yesterday")}</div>
-                  </div>
-                </div>
-                <div className="flex gap-3 p-2 rounded-xl hover:bg-white/60 transition-colors">
-                  <div className="h-2 w-2 rounded-full bg-amber-500 mt-2" />
-                  <div>
-                    <div className="font-medium">{t("auditOpened")}</div>
-                    <div className="text-xs text-muted-foreground">{t("twoDaysAgo")}</div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+              )}
+            </CardContent>
+          </Card>
+        </section>
+      </main>
+
+      <footer className="relative z-10 border-t border-[#243a5e]/60">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 py-5 text-center text-xs text-slate-500">
+          © 2026 Pinjamin — Smart Asset Lending &amp; Helpdesk • Garuda Food
         </div>
-      </div>
-    </AppShell>
+      </footer>
+    </div>
   );
 }

@@ -1,0 +1,85 @@
+import { NextRequest, NextResponse } from "next/server";
+import { verifySession } from "@/lib/auth";
+import {
+  deleteTicket,
+  TICKET_STATUSES,
+  updateTicket,
+  type TicketStatus,
+} from "@/lib/tickets";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+function isAdmin(req: NextRequest) {
+  const token = req.cookies.get("pinjamin_session")?.value;
+  return token ? !!verifySession(token) : false;
+}
+
+type Ctx = { params: Promise<{ id: string }> };
+
+/** PATCH /api/tickets/:id — ubah status / catatan admin (khusus admin). */
+export async function PATCH(req: NextRequest, ctx: Ctx) {
+  if (!isAdmin(req)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const { id } = await ctx.params;
+
+  let body: any = {};
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Body tidak valid." }, { status: 400 });
+  }
+
+  const patch: { status?: TicketStatus; adminNote?: string } = {};
+  if (body.status !== undefined) {
+    if (!TICKET_STATUSES.includes(body.status)) {
+      return NextResponse.json(
+        { error: "Status tidak dikenal." },
+        { status: 400 }
+      );
+    }
+    patch.status = body.status;
+  }
+  if (body.adminNote !== undefined) {
+    const note = String(body.adminNote).trim();
+    if (note.length > 1000) {
+      return NextResponse.json(
+        { error: "Catatan admin maksimal 1000 karakter." },
+        { status: 400 }
+      );
+    }
+    patch.adminNote = note;
+  }
+  if (Object.keys(patch).length === 0) {
+    return NextResponse.json(
+      { error: "Tidak ada perubahan." },
+      { status: 400 }
+    );
+  }
+
+  const updated = updateTicket(id, patch);
+  if (!updated) {
+    return NextResponse.json(
+      { error: "Tiket tidak ditemukan." },
+      { status: 404 }
+    );
+  }
+  return NextResponse.json({ ok: true, ticket: updated });
+}
+
+/** DELETE /api/tickets/:id — hapus tiket (spam/dsb.), khusus admin. */
+export async function DELETE(req: NextRequest, ctx: Ctx) {
+  if (!isAdmin(req)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const { id } = await ctx.params;
+  const ok = deleteTicket(id);
+  if (!ok) {
+    return NextResponse.json(
+      { error: "Tiket tidak ditemukan." },
+      { status: 404 }
+    );
+  }
+  return NextResponse.json({ ok: true });
+}
