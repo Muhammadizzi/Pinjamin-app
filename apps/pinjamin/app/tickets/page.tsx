@@ -260,14 +260,16 @@ export default function TicketsPage() {
       const updated: Ticket = j.ticket;
       setTickets((prev) => prev.map((t) => (t.id === id ? updated : t)));
       setSelected((prev) => (prev && prev.id === id ? updated : prev));
-      showNotice(
-        "ok",
-        patch.status
-          ? "Status diperbarui ✓"
-          : patch.assetId !== undefined
-          ? "Tautan aset disimpan ✓"
-          : "Catatan tersimpan ✓"
-      );
+      if (patch.status) {
+        // Sengaja TANPA toast — perubahan status sudah terlihat langsung
+        // pada badge/pill status yang aktif.
+      } else if (patch.assetId !== undefined) {
+        showNotice("ok", "Tautan aset disimpan ✓");
+      } else {
+        // Simpan catatan → tutup modal, balik ke daftar tiket.
+        showNotice("ok", "Catatan tersimpan ✓");
+        setSelected(null);
+      }
     } finally {
       setSaving(false);
     }
@@ -283,7 +285,8 @@ export default function TicketsPage() {
         if (res.ok) {
           setTickets((prev) => prev.filter((x) => x.id !== t.id));
           setSelected(null);
-          showNotice("ok", "Tiket dihapus ✓");
+          // Toast merah — penanda tindakan destruktif, bukan hijau (sukses biasa).
+          showNotice("err", "Tiket dihapus ✓");
         } else {
           showNotice("err", "Gagal menghapus tiket.");
         }
