@@ -31,7 +31,11 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     return NextResponse.json({ error: "Body tidak valid." }, { status: 400 });
   }
 
-  const patch: { status?: TicketStatus; adminNote?: string } = {};
+  const patch: {
+    status?: TicketStatus;
+    adminNote?: string;
+    assetId?: string | null;
+  } = {};
   if (body.status !== undefined) {
     if (!TICKET_STATUSES.includes(body.status)) {
       return NextResponse.json(
@@ -50,6 +54,24 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
       );
     }
     patch.adminNote = note;
+  }
+  if (body.assetId !== undefined) {
+    // null = lepas tautan; string = tautkan ke Asset.id (existence
+    // divalidasi client karena aset hidup di store client).
+    if (body.assetId === null) {
+      patch.assetId = null;
+    } else if (
+      typeof body.assetId === "string" &&
+      body.assetId.trim().length > 0 &&
+      body.assetId.trim().length <= 80
+    ) {
+      patch.assetId = body.assetId.trim();
+    } else {
+      return NextResponse.json(
+        { error: "ID aset tidak valid." },
+        { status: 400 }
+      );
+    }
   }
   if (Object.keys(patch).length === 0) {
     return NextResponse.json(

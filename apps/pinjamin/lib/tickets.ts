@@ -21,6 +21,12 @@ export interface Ticket {
   status: TicketStatus;
   /** Catatan internal admin — TIDAK pernah dikirim ke endpoint publik. */
   adminNote: string;
+  /**
+   * Tautan opsional ke aset Pinjamin (Asset.id di store client). Disimpan
+   * sebagai id mentah; keberadaan aset divalidasi di sisi client (server
+   * tiket tidak mengenal store aset). null/undefined = tidak tertaut.
+   */
+  assetId?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -123,7 +129,7 @@ export function createTicket(
 
 export function updateTicket(
   id: string,
-  patch: { status?: TicketStatus; adminNote?: string }
+  patch: { status?: TicketStatus; adminNote?: string; assetId?: string | null }
 ): Ticket | null {
   const all = load();
   const idx = all.findIndex((t) => t.id === id);
@@ -132,6 +138,7 @@ export function updateTicket(
     ...all[idx],
     ...(patch.status ? { status: patch.status } : {}),
     ...(patch.adminNote !== undefined ? { adminNote: patch.adminNote } : {}),
+    ...(patch.assetId !== undefined ? { assetId: patch.assetId } : {}),
     updatedAt: new Date().toISOString(),
   };
   const copy = [...all];

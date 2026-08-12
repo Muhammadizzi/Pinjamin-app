@@ -1,11 +1,14 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { AppShell } from "@/components/layout/sidebar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useConfirmDialog } from "@/components/ui/confirm-dialog";
+import { useStore } from "@/lib/store";
 import { formatDateTime } from "@/lib/utils";
 import {
   LifeBuoy,
@@ -27,6 +30,10 @@ import {
   StickyNote,
   Copy,
   Check,
+  Link2,
+  Package,
+  ExternalLink,
+  Unlink,
 } from "lucide-react";
 
 type TicketStatus = "OPEN" | "IN_PROGRESS" | "RESOLVED" | "CLOSED";
@@ -42,9 +49,18 @@ interface Ticket {
   message: string;
   status: TicketStatus;
   adminNote: string;
+  /** Tautan opsional ke aset Pinjamin (lihat lib/tickets.ts). */
+  assetId?: string | null;
   createdAt: string;
   updatedAt: string;
 }
+
+const ASSET_STATUS_LABEL: Record<string, string> = {
+  AVAILABLE: "Tersedia",
+  CHECKED_OUT: "Dipinjam",
+  MAINTENANCE: "Maintenance",
+  RETIRED: "Dipensiunkan",
+};
 
 const STATUS_META: Record<
   TicketStatus,
@@ -94,6 +110,7 @@ function StatusBadge({ status }: { status: TicketStatus }) {
 
 export default function TicketsPage() {
   const { ask, confirmDialog } = useConfirmDialog();
+  const { assets, updateAsset, isHydrated } = useStore();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -102,6 +119,7 @@ export default function TicketsPage() {
   const [selected, setSelected] = useState<Ticket | null>(null);
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
+  const [assetPick, setAssetPick] = useState("");
   const [notice, setNotice] = useState<{
     kind: "ok" | "err";
     text: string;
@@ -194,6 +212,36 @@ export default function TicketsPage() {
   const openDetail = (t: Ticket) => {
     setSelected(t);
     setNote(t.adminNote);
+    setAssetPick(t.assetId || "");
+  };
+
+  const linkedAsset = useMemo(
+    () =>
+      selected?.assetId
+        ? assets.find((a) => a.id === selected.assetId) ?? null
+        : null,
+    [selected, assets]
+  );
+
+  /**
+   * Simpan tautan aset. Saat MENAUTKAN ke aset yang statusnya Tersedia,
+   * otomatis tandai aset itu MAINTENANCE (laptop "rusak" tidak boleh ikut
+   * dipinjam). Melepas tautan TIDAK mengubah status aset (boleh jadi tiket
+   * fasilitas umum yang salah taut).
+   */
+  const saveAssetLink = async (nextAssetId: string | null) => {
+    if (!selected) return;
+    const prevLinked = selected.assetId ?? null;
+    await patchTicket(selected.id, { assetId: nextAssetId });
+    if (
+      nextAssetId &&
+      nextAssetId !== prevLinked &&
+      // baca status terkini dari store
+      assets.find((a) => a.id === nextAssetId)?.status === "AVAILABLE"
+    ) {
+      updateAsset(nextAssetId, { status: "MAINTENANCE" });
+      showNotice("ok", "Aset ditandai Maintenance ✓");
+    }
   };
 
   const patchTicket = async (id: string, patch: Partial<Ticket>) => {
@@ -214,7 +262,11 @@ export default function TicketsPage() {
       setSelected((prev) => (prev && prev.id === id ? updated : prev));
       showNotice(
         "ok",
-        patch.status ? "Status diperbarui ✓" : "Catatan tersimpan ✓"
+        patch.status
+          ? "Status diperbarui ✓"
+          : patch.assetId !== undefined
+          ? "Tautan aset disimpan ✓"
+          : "Catatan tersimpan ✓"
       );
     } finally {
       setSaving(false);
@@ -416,6 +468,15 @@ export default function TicketsPage() {
                       <StickyNote className="h-3 w-3" /> catatan
                     </span>
                   )}
+                  {t.assetId && (
+                    <span
+                      title="Tertaut ke aset"
+                      className="inline-flex items-center gap-1 text-[11px] text-slate-500"
+                    >
+                      <Package className="h-3 w-3" />
+                      {assets.find((a) => a.id === t.assetId)?.name ?? "aset"}
+                    </span>
+                  )}
                   <span className="text-xs text-slate-500 ml-auto">
                     {formatDateTime(t.createdAt)}
                   </span>
@@ -504,6 +565,90 @@ export default function TicketsPage() {
 
               <div className="rounded-xl bg-[#0f1d33] border border-[#243a5e] p-4 text-sm text-slate-200 whitespace-pre-wrap leading-relaxed">
                 {selected.message}
+              </div>
+
+              {/* Aset terkait */}
+              <div className="space-y-2">
+                <div className="text-sm font-semibold text-white flex items-center gap-2">
+                  <Link2 className="h-4 w-4 text-amber-300" />
+                  Aset Terkait
+                </div>
+                {selected.assetId ? (
+                  <div className="rounded-xl border border-[#243a5e] bg-[#0f1d33] p-3.5 flex flex-wrap items-center gap-3">
+                    <Package className="h-5 w-5 text-amber-300 shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-semibold text-white truncate">
+                        {linkedAsset
+                          ? linkedAsset.name
+                          : "(aset tidak ditemukan di store)"}
+                      </div>
+                      {linkedAsset && (
+                        <div className="text-xs text-slate-400">
+                          {ASSET_STATUS_LABEL[linkedAsset.status] ||
+                            linkedAsset.status}
+                          {linkedAsset.serialNumber
+                            ? ` • SN ${linkedAsset.serialNumber}`
+                            : ""}
+                        </div>
+                      )}
+                    </div>
+                    {linkedAsset && (
+                      <Link
+                        href={`/assets/${linkedAsset.id}`}
+                        target="_blank"
+                        title="Buka halaman aset"
+                        className="rounded-lg p-1.5 hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                      </Link>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      disabled={saving}
+                      onClick={() => saveAssetLink(null)}
+                      title="Lepas tautan aset"
+                      className="rounded-xl text-slate-400 hover:text-red-300"
+                    >
+                      <Unlink className="h-4 w-4" /> Lepas
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <Select
+                      value={assetPick}
+                      onChange={(e) => setAssetPick(e.target.value)}
+                      className="flex-1"
+                      disabled={!isHydrated || assets.length === 0}
+                    >
+                      <option value="">
+                        {assets.length === 0
+                          ? "Belum ada aset di Pinjamin"
+                          : "— Pilih aset yang dilaporkan —"}
+                      </option>
+                      {assets.map((a) => (
+                        <option key={a.id} value={a.id}>
+                          {a.name} — {ASSET_STATUS_LABEL[a.status] || a.status}
+                        </option>
+                      ))}
+                    </Select>
+                    <Button
+                      variant="outline"
+                      disabled={!assetPick || saving}
+                      onClick={() => saveAssetLink(assetPick)}
+                      className="rounded-xl shrink-0"
+                    >
+                      <Link2 className="h-4 w-4" /> Tautkan
+                    </Button>
+                  </div>
+                )}
+                {!selected.assetId && (
+                  <p className="text-[11px] text-slate-500">
+                    Menautkan tiket ke aset berstatus Tersedia akan otomatis
+                    menandainya <b>Maintenance</b> — tidak bisa ikut dipinjam
+                    sampai diperbaiki.
+                  </p>
+                )}
               </div>
 
               <div className="space-y-2">
