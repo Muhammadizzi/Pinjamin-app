@@ -201,12 +201,6 @@ export default function LandingPage() {
             </div>
           </div>
           <nav className="ml-auto flex items-center gap-2">
-            <a
-              href="#lacak"
-              className="hidden sm:inline text-sm text-slate-300 hover:text-white px-3 py-2 transition-colors"
-            >
-              Lacak Tiket
-            </a>
             <Link href="/login">
               <Button variant="outline" size="sm" className="rounded-xl">
                 <LogIn className="h-4 w-4" /> Login Admin
@@ -217,15 +211,20 @@ export default function LandingPage() {
       </header>
 
       <main className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6">
-        {/* Hero + form */}
-        <section className="py-10 sm:py-14 grid lg:grid-cols-2 gap-10 items-center">
-          <div className="space-y-6">
-            <div className="inline-flex items-center gap-2 rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1 text-xs font-semibold text-amber-200">
-              <Sparkles className="h-3.5 w-3.5" />
-              Smart Asset Lending &amp; Helpdesk
-            </div>
+        {/* Badge hero — dipusatkan */}
+        <section className="pt-10 sm:pt-14 pb-8 text-center">
+          <div className="inline-flex items-center gap-2 rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1 text-xs font-semibold text-amber-200">
+            <Sparkles className="h-3.5 w-3.5" />
+            Smart Asset Lending &amp; Helpdesk
+          </div>
+        </section>
+
+        {/* Grid utama: kiri = satu platform + lacak, kanan = form tiket.
+            Di mobile form didahulukan (order-first) karena aksi utamanya. */}
+        <section className="pb-14 flex flex-col lg:grid lg:grid-cols-2 gap-6 items-start">
+          <div className="space-y-6 w-full order-last lg:order-none">
             {/* Satu platform: Pinjamin + Ticketing */}
-            <div className="rounded-2xl border border-[#243a5e] bg-[#12263f]/50 p-4 space-y-3">
+            <div className="rounded-2xl border border-[#243a5e] bg-[#12263f]/50 p-5 space-y-3">
               <div className="text-xs font-semibold tracking-widest uppercase text-slate-400">
                 Satu platform — Pinjamin
               </div>
@@ -244,6 +243,69 @@ export default function LandingPage() {
                 ))}
               </div>
             </div>
+
+            {/* Lacak tiket — status muncul otomatis */}
+            <Card className="border-[#243a5e] scroll-mt-24" id="lacak">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <Search className="h-5 w-5 text-amber-300" />
+                  Lacak Tiket
+                </CardTitle>
+                <p className="text-xs text-slate-400">
+                  Ketik nomor tiket lengkap (mis. TKT-8F3K2A) — status muncul
+                  otomatis, tanpa klik tombol.
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <form onSubmit={submitTrack} className="relative">
+                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 pointer-events-none" />
+                  <Input
+                    value={trackNumber}
+                    onChange={(e) => setTrackNumber(e.target.value)}
+                    placeholder="TKT-XXXXXX"
+                    className="h-11 rounded-xl font-mono uppercase pl-10 pr-10"
+                    autoComplete="off"
+                  />
+                  {tracking && (
+                    <Loader2 className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-amber-300" />
+                  )}
+                </form>
+                {trackError && (
+                  <div className="text-sm rounded-xl border border-red-500/30 bg-red-500/10 text-red-300 px-3 py-2">
+                    {trackError}
+                  </div>
+                )}
+                {trackResult && (
+                  <div className="rounded-2xl border border-[#243a5e] bg-[#0f1d33] p-4 space-y-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-mono font-bold text-amber-300">
+                        {trackResult.number}
+                      </span>
+                      {(() => {
+                        const meta =
+                          STATUS_META[trackResult.status] || STATUS_META.OPEN;
+                        return (
+                          <span
+                            className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${meta.cls}`}
+                          >
+                            <span
+                              className={`h-1.5 w-1.5 rounded-full ${meta.dot}`}
+                            />
+                            {meta.label}
+                          </span>
+                        );
+                      })()}
+                    </div>
+                    <div className="font-semibold">{trackResult.subject}</div>
+                    <div className="text-xs text-slate-400">
+                      {trackResult.category} • dibuat{" "}
+                      {formatDateTime(trackResult.createdAt)} • update terakhir{" "}
+                      {formatDateTime(trackResult.updatedAt)}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </div>
 
           {/* Form tiket */}
@@ -413,71 +475,6 @@ export default function LandingPage() {
                     {submitting ? "Mengirim..." : "Kirim Tiket"}
                   </Button>
                 </form>
-              )}
-            </CardContent>
-          </Card>
-        </section>
-
-        {/* Lacak tiket */}
-        <section id="lacak" className="pb-14 scroll-mt-24">
-          <Card className="border-[#243a5e] max-w-2xl mx-auto">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <Search className="h-5 w-5 text-amber-300" />
-                Lacak Tiket
-              </CardTitle>
-              <p className="text-xs text-slate-400">
-                Ketik nomor tiket lengkap (mis. TKT-8F3K2A) — status muncul
-                otomatis, tanpa klik tombol.
-              </p>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <form onSubmit={submitTrack} className="relative">
-                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 pointer-events-none" />
-                <Input
-                  value={trackNumber}
-                  onChange={(e) => setTrackNumber(e.target.value)}
-                  placeholder="TKT-XXXXXX"
-                  className="h-11 rounded-xl font-mono uppercase pl-10 pr-10"
-                  autoComplete="off"
-                />
-                {tracking && (
-                  <Loader2 className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-amber-300" />
-                )}
-              </form>
-              {trackError && (
-                <div className="text-sm rounded-xl border border-red-500/30 bg-red-500/10 text-red-300 px-3 py-2">
-                  {trackError}
-                </div>
-              )}
-              {trackResult && (
-                <div className="rounded-2xl border border-[#243a5e] bg-[#0f1d33] p-4 space-y-2">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-mono font-bold text-amber-300">
-                      {trackResult.number}
-                    </span>
-                    {(() => {
-                      const meta =
-                        STATUS_META[trackResult.status] || STATUS_META.OPEN;
-                      return (
-                        <span
-                          className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${meta.cls}`}
-                        >
-                          <span
-                            className={`h-1.5 w-1.5 rounded-full ${meta.dot}`}
-                          />
-                          {meta.label}
-                        </span>
-                      );
-                    })()}
-                  </div>
-                  <div className="font-semibold">{trackResult.subject}</div>
-                  <div className="text-xs text-slate-400">
-                    {trackResult.category} • dibuat{" "}
-                    {formatDateTime(trackResult.createdAt)} • update terakhir{" "}
-                    {formatDateTime(trackResult.updatedAt)}
-                  </div>
-                </div>
               )}
             </CardContent>
           </Card>
