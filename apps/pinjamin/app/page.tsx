@@ -10,7 +10,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatDateTime } from "@/lib/utils";
 import {
   LifeBuoy,
-  LogIn,
   Send,
   Search,
   Copy,
@@ -200,13 +199,6 @@ export default function LandingPage() {
               Garuda Food
             </div>
           </div>
-          <nav className="ml-auto flex items-center gap-2">
-            <Link href="/login">
-              <Button variant="outline" size="sm" className="rounded-xl">
-                <LogIn className="h-4 w-4" /> Login Admin
-              </Button>
-            </Link>
-          </nav>
         </div>
       </header>
 
@@ -483,7 +475,17 @@ export default function LandingPage() {
 
       <footer className="relative z-10 border-t border-[#243a5e]/60">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 py-5 text-center text-xs text-slate-500">
-          © 2026 Pinjamin — Smart Asset Lending &amp; Helpdesk • Garuda Food
+          {/* Simbol © adalah pintu tersembunyi ke form login admin (/login).
+              Sengaja tampil polos — tanpa indikasi link — agar tidak terlihat
+              oleh pengunjung publik. */}
+          <Link
+            href="/login"
+            aria-label="Login admin"
+            className="text-inherit no-underline hover:text-inherit cursor-default"
+          >
+            ©
+          </Link>{" "}
+          2026 Pinjamin — Smart Asset Lending &amp; Helpdesk • Garuda Food
         </div>
       </footer>
     </div>
