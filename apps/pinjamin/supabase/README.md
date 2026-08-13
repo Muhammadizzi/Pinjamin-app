@@ -1,5 +1,21 @@
 # Supabase untuk Pinjamin
 
+> **Penting (security):** sejak migration `04-enable-rls.sql`, RLS aktif di
+> semua tabel dan browser tidak lagi mengakses tabel data langsung lewat
+> anon key. Semua baca/tulis data lewat `app/api/data/**`, yang memverifikasi
+> cookie sesi (JWT) dan menggunakan `SUPABASE_SERVICE_ROLE` di server. Wajib
+> set env berikut di server (jangan pernah expose ke client / `NEXT_PUBLIC_*`):
+>
+> ```bash
+> SUPABASE_SERVICE_ROLE=eyJ...   # Project Settings → API → service_role
+> AUTH_SECRET=$(openssl rand -base64 32)  # wajib di production, lihat lib/auth.ts
+> ```
+>
+> Urutan jalankan SQL: `01-schema.sql` → `02-storage.sql` → `03-seed.sql`
+> (opsional) → `04-enable-rls.sql` **paling akhir**, setelah app dengan
+> `app/api/data/**` sudah ter-deploy (kalau RLS dinyalakan duluan tanpa route
+> ini, app kehilangan akses ke datanya sendiri).
+
 Pinjamin support **2 mode** agar tetap jalan tanpa setup:
 
 - **Offline (default):** tanpa env, upload disimpan sebagai `base64` di `localStorage` → instant, tidak butuh Supabase.
@@ -16,7 +32,7 @@ NEXT_PUBLIC_SUPABASE_URL=https://xxxxx.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOi... (anon public)
 # opsional, kompatibel dengan shelf:
 SUPABASE_URL=https://xxxxx.supabase.co
-SUPABASE_ANON_PUBLIC=eyJ... 
+SUPABASE_ANON_PUBLIC=eyJ...
 ```
 
 4. Buat bucket `assets` (public):
