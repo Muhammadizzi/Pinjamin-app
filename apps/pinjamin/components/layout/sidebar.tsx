@@ -159,8 +159,10 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
     // Matikan sinkron server store — PUT berikutnya mustahil berhasil tanpa
     // sesi, dan mekanisme retry perlu dipersenjatai untuk login berikutnya.
     window.dispatchEvent(new Event("pinjamin:session-end"));
-    router.push("/login");
-    router.refresh();
+    // Hard redirect (bukan client-side push): memaksa middleware mengecek
+    // cookie yang baru saja dihapus dan me-reset seluruh state client,
+    // sehingga admin pasti tiba di form login — bukan landing page.
+    window.location.replace("/login");
   };
 
   const navItems =

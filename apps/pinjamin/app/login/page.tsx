@@ -1,10 +1,11 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff, Loader2 } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -71,6 +72,15 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen relative flex items-center justify-center p-4 overflow-hidden">
+      {/* Tombol kembali ke landing page — admin yang salah masuk bisa balik
+          tanpa mengetik URL manual. */}
+      <Link
+        href="/"
+        className="absolute top-4 left-4 sm:top-6 sm:left-6 z-10 inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/10 hover:bg-white/20 backdrop-blur-md px-3.5 py-2 text-sm font-medium text-white transition-colors"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Kembali ke Beranda
+      </Link>
       {/* === BACKGROUND FOTO - GANTI FILE DI public/login-bg.jpg === */}
       {/* Cara ganti: taruh foto kamu di apps/pinjamin/public/login-bg.jpg */}
       {/* Jika file tidak ada, otomatis fallback ke gradient navy */}
