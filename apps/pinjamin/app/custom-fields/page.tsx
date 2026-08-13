@@ -8,41 +8,80 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useStore } from "@/lib/store";
+import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useT } from "@/lib/i18n";
-import { Plus, Trash2 } from "lucide-react";
+import { contrastTextColor } from "@/lib/utils";
+import { Plus, Trash2, Check } from "lucide-react";
 
 export default function CustomFieldsPage() {
-  const { customFields, addCustomField, deleteCustomField } = useStore(); const { t } = useT();
+  const { customFields, categories, addCustomField, deleteCustomField } =
+    useStore();
+  const { t } = useT();
+  const { ask, confirmDialog } = useConfirmDialog();
   const [form, setForm] = useState({
     name: "",
     type: "text" as any,
     required: false,
     options: "",
+    categoryIds: [] as string[],
   });
+
+  const toggleCategory = (id: string) =>
+    setForm((f) => ({
+      ...f,
+      categoryIds: f.categoryIds.includes(id)
+        ? f.categoryIds.filter((x) => x !== id)
+        : [...f.categoryIds, id],
+    }));
+
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name) return;
-    addCustomField({
-      name: form.name,
-      type: form.type,
-      required: form.required,
-      options:
-        form.type === "option"
-          ? form.options
-              .split(",")
-              .map((s) => s.trim())
-              .filter(Boolean)
-          : undefined,
+    const catNames =
+      form.categoryIds.length === 0
+        ? "semua kategori"
+        : categories
+            .filter((c) => form.categoryIds.includes(c.id))
+            .map((c) => c.name)
+            .join(", ");
+    ask({
+      title: `Tambah custom field "${form.name}"?`,
+      description: `Field ini akan dipakai untuk: ${catNames}.`,
+      confirmLabel: "Ya, Tambah",
+      variant: "primary",
+      action: () => {
+        addCustomField({
+          name: form.name,
+          type: form.type,
+          required: form.required,
+          options:
+            form.type === "option"
+              ? form.options
+                  .split(",")
+                  .map((s) => s.trim())
+                  .filter(Boolean)
+              : undefined,
+          categoryIds:
+            form.categoryIds.length > 0 ? form.categoryIds : undefined,
+        });
+        setForm({
+          name: "",
+          type: "text",
+          required: false,
+          options: "",
+          categoryIds: [],
+        });
+      },
     });
-    setForm({ name: "", type: "text", required: false, options: "" });
   };
+
   return (
     <AppShell>
       <div className="max-w-3xl mx-auto space-y-6">
         <div>
           <h1 className="text-2xl font-bold">{t("customFields")}</h1>
           <p className="text-sm text-muted-foreground">
-            Kolom metadata tambahan untuk aset
+            Kolom metadata tambahan untuk aset • bisa dibatasi per kategori
           </p>
         </div>
         <Card>
@@ -90,6 +129,115 @@ export default function CustomFieldsPage() {
                     />
                   </div>
                 )}
+
+                {/* Use for select kategori */}
+                {categories.length > 0 && (
+                  <div className="sm:col-span-2 space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <Label>Gunakan untuk Kategori</Label>
+                      <div className="flex items-center gap-2">
+                        {form.categoryIds.length > 0 && (
+                          <span className="bg-[#1a365d] text-white text-[10px] font-semibold px-2 py-0.5 rounded-full">
+                            {form.categoryIds.length} dipilih
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setForm({
+                              ...form,
+                              categoryIds: categories.map((c) => c.id),
+                            })
+                          }
+                          className="text-[11px] font-medium text-[#1a365d] dark:text-amber-300 hover:underline"
+                        >
+                          Pilih Semua
+                        </button>
+                        {form.categoryIds.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setForm({ ...form, categoryIds: [] })
+                            }
+                            className="text-[11px] font-medium text-red-500 hover:underline"
+                          >
+                            Reset
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      {categories.map((c) => {
+                        const selected = form.categoryIds.includes(c.id);
+                        const color = c.color || "#4299e1";
+                        const fg = selected ? contrastTextColor(color) : "";
+                        const overlay =
+                          fg === "#ffffff"
+                            ? "rgba(255,255,255,.25)"
+                            : "rgba(15,23,42,.12)";
+                        return (
+                          <button
+                            key={c.id}
+                            type="button"
+                            onClick={() => toggleCategory(c.id)}
+                            aria-pressed={selected}
+                            title={c.name}
+                            className={`flex items-center gap-2 rounded-xl border-2 px-3 py-2.5 text-left text-xs font-medium transition-all ${
+                              selected
+                                ? "shadow"
+                                : "bg-[#12263f] text-slate-200 border-[#243a5e] hover:border-[#35507c]"
+                            }`}
+                            style={
+                              selected
+                                ? {
+                                    background: color,
+                                    borderColor: color,
+                                    color: fg,
+                                  }
+                                : undefined
+                            }
+                          >
+                            <span
+                              className="h-2.5 w-2.5 rounded-full shrink-0 border"
+                              style={{
+                                background: selected ? fg || color : color,
+                                borderColor: selected
+                                  ? fg === "#ffffff"
+                                    ? "rgba(255,255,255,.4)"
+                                    : "rgba(15,23,42,.25)"
+                                  : "transparent",
+                              }}
+                            />
+                            <span
+                              className={`flex-1 truncate ${
+                                c.name?.trim() ? "" : "italic opacity-60"
+                              }`}
+                            >
+                              {c.name?.trim() ? c.name : "(tanpa nama)"}
+                            </span>
+                            <span
+                              className="h-4 w-4 rounded-full flex items-center justify-center shrink-0"
+                              style={
+                                selected ? { background: overlay } : undefined
+                              }
+                            >
+                              {selected ? (
+                                <Check className="h-3 w-3" />
+                              ) : (
+                                <span className="h-4 w-4 rounded-full border border-slate-500" />
+                              )}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Tidak memilih kategori = field berlaku untuk{" "}
+                      <b>semua kategori</b>.
+                    </p>
+                  </div>
+                )}
+
                 <div className="flex items-center gap-2 sm:col-span-2">
                   <input
                     type="checkbox"
@@ -109,28 +257,67 @@ export default function CustomFieldsPage() {
           </CardContent>
         </Card>
         <div className="grid gap-3">
-          {customFields.map((cf) => (
-            <Card key={cf.id}>
-              <CardContent className="p-4 flex items-center gap-4">
-                <div className="flex-1">
-                  <div className="font-medium">{cf.name}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {cf.type} {cf.required && "• wajib"}{" "}
-                    {cf.options && `• ${cf.options.join(", ")}`}
+          {customFields.map((cf) => {
+            const assignedCats = (cf.categoryIds || [])
+              .map((id) => categories.find((c) => c.id === id))
+              .filter(Boolean);
+            return (
+              <Card key={cf.id}>
+                <CardContent className="p-4 flex items-center gap-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium">{cf.name}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {cf.type} {cf.required && "• wajib"}{" "}
+                      {cf.options && `• ${cf.options.join(", ")}`}
+                    </div>
+                    <div className="flex flex-wrap gap-1 mt-1.5">
+                      {assignedCats.length === 0 ? (
+                        <Badge variant="secondary" className="text-[10px]">
+                          Semua kategori
+                        </Badge>
+                      ) : (
+                        assignedCats.map(
+                          (c: any) =>
+                            c && (
+                              <span
+                                key={c.id}
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold"
+                                style={{
+                                  background: c.color || "#64748b",
+                                  color: contrastTextColor(
+                                    c.color || "#64748b"
+                                  ),
+                                }}
+                              >
+                                {c.name}
+                              </span>
+                            )
+                        )
+                      )}
+                    </div>
                   </div>
-                </div>
-                <Badge variant="outline">{cf.type}</Badge>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => deleteCustomField(cf.id)}
-                  className="text-red-600"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </CardContent>
-            </Card>
-          ))}
+                  <Badge variant="outline" className="shrink-0">
+                    {cf.type}
+                  </Badge>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() =>
+                      ask({
+                        title: "Hapus custom field?",
+                        description: `Field "${cf.name}" akan dihapus permanen dari semua aset.`,
+                        confirmLabel: "Ya, Hapus",
+                        action: () => deleteCustomField(cf.id),
+                      })
+                    }
+                    className="text-red-600 shrink-0"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </CardContent>
+              </Card>
+            );
+          })}
           {customFields.length === 0 && (
             <p className="text-center text-muted-foreground py-8">
               Belum ada custom field.
@@ -138,6 +325,8 @@ export default function CustomFieldsPage() {
           )}
         </div>
       </div>
+
+      {confirmDialog}
     </AppShell>
   );
 }

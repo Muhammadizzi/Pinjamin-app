@@ -1,10 +1,11 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff, Loader2 } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -48,13 +49,21 @@ export default function LoginPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Login gagal");
-      router.push("/");
+      // Beri tahu StoreProvider agar mengaktifkan sinkron server — provider
+      // tidak remount pada client-side navigation di bawah.
+      window.dispatchEvent(new Event("pinjamin:session"));
+      router.push("/dashboard");
       router.refresh();
     } catch (e: any) {
       setErr(e.message);
       try {
         const { animate } = await import("animejs");
-        if (formRef.current) animate(formRef.current, { translateX: [0, -6, 6, -4, 4, 0], duration: 350, easing: "easeInOutQuad" });
+        if (formRef.current)
+          animate(formRef.current, {
+            translateX: [0, -6, 6, -4, 4, 0],
+            duration: 350,
+            easing: "easeInOutQuad",
+          });
       } catch {}
     } finally {
       setLoading(false);
@@ -63,6 +72,15 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen relative flex items-center justify-center p-4 overflow-hidden">
+      {/* Tombol kembali ke landing page — admin yang salah masuk bisa balik
+          tanpa mengetik URL manual. */}
+      <Link
+        href="/"
+        className="absolute top-4 left-4 sm:top-6 sm:left-6 z-10 inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/10 hover:bg-white/20 backdrop-blur-md px-3.5 py-2 text-sm font-medium text-white transition-colors"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Kembali ke Beranda
+      </Link>
       {/* === BACKGROUND FOTO - GANTI FILE DI public/login-bg.jpg === */}
       {/* Cara ganti: taruh foto kamu di apps/pinjamin/public/login-bg.jpg */}
       {/* Jika file tidak ada, otomatis fallback ke gradient navy */}
@@ -83,19 +101,37 @@ export default function LoginPage() {
         <div className="bg-white/95 dark:bg-slate-900/85 backdrop-blur-2xl rounded-[24px] shadow-[0_24px_64px_rgba(0,0,0,0.4)] border border-white/20 p-8 sm:p-8">
           {/* Logo transparan - tanpa kotak putih */}
           <div className="flex flex-col items-center text-center mb-7">
-            <img
-              src="/logo-pinjamin.png"
-              alt="Pinjamin"
-              className="h-14 w-auto object-contain mb-4"
-              style={{ background: "transparent", filter: "drop-shadow(0 2px 8px rgba(0,0,0,0.15))" }}
-            />
-            <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white">Selamat Datang</h1>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Masuk ke Pinjamin</p>
+            <span className="relative flex items-center justify-center mb-4">
+              {/* Efek cahaya di belakang logo (kartu login gelap di tema dark) */}
+              <span
+                aria-hidden="true"
+                className="absolute h-14 w-14 scale-95 rounded-full bg-white/85 blur-[7px]"
+              />
+              <span
+                aria-hidden="true"
+                className="absolute h-20 w-20 rounded-full bg-amber-300/25 blur-[14px]"
+              />
+              <img
+                src="/logo-pinjamin.png"
+                alt="Pinjamin"
+                className="relative h-14 w-auto object-contain"
+                style={{ background: "transparent" }}
+              />
+            </span>
+            <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white">
+              Selamat Datang
+            </h1>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+              Masuk ke Pinjamin
+            </p>
           </div>
 
           <form onSubmit={submit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="username" className="text-slate-700 dark:text-slate-200">
+              <Label
+                htmlFor="username"
+                className="text-slate-700 dark:text-slate-200"
+              >
                 Username
               </Label>
               <Input
@@ -110,7 +146,10 @@ export default function LoginPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-slate-700 dark:text-slate-200">
+              <Label
+                htmlFor="password"
+                className="text-slate-700 dark:text-slate-200"
+              >
                 Password
               </Label>
               <div className="relative">
@@ -130,12 +169,20 @@ export default function LoginPage() {
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 dark:hover:text-white p-1"
                   aria-label={show ? "Sembunyikan password" : "Lihat password"}
                 >
-                  {show ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  {show ? (
+                    <EyeOff className="h-5 w-5" />
+                  ) : (
+                    <Eye className="h-5 w-5" />
+                  )}
                 </button>
               </div>
             </div>
 
-            {err && <div className="rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-700 dark:text-red-300 text-sm px-4 py-3">{err}</div>}
+            {err && (
+              <div className="rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-700 dark:text-red-300 text-sm px-4 py-3">
+                {err}
+              </div>
+            )}
 
             <Button
               type="submit"
@@ -147,12 +194,17 @@ export default function LoginPage() {
           </form>
 
           {/* Footer minimal - hapus demo akses, hapus aman bcrypt, hapus semua fitur aktif */}
-          <div className="mt-6 text-center text-xs text-slate-400 dark:text-slate-500">© 2026 Garuda Food • Pinjamin</div>
+          <div className="mt-6 text-center text-xs text-slate-400 dark:text-slate-500">
+            © 2026 Garuda Food • Pinjamin
+          </div>
         </div>
 
         {/* Hint kecil cara ganti background - bisa dihapus jika tidak perlu */}
         <p className="text-center text-[11px] text-white/50 mt-3 drop-shadow">
-          Ganti background: taruh foto di <code className="bg-white/20 px-1 py-0.5 rounded text-white">public/login-bg.jpg</code>
+          Ganti background: taruh foto di{" "}
+          <code className="bg-white/20 px-1 py-0.5 rounded text-white">
+            public/login-bg.jpg
+          </code>
         </p>
       </div>
     </div>

@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useStore } from "@/lib/store";
+import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useT } from "@/lib/i18n";
 import { ArrowLeft, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
 import { useState } from "react";
@@ -15,7 +16,9 @@ import { useState } from "react";
 export default function AuditDetailPage() {
   const params = useParams();
   const id = params.id as string;
-  const { audits, assets, updateAuditItem, completeAudit } = useStore(); const { t } = useT();
+  const { audits, assets, updateAuditItem, completeAudit } = useStore();
+  const { t } = useT();
+  const { ask, confirmDialog } = useConfirmDialog();
   const audit = audits.find((a) => a.id === id);
   const [notes, setNotes] = useState<Record<string, string>>({});
   if (!audit)
@@ -158,7 +161,15 @@ export default function AuditDetailPage() {
             {audit.status === "OPEN" && (
               <Button
                 className="w-full rounded-xl bg-emerald-600 hover:bg-emerald-700"
-                onClick={() => completeAudit(audit.id)}
+                onClick={() =>
+                  ask({
+                    title: "Selesaikan audit?",
+                    description: `Audit "${audit.name}" akan dikunci sebagai COMPLETED dan tidak bisa diubah lagi.`,
+                    confirmLabel: "Ya, Selesaikan",
+                    variant: "primary",
+                    action: () => completeAudit(audit.id),
+                  })
+                }
                 disabled={progress < 1}
               >
                 Selesaikan Audit
@@ -172,6 +183,8 @@ export default function AuditDetailPage() {
           </CardContent>
         </Card>
       </div>
+
+      {confirmDialog}
     </AppShell>
   );
 }

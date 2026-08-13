@@ -5,11 +5,18 @@ import { I18nProvider } from "@/lib/i18n";
 
 export const metadata: Metadata = {
   title: "Pinjamin — Smart Asset Lending | Garuda Food",
-  description: "Sistem peminjaman aset Garuda Food — kelola aset, kit, booking, audit, dan laporan dengan QR. Single dark theme, bilingual ID/EN.",
+  description:
+    "Sistem peminjaman aset Garuda Food — kelola aset, kit, booking, audit, dan laporan dengan QR. Single dark theme, bilingual ID/EN.",
   manifest: "/site.webmanifest",
   icons: {
-    icon: "/favicon.ico",
-    apple: "/apple-touch-icon.png",
+    // ?v=3 → cache-buster: Safari menyimpan cache favicon sangat agresif;
+    // URL yang belum pernah dilihat memaksa browser fetch ulang ikon baru.
+    icon: [
+      { url: "/favicon-32x32.png?v=3", type: "image/png", sizes: "32x32" },
+      { url: "/favicon-16x16.png?v=3", type: "image/png", sizes: "16x16" },
+      { url: "/favicon.ico?v=3", sizes: "any" },
+    ],
+    apple: "/apple-touch-icon.png?v=3",
   },
 };
 
@@ -19,7 +26,11 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html lang="id" className="dark h-full" style={{ colorScheme: "dark" }}>
       <body className="min-h-screen antialiased bg-[#0f1d33] text-white">

@@ -10,11 +10,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useStore } from "@/lib/store";
+import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useT } from "@/lib/i18n";
 
 export default function NewBookingPage() {
   const router = useRouter();
-  const { assets, kits, custodians, addBooking } = useStore(); const { t } = useT();
+  const { assets, kits, custodians, addBooking } = useStore();
+  const { t } = useT();
+  const { ask, confirmDialog } = useConfirmDialog();
   const [form, setForm] = useState({
     name: "",
     description: "",
@@ -48,17 +51,26 @@ export default function NewBookingPage() {
       return setErr("Pilih minimal 1 aset atau kit");
     if (new Date(form.fromDate) > new Date(form.toDate))
       return setErr("Tanggal kembali harus setelah tanggal pinjam");
-    const res = addBooking({
-      name: form.name,
-      description: form.description,
-      custodianId: form.custodianId,
-      fromDate: new Date(form.fromDate).toISOString(),
-      toDate: new Date(form.toDate).toISOString(),
-      assetIds: form.assetIds,
-      kitIds: form.kitIds,
+    const totalUnits = form.assetIds.length + form.kitIds.length;
+    ask({
+      title: `Buat peminjaman "${form.name}"?`,
+      description: `${totalUnits} unit akan dipesan. Sistem menolak otomatis jika jadwalnya bentrok.`,
+      confirmLabel: "Ya, Buat",
+      variant: "primary",
+      action: () => {
+        const res = addBooking({
+          name: form.name,
+          description: form.description,
+          custodianId: form.custodianId,
+          fromDate: new Date(form.fromDate).toISOString(),
+          toDate: new Date(form.toDate).toISOString(),
+          assetIds: form.assetIds,
+          kitIds: form.kitIds,
+        });
+        if (!res.ok) setErr(res.error || "Gagal");
+        else router.push("/bookings");
+      },
     });
-    if (!res.ok) setErr(res.error || "Gagal");
-    else router.push("/bookings");
   };
 
   return (
@@ -215,6 +227,8 @@ export default function NewBookingPage() {
           </CardContent>
         </Card>
       </div>
+
+      {confirmDialog}
     </AppShell>
   );
 }

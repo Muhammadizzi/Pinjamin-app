@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useStore } from "@/lib/store";
+import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useT } from "@/lib/i18n";
 import { formatDate } from "@/lib/utils";
 import {
@@ -22,7 +23,9 @@ import {
 
 export default function BookingsPage() {
   const { bookings, custodians, assets, updateBookingStatus, deleteBooking } =
-    useStore(); const { t } = useT();
+    useStore();
+  const { t } = useT();
+  const { ask, confirmDialog } = useConfirmDialog();
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("ALL");
   const filtered = useMemo(() => {
@@ -138,7 +141,14 @@ export default function BookingsPage() {
                             size="sm"
                             className="rounded-xl bg-emerald-600 hover:bg-emerald-700"
                             onClick={() =>
-                              updateBookingStatus(b.id, "COMPLETE")
+                              ask({
+                                title: "Kembalikan peminjaman?",
+                                description: `"${b.name}" akan ditandai selesai (COMPLETE) dan asetnya kembali tersedia.`,
+                                confirmLabel: "Ya, Kembalikan",
+                                variant: "primary",
+                                action: () =>
+                                  updateBookingStatus(b.id, "COMPLETE"),
+                              })
                             }
                           >
                             <Check className="h-4 w-4" /> Kembalikan
@@ -148,7 +158,16 @@ export default function BookingsPage() {
                           <Button
                             size="sm"
                             className="rounded-xl"
-                            onClick={() => updateBookingStatus(b.id, "ONGOING")}
+                            onClick={() =>
+                              ask({
+                                title: "Mulai peminjaman?",
+                                description: `"${b.name}" akan ditandai sedang berjalan (ONGOING) dan asetnya diserahkan.`,
+                                confirmLabel: "Ya, Mulai",
+                                variant: "primary",
+                                action: () =>
+                                  updateBookingStatus(b.id, "ONGOING"),
+                              })
+                            }
                           >
                             <Check className="h-4 w-4" /> Mulai
                           </Button>
@@ -158,7 +177,13 @@ export default function BookingsPage() {
                             variant="ghost"
                             size="sm"
                             onClick={() =>
-                              updateBookingStatus(b.id, "CANCELLED")
+                              ask({
+                                title: "Batalkan peminjaman?",
+                                description: `"${b.name}" akan dibatalkan dan reservasi asetnya dilepas.`,
+                                confirmLabel: "Ya, Batalkan",
+                                action: () =>
+                                  updateBookingStatus(b.id, "CANCELLED"),
+                              })
                             }
                             className="text-amber-600"
                           >
@@ -168,7 +193,14 @@ export default function BookingsPage() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => deleteBooking(b.id)}
+                          onClick={() =>
+                            ask({
+                              title: "Hapus peminjaman?",
+                              description: `"${b.name}" akan dihapus permanen beserta riwayatnya.`,
+                              confirmLabel: "Ya, Hapus",
+                              action: () => deleteBooking(b.id),
+                            })
+                          }
                           className="text-red-600"
                         >
                           <Trash2 className="h-4 w-4" />
@@ -182,6 +214,8 @@ export default function BookingsPage() {
           </div>
         )}
       </div>
+
+      {confirmDialog}
     </AppShell>
   );
 }

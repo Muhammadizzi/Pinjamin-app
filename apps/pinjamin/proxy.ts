@@ -2,23 +2,24 @@ import { NextResponse, type NextRequest } from "next/server";
 
 export default function proxy(req: NextRequest) {
   const token = req.cookies.get("pinjamin_session")?.value;
-  const isLogin = req.nextUrl.pathname.startsWith("/login");
-  const isApi = req.nextUrl.pathname.startsWith("/api");
+  const { pathname } = req.nextUrl;
+
+  const isApi = pathname.startsWith("/api");
   const isPublicAsset =
-    req.nextUrl.pathname.startsWith("/_next") ||
-    req.nextUrl.pathname.match(/\.(png|jpg|ico|svg|webmanifest)$/);
+    pathname.startsWith("/_next") ||
+    pathname.match(/\.(png|jpg|ico|svg|webmanifest)$/);
+  // Halaman publik: landing page (buat & lacak tiket tanpa login) + login.
+  const isPublicPage = pathname === "/" || pathname.startsWith("/login");
 
   if (isPublicAsset || isApi) return NextResponse.next();
 
   // Edge-compatible simple check: token existence means logged in.
   // Full JWT verification happens in API routes (Node runtime).
-  const session = token ? { username: "adminsystem" } : null;
-
-  if (!session && !isLogin) {
+  if (!token && !isPublicPage) {
     return NextResponse.redirect(new URL("/login", req.url));
   }
-  if (session && isLogin) {
-    return NextResponse.redirect(new URL("/", req.url));
+  if (token && pathname.startsWith("/login")) {
+    return NextResponse.redirect(new URL("/dashboard", req.url));
   }
   return NextResponse.next();
 }

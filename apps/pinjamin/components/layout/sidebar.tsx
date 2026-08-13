@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { LanguageToggle } from "@/components/language-toggle";
@@ -24,50 +24,187 @@ import {
   X,
   LogOut,
   ChevronDown,
+  UserCog,
+  LifeBuoy,
 } from "lucide-react";
+
+interface AdminProfileInfo {
+  username: string;
+  fullName: string;
+  avatar: string;
+}
+
+/**
+ * Mode admin: "assets" (Pinjamin) atau "tickets" (Helpdesk).
+ * Disimpan di localStorage + disiarkan lewat event `pinjamin:mode` supaya
+ * TopBar & Sidebar selalu sinkron. Rute /tickets otomatis memaksa mode
+ * tickets agar tampilan konsisten walau masuk lewat URL langsung.
+ */
+type AdminMode = "assets" | "tickets";
+
+function useAdminMode(): [AdminMode, (m: AdminMode) => void] {
+  const pathname = usePathname();
+  const [stored, setStored] = useState<AdminMode>("assets");
+  useEffect(() => {
+    const saved = localStorage.getItem("pinjamin_mode");
+    if (saved === "assets" || saved === "tickets") setStored(saved);
+    const onMode = (e: Event) => {
+      const d = (e as CustomEvent).detail;
+      if (d === "assets" || d === "tickets") setStored(d);
+    };
+    window.addEventListener("pinjamin:mode", onMode);
+    return () => window.removeEventListener("pinjamin:mode", onMode);
+  }, []);
+  const setMode = (m: AdminMode) => {
+    localStorage.setItem("pinjamin_mode", m);
+    window.dispatchEvent(new CustomEvent("pinjamin:mode", { detail: m }));
+  };
+  const mode: AdminMode = pathname.startsWith("/tickets") ? "tickets" : stored;
+  return [mode, setMode];
+}
+
+/**
+ * Profil admin (nama, username, foto) untuk ditampilkan di sidebar/topbar.
+ * Diambil dari server; langsung ikut berubah saat Account Settings menyimpan
+ * (event `pinjamin:profile`), tanpa perlu refresh halaman.
+ */
+function useAdminProfile(): AdminProfileInfo {
+  const [profile, setProfile] = useState<AdminProfileInfo>({
+    username: "adminsystem",
+    fullName: "Administrator",
+    avatar: "",
+  });
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/auth/me")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (alive && j?.profile) setProfile(j.profile);
+      })
+      .catch(() => {});
+    const onUpdated = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail) setProfile((p) => ({ ...p, ...detail }));
+    };
+    window.addEventListener("pinjamin:profile", onUpdated);
+    return () => {
+      alive = false;
+      window.removeEventListener("pinjamin:profile", onUpdated);
+    };
+  }, []);
+  return profile;
+}
+
+/** Lingkaran avatar admin — foto kalau ada, fallback huruf pertama nama. */
+function AdminAvatar({
+  profile,
+  className,
+}: {
+  profile: AdminProfileInfo;
+  className?: string;
+}) {
+  const initial = (profile.fullName || profile.username || "A")
+    .trim()
+    .charAt(0)
+    .toUpperCase();
+  return (
+    <div
+      className={cn(
+        "rounded-full overflow-hidden bg-[#CBA12C] text-[#1a365d] flex items-center justify-center font-extrabold shrink-0",
+        className
+      )}
+    >
+      {profile.avatar ? (
+        <img
+          src={profile.avatar}
+          alt={profile.fullName || profile.username}
+          className="h-full w-full object-cover"
+        />
+      ) : (
+        initial
+      )}
+    </div>
+  );
+}
 
 export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const router = useRouter();
   const { t } = useT();
   const { assets } = useStore();
+  const profile = useAdminProfile();
+  const [mode] = useAdminMode();
   const [bookingsOpen, setBookingsOpen] = useState(
     pathname.startsWith("/bookings")
   );
+  const [acctOpen, setAcctOpen] = useState(false);
+  const acctRef = useRef<HTMLDivElement>(null);
+
+  // Tutup popover saat klik di luar / berpindah halaman
+  useEffect(() => {
+    if (!acctOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (acctRef.current && !acctRef.current.contains(e.target as Node)) {
+        setAcctOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [acctOpen]);
+  useEffect(() => setAcctOpen(false), [pathname]);
 
   const handleLogout = async () => {
+    setAcctOpen(false);
     await fetch("/api/auth/logout", { method: "POST" });
-    router.push("/login");
-    router.refresh();
+    // Matikan sinkron server store — PUT berikutnya mustahil berhasil tanpa
+    // sesi, dan mekanisme retry perlu dipersenjatai untuk login berikutnya.
+    window.dispatchEvent(new Event("pinjamin:session-end"));
+    // Hard redirect (bukan client-side push): memaksa middleware mengecek
+    // cookie yang baru saja dihapus dan me-reset seluruh state client,
+    // sehingga admin pasti tiba di form login — bukan landing page.
+    window.location.replace("/login");
   };
 
-  const navItems = [
-    { href: "/", label: t("home"), icon: LayoutDashboard },
-    { href: "/assets", label: t("assets"), icon: Package },
-    { href: "/kits", label: t("kits"), icon: Boxes },
-    { href: "/categories", label: t("categories"), icon: Tag },
-    { href: "/tags", label: t("tags"), icon: Tag },
-    { href: "/locations", label: t("locations"), icon: MapPin },
-    {
-      href: "/custom-fields",
-      label: t("customFields"),
-      icon: SlidersHorizontal,
-    },
-    { href: "/asset-models", label: t("assetModels"), icon: Layers },
-    { href: "/custodians", label: t("custodians"), icon: Users },
-    { href: "/audits", label: t("audits"), icon: ClipboardCheck },
-    { href: "/bookings", label: t("bookings"), icon: CalendarRange },
-    { href: "/reports", label: t("reports"), icon: BarChart3 },
-  ];
+  const navItems =
+    mode === "tickets"
+      ? [{ href: "/tickets", label: "Tiket Bantuan", icon: LifeBuoy }]
+      : [
+          { href: "/dashboard", label: t("home"), icon: LayoutDashboard },
+          { href: "/assets", label: t("assets"), icon: Package },
+          { href: "/kits", label: t("kits"), icon: Boxes },
+          { href: "/categories", label: t("categories"), icon: Tag },
+          { href: "/tags", label: t("tags"), icon: Tag },
+          { href: "/locations", label: t("locations"), icon: MapPin },
+          {
+            href: "/custom-fields",
+            label: t("customFields"),
+            icon: SlidersHorizontal,
+          },
+          { href: "/asset-models", label: t("assetModels"), icon: Layers },
+          { href: "/custodians", label: t("custodians"), icon: Users },
+          { href: "/audits", label: t("audits"), icon: ClipboardCheck },
+          { href: "/bookings", label: t("bookings"), icon: CalendarRange },
+          { href: "/reports", label: t("reports"), icon: BarChart3 },
+        ];
 
   return (
     <div className="flex h-full flex-col bg-[var(--sidebar)] text-[var(--sidebar-foreground)]">
       <div className="flex items-center gap-3 px-6 py-6 border-b border-[var(--sidebar-border)] bg-gradient-to-br from-[#1a365d] to-[#243a5e]">
-        <div className="h-11 w-11 rounded-xl bg-transparent p-0 flex items-center justify-center shrink-0">
+        <div className="relative h-11 w-11 flex items-center justify-center shrink-0">
+          {/* Efek cahaya di belakang logo: inti putih terang + halo emas,
+              supaya logo navy terangkat dari latar sidebar yang gelap */}
+          <div
+            aria-hidden="true"
+            className="absolute inset-0 scale-90 rounded-full bg-white/85 blur-[6px]"
+          />
+          <div
+            aria-hidden="true"
+            className="absolute -inset-2.5 rounded-full bg-amber-300/25 blur-[12px]"
+          />
           <img
             src="/logo-pinjamin.png"
             alt="Pinjamin"
-            className="h-full w-full object-contain drop-shadow-[0_4px_12px_rgba(0,0,0,0.4)]"
+            className="relative h-full w-full object-contain"
             style={{ background: "transparent" }}
           />
         </div>
@@ -88,12 +225,12 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
       <div className="flex-1 overflow-y-auto px-3 py-4 space-y-6">
         <div className="space-y-1">
           <div className="px-3 py-2 text-[11px] font-semibold tracking-widest text-slate-400 uppercase">
-            {t("assetManagement")}
+            {mode === "tickets" ? "Helpdesk" : t("assetManagement")}
           </div>
           {navItems.map((item) => {
             const isActive =
-              item.href === "/"
-                ? pathname === "/"
+              item.href === "/dashboard"
+                ? pathname === "/dashboard"
                 : pathname.startsWith(item.href);
             if (item.label === t("bookings")) {
               return (
@@ -173,7 +310,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
               >
                 <item.icon className="h-5 w-5 shrink-0" strokeWidth={1.5} />
                 {item.label}
-                {item.label === t("assets") && (
+                {item.href === "/assets" && (
                   <span className="ml-auto text-xs bg-[#243a5e] text-amber-100 px-2 py-1 rounded-full">
                     {assets.length}
                   </span>
@@ -183,52 +320,99 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           })}
         </div>
 
-        <Link
-          href="/scanner"
-          onClick={onNavigate}
-          className={cn(
-            "flex items-center justify-center gap-2 rounded-xl px-4 py-4 text-sm font-bold shadow-lg touch-target border transition-all",
-            pathname === "/scanner"
-              ? "bg-[#CBA12C] text-[#1a365d] border-amber-200"
-              : "bg-[#CBA12C] text-[#1a365d] hover:bg-amber-300 border-amber-200 hover:shadow-xl"
-          )}
-        >
-          <QrCode className="h-5 w-5" strokeWidth={1.5} />
-          {t("scanner")}
-        </Link>
+        {mode === "assets" && (
+          <Link
+            href="/scanner"
+            onClick={onNavigate}
+            className={cn(
+              "flex items-center justify-center gap-2 rounded-xl px-4 py-4 text-sm font-bold shadow-lg touch-target border transition-all",
+              pathname === "/scanner"
+                ? "bg-[#CBA12C] text-[#1a365d] border-amber-200"
+                : "bg-[#CBA12C] text-[#1a365d] hover:bg-amber-300 border-amber-200 hover:shadow-xl"
+            )}
+          >
+            <QrCode className="h-5 w-5" strokeWidth={1.5} />
+            {t("scanner")}
+          </Link>
+        )}
 
         <div className="rounded-xl bg-[#1e3250] border border-[#2a4a6b] p-3">
-          <div className="text-xs font-semibold text-amber-200 mb-1">
-            💡 Tips
-          </div>
-          <div className="text-xs text-slate-300 leading-relaxed">
-            Scan QR aset untuk aksi cepat pinjam/kembali tanpa buka menu.
-          </div>
+          {mode === "tickets" ? (
+            <>
+              <div className="text-xs font-semibold text-amber-200 mb-1">
+                🎧 Helpdesk
+              </div>
+              <div className="text-xs text-slate-300 leading-relaxed">
+                Tiket masuk dari landing page tanpa login. Ubah statusnya agar
+                user bisa melacak lewat nomor tiket.
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="text-xs font-semibold text-amber-200 mb-1">
+                💡 Tips
+              </div>
+              <div className="text-xs text-slate-300 leading-relaxed">
+                Scan QR aset untuk aksi cepat pinjam/kembali tanpa buka menu.
+              </div>
+            </>
+          )}
         </div>
       </div>
 
-      <div className="border-t border-[var(--sidebar-border)] p-4 bg-[#142a4a]">
-        <div className="flex items-center gap-3 rounded-xl bg-[#1e3250] border border-[#2a4a6b] p-3">
-          <div className="h-9 w-9 rounded-full bg-[#CBA12C] text-[#1a365d] flex items-center justify-center text-sm font-extrabold">
-            A
+      <div
+        ref={acctRef}
+        className="relative border-t border-[var(--sidebar-border)] p-4 bg-[#142a4a]"
+      >
+        {/* Popover: klik blok administrator → Account Setting / Log Out */}
+        {acctOpen && (
+          <div className="absolute left-4 right-4 bottom-[calc(100%-0.75rem)] mb-1 rounded-xl bg-[#1e3250] border border-[#2a4a6b] shadow-2xl overflow-hidden z-30">
+            <Link
+              href="/settings"
+              onClick={() => {
+                setAcctOpen(false);
+                onNavigate?.();
+              }}
+              className="flex items-center gap-2.5 px-4 py-3 text-sm font-medium text-slate-200 hover:bg-[#243a5e] hover:text-white transition-colors"
+            >
+              <UserCog className="h-4 w-4 text-amber-300" strokeWidth={1.75} />
+              {t("accountSetting")}
+            </Link>
+            <div className="h-px bg-[#2a4a6b]" />
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="w-full flex items-center gap-2.5 px-4 py-3 text-sm font-medium text-red-300 hover:bg-[#243a5e] hover:text-red-200 transition-colors"
+            >
+              <LogOut className="h-4 w-4" strokeWidth={1.75} />
+              {t("logOut")}
+            </button>
           </div>
+        )}
+        <button
+          type="button"
+          onClick={() => setAcctOpen((o) => !o)}
+          aria-expanded={acctOpen}
+          title={`${t("accountSetting")} / ${t("logOut")}`}
+          className="w-full flex items-center gap-3 rounded-xl bg-[#1e3250] border border-[#2a4a6b] p-3 text-left hover:bg-[#243a5e] transition-colors"
+        >
+          <AdminAvatar profile={profile} className="h-9 w-9 text-sm" />
           <div className="flex-1 min-w-0">
             <div className="text-sm font-semibold text-white truncate">
-              adminsystem
+              {profile.fullName || profile.username}
             </div>
             <div className="text-xs text-amber-200/70 truncate">
-              Administrator
+              @{profile.username}
             </div>
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleLogout}
-            className="h-9 w-9 text-slate-400 hover:text-white hover:bg-[#243a5e]"
-          >
-            <LogOut className="h-4 w-4" strokeWidth={1.5} />
-          </Button>
-        </div>
+          <ChevronDown
+            className={cn(
+              "h-4 w-4 text-slate-400 transition-transform",
+              acctOpen && "rotate-180"
+            )}
+            strokeWidth={1.5}
+          />
+        </button>
       </div>
     </div>
   );
@@ -236,6 +420,13 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
 
 export function TopBar({ onMenu }: { onMenu: () => void }) {
   const router = useRouter();
+  const { t } = useT();
+  const profile = useAdminProfile();
+  const [mode, setMode] = useAdminMode();
+  const switchMode = (m: AdminMode) => {
+    setMode(m);
+    router.push(m === "tickets" ? "/tickets" : "/dashboard");
+  };
   return (
     <header className="sticky top-0 z-20 flex h-[64px] items-center gap-3 border-b bg-[#0f1d33]/95 backdrop-blur-xl px-4 border-[#243a5e] shadow-sm">
       <Button
@@ -246,16 +437,23 @@ export function TopBar({ onMenu }: { onMenu: () => void }) {
       >
         <Menu className="h-6 w-6" strokeWidth={1.5} />
       </Button>
-      <Link href="/" className="flex items-center gap-2 lg:hidden">
-        <img
-          src="/logo-pinjamin.png"
-          alt="Pinjamin"
-          className="h-7 w-auto object-contain"
-          style={{
-            background: "transparent",
-            filter: "drop-shadow(0 2px 6px rgba(0,0,0,0.3))",
-          }}
-        />
+      <Link href="/dashboard" className="flex items-center gap-2 lg:hidden">
+        <span className="relative flex items-center justify-center">
+          <span
+            aria-hidden="true"
+            className="absolute h-7 w-7 rounded-full bg-white/85 blur-[5px]"
+          />
+          <span
+            aria-hidden="true"
+            className="absolute h-10 w-10 rounded-full bg-amber-300/25 blur-[10px]"
+          />
+          <img
+            src="/logo-pinjamin.png"
+            alt="Pinjamin"
+            className="relative h-7 w-auto object-contain"
+            style={{ background: "transparent" }}
+          />
+        </span>
         <span className="font-extrabold tracking-tight text-white">
           Pinjamin
         </span>
@@ -273,23 +471,57 @@ export function TopBar({ onMenu }: { onMenu: () => void }) {
         </span>
       </div>
       <div className="ml-auto flex items-center gap-2">
+        {/* Switcher Mode Admin: Pinjamin (aset) vs Ticketing (helpdesk) */}
+        <div className="flex items-center rounded-xl border border-[#243a5e] bg-[#142a4a] p-0.5">
+          <button
+            type="button"
+            onClick={() => switchMode("assets")}
+            title="Mode Admin Pinjamin"
+            className={cn(
+              "flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-all",
+              mode === "assets"
+                ? "bg-[#CBA12C] text-[#1a365d] shadow"
+                : "text-slate-400 hover:text-white"
+            )}
+          >
+            <Package className="h-4 w-4" strokeWidth={1.75} />
+            <span className="hidden md:inline">Pinjamin</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => switchMode("tickets")}
+            title="Mode Admin Ticketing"
+            className={cn(
+              "flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-all",
+              mode === "tickets"
+                ? "bg-[#CBA12C] text-[#1a365d] shadow"
+                : "text-slate-400 hover:text-white"
+            )}
+          >
+            <LifeBuoy className="h-4 w-4" strokeWidth={1.75} />
+            <span className="hidden md:inline">Ticketing</span>
+          </button>
+        </div>
         <LanguageToggle />
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={() => router.push("/scanner")}
-          className="hidden sm:flex bg-white/5 hover:bg-white/10 text-white border-white/15 hover:text-white backdrop-blur"
-        >
-          <QrCode className="h-5 w-5" strokeWidth={1.5} />
-        </Button>
+        {mode === "assets" && (
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => router.push("/scanner")}
+            className="hidden sm:flex bg-white/5 hover:bg-white/10 text-white border-white/15 hover:text-white backdrop-blur"
+          >
+            <QrCode className="h-5 w-5" strokeWidth={1.5} />
+          </Button>
+        )}
         <button
-          onClick={async () => {
-            await fetch("/api/auth/logout", { method: "POST" });
-            router.push("/login");
-          }}
-          className="h-9 w-9 rounded-full bg-[#CBA12C] text-[#1a365d] flex items-center justify-center text-sm font-extrabold shadow-md border-2 border-[#CBA12C]"
+          onClick={() => router.push("/settings")}
+          title={t("accountSetting")}
+          className="rounded-full shadow-md border-2 border-[#CBA12C]"
         >
-          A
+          <AdminAvatar
+            profile={profile}
+            className="h-[30px] w-[30px] text-sm"
+          />
         </button>
       </div>
     </header>

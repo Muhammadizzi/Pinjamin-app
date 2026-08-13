@@ -18,9 +18,25 @@ import {
   Sparkles,
 } from "lucide-react";
 
+/**
+ * Id unik untuk elemen host html5-qrcode. Elemen ini dibuat dan dihapus
+ * SEPENUHNYA oleh effect secara imperatif (bukan oleh JSX/React), sehingga
+ * React tidak pernah mencoba removeChild pada node yang sudah hilang —
+ * inilah sumber crash sebelumnya:
+ *
+ *   NotFoundError: The object can not be found here (removeChild)
+ *
+ * Bug lama: `<div id="pinjamin-qr-reader">` di-render lewat JSX, lalu
+ * cleanup effect memanggil `el.parentNode.removeChild(el)` di belakang
+ * React. Saat user pindah ke tab "Input Manual" (atau StrictMode dev
+ * me-remount effect), React reconcile menyentuh node yang sudah dihapus
+ * manual → crash. `videoRef.current.innerHTML = ""` juga menyapu overlay
+ * placeholder milik React — pola crash yang sama.
+ */
+const QR_READER_ID = "pinjamin-qr-reader";
+
 export default function ScannerPage() {
-  const { assets, kits, bookings, updateAsset, updateBookingStatus } =
-    useStore();
+  const { assets, kits, updateAsset } = useStore();
   const { t } = useT();
   const [mode, setMode] = useState<"scan" | "manual">("scan");
   const [manual, setManual] = useState("");
@@ -28,10 +44,14 @@ export default function ScannerPage() {
   const [status, setStatus] = useState("");
   const [isSecure, setIsSecure] = useState(true);
   const [fileScanning, setFileScanning] = useState(false);
+  /**
+   * Container yang anak-anaknya dimiliki effect (html5-qrcode), BUKAN React.
+   * React hanya merender pembungkus kosong ini; overlay placeholder dipindah
+   * menjadi sibling absolute agar tidak pernah tersapu manipulasi DOM library.
+   */
+  const readerHostRef = useRef<HTMLDivElement>(null);
   const scannerRef = useRef<any>(null);
-  const videoRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const isMounted = useRef(true);
 
   const findByCode = (code: string) => {
     const a = assets.find((x) => x.qrCode === code || x.id === code);
@@ -41,16 +61,47 @@ export default function ScannerPage() {
     return null;
   };
 
+  /**
+   * Kandidat kode dari teks hasil decode. QR yang di-download dari aplikasi
+   * berisi URL penuh (mis. "http://localhost:5003/assets/AB12?qr=PIN-XYZ"),
+   * BUKAN kode polos — tanpa diekstrak, findByCode selalu gagal ("Tidak
+   * ditemukan"). Ambil param ?qr= lalu segmen path /assets|kits/<id>.
+   */
+  const extractCodeCandidates = (raw: string): string[] => {
+    const out: string[] = [];
+    try {
+      const u = new URL(raw);
+      const qr = u.searchParams.get("qr");
+      if (qr) out.push(qr.trim());
+      const m = u.pathname.match(/\/(assets|kits)\/([^/?#]+)/);
+      if (m && m[2]) out.push(decodeURIComponent(m[2]).trim());
+    } catch {
+      /* bukan URL — pakai teks apa adanya */
+    }
+    if (!out.includes(raw)) out.push(raw);
+    return out;
+  };
+
+  // Ref agar callback decode kamera selalu memanggil handleCode versi terbaru
+  // (data assets/kits terkini) walau effect scanner hanya jalan sekali per mode.
+  const handleCodeRef = useRef<(code: string) => void>(() => {});
+
   const handleCode = (code: string) => {
-    const found = findByCode(code.trim());
+    const raw = code.trim();
+    let found: any = null;
+    for (const candidate of extractCodeCandidates(raw)) {
+      found = findByCode(candidate);
+      if (found) break;
+    }
     if (found) {
       setResult(found);
       setStatus(`Ditemukan ${found.type}: ${found.data.name}`);
     } else {
       setResult(null);
-      setStatus(`Tidak ditemukan: ${code}`);
+      setStatus(`Tidak ditemukan: ${raw}`);
     }
   };
+  handleCodeRef.current = handleCode;
 
   // Check secure context
   useEffect(() => {
@@ -66,128 +117,129 @@ export default function ScannerPage() {
   }, []);
 
   useEffect(() => {
-    isMounted.current = true;
     if (mode !== "scan") return;
     if (typeof window !== "undefined" && !window.isSecureContext) {
       // Don't auto-start on insecure
       return;
     }
+    const host = readerHostRef.current;
+    if (!host) return;
 
-    let html5QrCode: any = null;
     let cancelled = false;
+
+    // Elemen host html5-qrcode: dibuat imperatif, dimiliki effect ini.
+    // React tidak merender-nya, jadi pembuatan/penghapusan manual aman
+    // terhadap proses reconcile (fix NotFoundError removeChild).
+    const el = document.createElement("div");
+    el.id = QR_READER_ID;
+    el.style.width = "100%";
+    host.appendChild(el);
+
+    let instance: any = null;
 
     (async () => {
       try {
         const { Html5Qrcode } = await import("html5-qrcode");
-        if (cancelled || !isMounted.current || !videoRef.current) return;
-        const id = "pinjamin-qr-reader";
-        let el = document.getElementById(id);
-        if (!el) {
-          el = document.createElement("div");
-          el.id = id;
-          el.style.width = "100%";
-          if (videoRef.current) {
-            videoRef.current.innerHTML = "";
-            videoRef.current.appendChild(el);
-          }
-        }
-        html5QrCode = new Html5Qrcode(id);
-        scannerRef.current = html5QrCode;
-        await html5QrCode.start(
+        if (cancelled) return;
+        instance = new Html5Qrcode(QR_READER_ID);
+        scannerRef.current = instance;
+        await instance.start(
           { facingMode: "environment" },
           { fps: 10, qrbox: { width: 250, height: 250 } },
           (decoded: string) => {
-            if (isMounted.current) handleCode(decoded);
+            handleCodeRef.current(decoded);
           },
           () => {}
         );
-        if (isMounted.current) setStatus("Kamera aktif — arahkan ke QR");
+        if (cancelled) {
+          // User pindah tab/unmount saat kamera masih starting:
+          // hentikan segera agar stream tidak bocor.
+          try {
+            await instance.stop();
+            instance.clear();
+          } catch {}
+          return;
+        }
+        setStatus("Kamera aktif — arahkan ke QR");
       } catch (e: any) {
-        if (isMounted.current) {
-          const msg = e?.message || String(e);
-          if (msg.includes("NotAllowedError") || msg.includes("Permission")) {
-            setStatus(
-              "Izin kamera ditolak. Aktifkan izin di browser atau gunakan Input Manual."
-            );
-          } else if (!window.isSecureContext || msg.includes("not supported")) {
-            setStatus(
-              "Camera streaming not supported — butuh HTTPS. Gunakan Input Manual atau Upload Gambar."
-            );
-          } else {
-            setStatus(
-              "Gagal akses kamera: " + msg + " — gunakan Input Manual."
-            );
-          }
+        if (cancelled) return;
+        const msg = e?.message || String(e);
+        if (msg.includes("NotAllowedError") || msg.includes("Permission")) {
+          setStatus(
+            "Izin kamera ditolak. Aktifkan izin di browser atau gunakan Input Manual."
+          );
+        } else if (!window.isSecureContext || msg.includes("not supported")) {
+          setStatus(
+            "Camera streaming not supported — butuh HTTPS. Gunakan Input Manual atau Upload Gambar."
+          );
+        } else {
+          setStatus("Gagal akses kamera: " + msg + " — gunakan Input Manual.");
         }
       }
     })();
 
     return () => {
       cancelled = true;
-      isMounted.current = false;
-      const instance = scannerRef.current;
+      const inst = instance;
+      instance = null;
       scannerRef.current = null;
-      if (instance) {
+      // Hanya instance + elemen milik effect ini yang disentuh — tidak ada
+      // removeChild pada node yang di-render React.
+      (async () => {
+        if (inst) {
+          try {
+            const state =
+              typeof inst.getState === "function" ? inst.getState() : null;
+            if (state === 2 || state === 3) {
+              await inst.stop();
+            }
+          } catch {}
+          try {
+            inst.clear();
+          } catch {}
+        }
+        // el dimiliki effect ini (bukan node React). `.remove()` pada node
+        // tanpa parent adalah no-op — aman saat host sudah di-unmount React.
         try {
-          const state =
-            typeof instance.getState === "function"
-              ? instance.getState()
-              : null;
-          if (state === 2 || state === 3) {
-            const p = instance.stop();
-            if (p && typeof p.catch === "function") p.catch(() => {});
-          }
+          el.remove();
         } catch {}
-        try {
-          instance.clear();
-        } catch {}
-      }
-      const el = document.getElementById("pinjamin-qr-reader");
-      if (el && el.parentNode) {
-        try {
-          el.parentNode.removeChild(el);
-        } catch {}
-      }
+      })();
     };
   }, [mode]);
-
-  useEffect(() => {
-    return () => {
-      isMounted.current = false;
-    };
-  }, []);
 
   const handleFileScan = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setFileScanning(true);
     setStatus("Memproses gambar...");
+    // Temporary off-DOM host khusus scanFile — dibuat & dihapus imperatif,
+    // tidak beririsan dengan tree React.
+    const tempId = "pinjamin-qr-reader-file";
+    const el = document.createElement("div");
+    el.id = tempId;
+    el.style.display = "none";
+    document.body.appendChild(el);
     try {
       const { Html5Qrcode } = await import("html5-qrcode");
-      // Need a temporary instance for scanFile
-      const tempId = "pinjamin-qr-reader-file";
-      let el = document.getElementById(tempId);
-      if (!el) {
-        el = document.createElement("div");
-        el.id = tempId;
-        el.style.display = "none";
-        document.body.appendChild(el);
-      }
       const tmp = new Html5Qrcode(tempId);
-      const decoded = await tmp.scanFile(file, true);
-      // cleanup temp
+      // showImage=false — container disembunyikan, preview tak perlu dirender
+      const decoded = await tmp.scanFile(file, false);
       try {
         tmp.clear();
-      } catch {}
-      try {
-        el.remove();
       } catch {}
       handleCode(decoded);
       setStatus(`QR dari file: ${decoded}`);
     } catch (err: any) {
-      setStatus("Gagal baca QR dari gambar. Pastikan QR jelas dan coba lagi.");
+      setStatus(
+        "Gagal baca QR dari gambar. Pastikan foto QR jelas & tidak blur, " +
+          "atau crop hanya bagian QR-nya lalu coba lagi."
+      );
       console.warn(err);
     } finally {
+      // Selalu bersihkan host temporer (sebelumnya bocor saat error).
+      try {
+        el.remove();
+      } catch {}
       setFileScanning(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
@@ -277,14 +329,20 @@ export default function ScannerPage() {
           <CardContent className="space-y-4">
             {mode === "scan" ? (
               <div className="space-y-3">
-                <div
-                  ref={videoRef}
-                  className="rounded-2xl overflow-hidden bg-gradient-to-br from-slate-900 to-black aspect-[4/3] flex items-center justify-center border shadow-inner relative"
-                >
-                  <div id="pinjamin-qr-reader" className="w-full" />
-                  {/* Placeholder when not scanning */}
+                <div className="relative">
+                  {/*
+                    Host kamera: React HANYA merender pembungkus kosong ini.
+                    Anak (elemen #pinjamin-qr-reader + video/canvas library)
+                    dibuat & dihapus imperatif oleh effect — jangan pernah
+                    merender anak React di dalamnya.
+                  */}
                   <div
-                    className="absolute inset-0 flex flex-col items-center justify-center text-white/70 pointer-events-none"
+                    ref={readerHostRef}
+                    className="rounded-2xl overflow-hidden bg-gradient-to-br from-slate-900 to-black aspect-[4/3] w-full border shadow-inner"
+                  />
+                  {/* Placeholder when not scanning (sibling sibling, murni React) */}
+                  <div
+                    className="absolute inset-0 flex flex-col items-center justify-center text-white/70 pointer-events-none rounded-2xl"
                     style={{
                       display: isCameraError || !isSecure ? "flex" : "none",
                     }}
@@ -384,7 +442,22 @@ export default function ScannerPage() {
                   </div>
                 </div>
 
-                <label className="flex items-center gap-3 rounded-xl border bg-white dark:bg-slate-800 p-3 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+                {/* CATATAN: jangan pakai <label> + tombol ber-onClick di
+                    dalamnya — label meneruskan klik kedua ke input file
+                    (double-activation) sehingga dialog file batal terbuka
+                    di Safari. Pakai div biasa dengan satu onClick. */}
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => fileInputRef.current?.click()}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      fileInputRef.current?.click();
+                    }
+                  }}
+                  className="flex items-center gap-3 rounded-xl border bg-white dark:bg-slate-800 p-3 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                >
                   <div className="h-10 w-10 rounded-xl bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-200 flex items-center justify-center">
                     <Upload className="h-5 w-5" />
                   </div>
@@ -405,12 +478,12 @@ export default function ScannerPage() {
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="rounded-lg"
-                    onClick={() => fileInputRef.current?.click()}
+                    className="rounded-lg pointer-events-none"
+                    tabIndex={-1}
                   >
                     Pilih File
                   </Button>
-                </label>
+                </div>
               </div>
             )}
 
@@ -488,24 +561,11 @@ export default function ScannerPage() {
                         className="w-full rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-900 dark:bg-amber-900 dark:text-amber-100"
                         size="sm"
                         onClick={() => {
-                          const activeBooking = bookings.find(
-                            (b) =>
-                              (b.status === "ONGOING" ||
-                                b.status === "OVERDUE") &&
-                              b.assetIds.includes(result.data.id)
-                          );
-                          if (activeBooking) {
-                            updateBookingStatus(activeBooking.id, "COMPLETE");
-                            setStatus(
-                              `Booking "${activeBooking.name}" diselesaikan — aset kembali (AVAILABLE)`
-                            );
-                          } else {
-                            updateAsset(result.data.id, {
-                              status: "AVAILABLE",
-                              custodianId: null,
-                            });
-                            setStatus("Aset ditandai kembali (AVAILABLE)");
-                          }
+                          updateAsset(result.data.id, {
+                            status: "AVAILABLE",
+                            custodianId: null,
+                          });
+                          setStatus("Aset ditandai kembali (AVAILABLE)");
                         }}
                       >
                         <Check className="h-4 w-4" /> Kembalikan

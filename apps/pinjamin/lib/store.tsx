@@ -1,9 +1,18 @@
 "use client";
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import { usePathname } from "next/navigation";
 import { seedData } from "./seed";
 import type {
   AppData,
   Asset,
+  AssetStatus,
   Booking,
   BookingStatus,
   Category,
@@ -16,9 +25,29 @@ import type {
   Audit,
 } from "./types";
 import { generateId, generateQRCode } from "./utils";
-import type { SimpleResourceKey } from "./resource-config";
+import { getSupabase, isSupabaseConfigured } from "./supabase";
 
 const STORAGE_KEY = "pinjamin_data_v2_clean";
+
+/** Baris hasil parse CSV impor aset (lihat app/assets/page.tsx). */
+export type AssetImportRow = {
+  name: string;
+  status?: AssetStatus;
+  categoryName?: string;
+  locationName?: string;
+  qrCode?: string;
+  value?: number;
+  serialNumber?: string;
+  description?: string;
+};
+
+export type ImportAssetsResult = {
+  imported: number;
+  /** Dilewati: nama kosong, atau QR/id sudah ada (duplikat). */
+  skipped: number;
+  categoriesCreated: number;
+  locationsCreated: number;
+};
 
 type StoreContextType = AppData & {
   addAsset: (
@@ -26,12 +55,19 @@ type StoreContextType = AppData & {
   ) => void;
   updateAsset: (id: string, patch: Partial<Asset>) => void;
   deleteAsset: (id: string) => void;
+  /**
+   * Impor massal aset (CSV): buat kategori/lokasi baru berdasarkan nama bila
+   * belum ada, lewati baris tanpa nama atau dengan QR/id duplikat. Semua
+   * perubahan dilakukan dalam SATU setData (satu sinkron server).
+   */
+  importAssets: (rows: AssetImportRow[]) => ImportAssetsResult;
   addCategory: (c: Omit<Category, "id" | "createdAt">) => void;
   updateCategory: (id: string, patch: Partial<Category>) => void;
   deleteCategory: (id: string) => void;
   addTag: (t: Omit<Tag, "id" | "createdAt">) => void;
+  updateTag: (id: string, patch: Partial<Tag>) => void;
   deleteTag: (id: string) => void;
-  addLocation: (l: Omit<Location, "id" | "createdAt">) => void;
+  addLocation: (l: Omit<Location, "id" | "createdAt">) => string;
   updateLocation: (id: string, patch: Partial<Location>) => void;
   deleteLocation: (id: string) => void;
   addCustomField: (f: Omit<CustomField, "id" | "createdAt">) => void;
@@ -72,6 +108,31 @@ type StoreContextType = AppData & {
 
 const StoreContext = createContext<StoreContextType | null>(null);
 
+// Helpers to convert camelCase <-> snake_case for Supabase
+const toSnake = (s: string) =>
+  s.replace(/[A-Z]/g, (l) => `_${l.toLowerCase()}`);
+const toCamel = (s: string) =>
+  s.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
+function toDbRow(obj: any): any {
+  const out: any = {};
+  for (const [k, v] of Object.entries(obj)) {
+    if (v === undefined) continue;
+    out[toSnake(k)] = v;
+  }
+  return out;
+}
+function fromDbRow(obj: any): any {
+  const out: any = {};
+  for (const [k, v] of Object.entries(obj)) {
+    out[toCamel(k)] = v;
+  }
+  // fix dates
+  if (out.createdAt && typeof out.createdAt === "string")
+    out.createdAt = out.createdAt;
+  if (out.updatedAt) out.updatedAt = out.updatedAt;
+  return out;
+}
+
 function loadFromStorage(): AppData {
   if (typeof window === "undefined") return seedData;
   try {
@@ -85,108 +146,336 @@ function saveToStorage(data: AppData) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 }
 
-// --- Transport layer -------------------------------------------------
-// All reads/writes go through our own authenticated API routes
-// (app/api/data/**), which verify the pinjamin_session JWT server-side and
-// use the Supabase service_role key. The browser no longer talks to
-// Supabase directly for data, so RLS can be enabled on every table without
-// the app losing access to its own data.
-
-async function apiRequest(
-  path: string,
-  init?: RequestInit
-): Promise<any | null> {
-  try {
-    const res = await fetch(path, {
-      ...init,
-      headers: { "Content-Type": "application/json", ...(init?.headers || {}) },
-      credentials: "same-origin",
-    });
-    if (res.status === 401) {
-      if (typeof window !== "undefined") window.location.href = "/login";
-      return null;
-    }
-    const json = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      console.warn(
-        `[api] ${init?.method || "GET"} ${path} failed:`,
-        json.error || res.status
-      );
-      return null;
-    }
-    return json;
-  } catch (e) {
-    console.warn(`[api] ${init?.method || "GET"} ${path} exception`, e);
-    return null;
+/**
+ * Shared server store (app/api/store/route.ts) — sumber kebenaran lintas
+ * browser saat Supabase TIDAK dikonfigurasi.
+ *
+ * Sebelum ini, AppData hanya hidup di localStorage per browser: data yang
+ * dibuat di Safari tidak pernah muncul di Chrome. Sekarang client memuat
+ * dari server; browser pertama yang menemukan server kosong mengunggah
+ * data localStorage-nya (migrasi satu kali), lalu semua browser berbagi
+ * data yang sama. localStorage tetap dipakai sebagai cache offline.
+ */
+/**
+ * 401 dari /api/store berarti TIDAK ada sesi login admin — ini kondisi wajar
+ * untuk halaman publik (landing/login), BUKAN kegagalan jaringan. Dibedakan
+ * supaya fallback-nya senyap dan sinkron bisa diaktifkan belakangan.
+ */
+class UnauthorizedError extends Error {
+  constructor(msg: string) {
+    super(msg);
+    this.name = "UnauthorizedError";
   }
 }
 
-async function apiInsert(resource: SimpleResourceKey, row: any) {
-  const json = await apiRequest(`/api/data/${resource}`, {
-    method: "POST",
-    body: JSON.stringify(row),
-  });
-  return json?.data ?? null;
+async function fetchServerStore(): Promise<AppData | null> {
+  const res = await fetch("/api/store", { cache: "no-store" });
+  if (res.status === 401) throw new UnauthorizedError("GET /api/store -> 401");
+  if (!res.ok) throw new Error(`GET /api/store -> ${res.status}`);
+  const json = await res.json();
+  return (json?.data as AppData | undefined) ?? null;
 }
-async function apiUpdate(resource: SimpleResourceKey, id: string, patch: any) {
-  const json = await apiRequest(`/api/data/${resource}/${id}`, {
-    method: "PATCH",
-    body: JSON.stringify(patch),
+
+async function pushServerStore(data: AppData): Promise<void> {
+  const res = await fetch("/api/store", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ data }),
   });
-  return json?.data ?? null;
+  if (res.status === 401) throw new UnauthorizedError("PUT /api/store -> 401");
+  if (!res.ok) throw new Error(`PUT /api/store -> ${res.status}`);
 }
-async function apiDelete(resource: SimpleResourceKey, id: string) {
-  await apiRequest(`/api/data/${resource}/${id}`, { method: "DELETE" });
+
+/** Ada isi nyata di salah satu koleksi? (seedData = semuanya kosong) */
+function hasAnyItems(d: AppData): boolean {
+  return Object.values(d).some((v) => Array.isArray(v) && v.length > 0);
+}
+
+/** Tandai booking yang lewat jatuh tempo sebagai OVERDUE (komputasi tampilan). */
+function normalizeOverdueBookings(d: AppData): AppData {
+  const now = new Date();
+  return {
+    ...d,
+    bookings: d.bookings.map((b) =>
+      (b.status === "ONGOING" || b.status === "RESERVED") &&
+      new Date(b.toDate) < now
+        ? { ...b, status: "OVERDUE" as BookingStatus }
+        : b
+    ),
+  };
+}
+
+// Supabase force helpers
+async function supaInsert(table: string, row: any) {
+  const supa = getSupabase();
+  if (!supa) return;
+  try {
+    const dbRow = toDbRow(row);
+    // Ensure UUID for Supabase if id is not UUID (use randomUUID)
+    if (dbRow.id && !/^[0-9a-f]{8}-/.test(dbRow.id)) {
+      try {
+        dbRow.id = crypto.randomUUID();
+        row.id = dbRow.id;
+      } catch {}
+    }
+    const { error } = await supa.from(table).insert(dbRow);
+    if (error)
+      console.warn(`[Supabase] insert ${table} failed:`, error.message);
+    else console.log(`[Supabase] inserted ${table} ${row.id}`);
+  } catch (e) {
+    console.warn(`[Supabase] insert ${table} exception`, e);
+  }
+}
+async function supaUpdate(table: string, id: string, patch: any) {
+  const supa = getSupabase();
+  if (!supa) return;
+  try {
+    const dbPatch = toDbRow(patch);
+    const { error } = await supa.from(table).update(dbPatch).eq("id", id);
+    if (error)
+      console.warn(`[Supabase] update ${table} failed:`, error.message);
+  } catch (e) {
+    console.warn(`[Supabase] update ${table} exception`, e);
+  }
+}
+async function supaDelete(table: string, id: string) {
+  const supa = getSupabase();
+  if (!supa) return;
+  try {
+    const { error } = await supa.from(table).delete().eq("id", id);
+    if (error)
+      console.warn(`[Supabase] delete ${table} failed:`, error.message);
+  } catch (e) {
+    console.warn(`[Supabase] delete ${table} exception`, e);
+  }
 }
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [data, setData] = useState<AppData>(seedData);
   const [isHydrated, setHydrated] = useState(false);
   const [isSupabase, setIsSupabase] = useState(false);
+  const pathname = usePathname();
+  /**
+   * true setelah server store berhasil dihubungi saat hidrasi — mulai saat
+   * itu setiap perubahan data di-PUT ke server (debounced) supaya semua
+   * browser berbagi state yang sama. Tetap false pada mode Supabase (yang
+   * punya jalur sinkron sendiri) dan saat server tak terjangkau.
+   */
+  const serverSyncRef = useRef(false);
+  /**
+   * true bila sinkron server TERTUNDA karena belum login (GET /api/store
+   * kena 401 di landing/login). Provider ini tidak ikut remount saat login
+   * (client-side navigation), jadi hidrasi harus diulang begitu sesi ada —
+   * lihat efek retry di bawah.
+   */
+  const authRetryRef = useRef(false);
+  const hydratingRef = useRef(false);
+  const pushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  /** Nonaktifkan sinkron server & persenjatai retry setelah login. */
+  const disarmServerSync = (guestLog?: string) => {
+    if (!authRetryRef.current && guestLog) console.info(guestLog);
+    serverSyncRef.current = false;
+    authRetryRef.current = true;
+  };
+
+  /**
+   * Hidrasi dari server store — dipanggil saat mount DAN diulang setelah
+   * login sukses. Idempotent: hydratingRef mencegah panggilan tumpang-tindih.
+   */
+  const hydrateFromServer = useCallback(async () => {
+    if (isSupabaseConfigured() || hydratingRef.current) return;
+    hydratingRef.current = true;
+    // Tampilkan cache lokal dengan normalisasi overdue (dipakai bila
+    // server kosong atau tak terjangkau).
+    const loaded = normalizeOverdueBookings(loadFromStorage());
+    try {
+      const serverData = await fetchServerStore();
+      // Server terjangkau & sesi valid → aktifkan sinkron dua arah.
+      serverSyncRef.current = true;
+      authRetryRef.current = false;
+
+      if (serverData) {
+        // Server sudah punya data → server jadi sumber kebenaran,
+        // apa pun isi localStorage browser ini.
+        const normalized = normalizeOverdueBookings(serverData);
+        setData(normalized);
+        saveToStorage(normalized); // segarkan cache offline
+      } else {
+        // Server masih kosong → MIGRASI: browser pertama dengan data
+        // lokal (mis. Safari) mengunggahnya agar browser lain ikut
+        // memakai data yang sama.
+        setData(loaded);
+        if (hasAnyItems(loaded)) {
+          pushServerStore(loaded).catch((e) => {
+            if (e instanceof UnauthorizedError) disarmServerSync();
+            else console.warn("[store] migrasi ke server gagal", e);
+          });
+        }
+      }
+    } catch (e) {
+      if (e instanceof UnauthorizedError) {
+        // Mode tamu (landing/login tanpa sesi) — kondisi WAJAR, jangan
+        // berisik; sinkron otomatis aktif setelah login admin.
+        disarmServerSync(
+          "[store] Mode tamu: sinkron server otomatis aktif setelah login admin."
+        );
+      } else {
+        // Server store tidak tersedia → kembali ke mode lokal per-browser
+        // (perilaku lama; data tidak hilang, hanya tidak tersinkron).
+        console.warn(
+          "[store] Server store tidak tersedia, memakai localStorage saja",
+          e
+        );
+      }
+      setData(loaded);
+    } finally {
+      hydratingRef.current = false;
+      setHydrated(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     try {
       localStorage.removeItem("pinjamin_data_v1");
       localStorage.removeItem("pinjamin_data_v1_clean");
     } catch {}
+    const checkSupa = isSupabaseConfigured();
+    setIsSupabase(checkSupa);
 
-    (async () => {
-      const json = await apiRequest("/api/data");
-      if (json?.configured && json.data) {
-        setIsSupabase(true);
-        const now = new Date();
-        const bookings = (json.data.bookings as Booking[]).map((b) => {
-          if (
-            (b.status === "ONGOING" || b.status === "RESERVED") &&
-            new Date(b.toDate) < now
-          ) {
-            return { ...b, status: "OVERDUE" as BookingStatus };
+    // If Supabase configured, force load from Supabase (source of truth)
+    if (checkSupa) {
+      (async () => {
+        const supa = getSupabase()!;
+        try {
+          const tables: (keyof AppData)[] = [
+            "categories",
+            "tags",
+            "locations",
+            "customFields",
+            "assetModels",
+            "custodians",
+            "assets",
+            "kits",
+            "bookings",
+            "audits",
+          ];
+          // Map JS keys to DB table names
+          const tableMap: Record<string, string> = {
+            categories: "categories",
+            tags: "tags",
+            locations: "locations",
+            customFields: "custom_fields",
+            assetModels: "asset_models",
+            custodians: "custodians",
+            assets: "assets",
+            kits: "kits",
+            bookings: "bookings",
+            audits: "audits",
+          };
+          const results: Partial<AppData> = {};
+          for (const key of tables) {
+            const dbTable = tableMap[key as string] || key;
+            try {
+              const { data: rows, error } = await supa
+                .from(dbTable)
+                .select("*")
+                .limit(100);
+              if (!error && rows) {
+                (results as any)[key] = rows.map(fromDbRow);
+              } else if (error) {
+                console.warn(
+                  `[Supabase] fetch ${dbTable} error:`,
+                  error.message
+                );
+                (results as any)[key] = (seedData as any)[key] || [];
+              }
+            } catch (e) {
+              console.warn(`[Supabase] fetch ${key} exception`, e);
+              (results as any)[key] = (seedData as any)[key] || [];
+            }
           }
-          return b;
-        });
-        setData({ ...json.data, bookings });
-      } else {
-        setIsSupabase(false);
-        const loaded = loadFromStorage();
-        const now = new Date();
-        loaded.bookings = loaded.bookings.map((b) => {
-          if (
-            (b.status === "ONGOING" || b.status === "RESERVED") &&
-            new Date(b.toDate) < now
-          ) {
-            return { ...b, status: "OVERDUE" as BookingStatus };
+          // Also handle bookings overdue
+          if (results.bookings) {
+            const now = new Date();
+            results.bookings = (results.bookings as any).map((b: any) => {
+              if (
+                (b.status === "ONGOING" || b.status === "RESERVED") &&
+                new Date(b.toDate) < now
+              ) {
+                return { ...b, status: "OVERDUE" as BookingStatus };
+              }
+              return b;
+            });
           }
-          return b;
-        });
-        setData(loaded);
+          setData((prev) => ({ ...prev, ...results }) as AppData);
+        } catch (e) {
+          console.warn("[Supabase] load failed, fallback to localStorage", e);
+          const loaded = loadFromStorage();
+          setData(loaded);
+        } finally {
+          setHydrated(true);
+        }
+      })();
+    } else {
+      void hydrateFromServer();
+    }
+  }, [hydrateFromServer]);
+
+  /**
+   * AKTIVASI sinkron setelah login. Login melakukan client-side navigation
+   * (router.push("/dashboard")), sehingga StoreProvider TIDAK remount dan
+   * hidrasi awal — yang kena 401 di halaman publik — harus diulang di sini;
+   * tanpa ini sinkron lintas-browser tidak pernah aktif sampai user reload
+   * manual (inilah bug "memakai localStorage saja" setelah login).
+   */
+  useEffect(() => {
+    const retry = () => {
+      if (!isSupabase && authRetryRef.current && !serverSyncRef.current) {
+        void hydrateFromServer();
       }
-      setHydrated(true);
-    })();
-  }, []);
+    };
+    const onSessionEnd = () => {
+      if (!isSupabase) disarmServerSync();
+    };
+    window.addEventListener("pinjamin:session", retry);
+    window.addEventListener("pinjamin:session-end", onSessionEnd);
+    // Jaring pengaman: berhasil berada di area non-publik berarti sesi
+    // sudah valid (middleware hanya melewatkan request ber-token).
+    if (pathname !== "/" && !pathname.startsWith("/login")) retry();
+    return () => {
+      window.removeEventListener("pinjamin:session", retry);
+      window.removeEventListener("pinjamin:session-end", onSessionEnd);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname, isSupabase, hydrateFromServer]);
 
   useEffect(() => {
     if (isHydrated) saveToStorage(data);
   }, [data, isHydrated]);
+
+  // Sinkron ke server store (lintas-browser): satu PUT debounced per burst
+  // mutasi. PUT terakhir-menang — cukup untuk pemakaian single-user demo;
+  // model ini juga dipakai gerbang migrasi saat hidrasi.
+  useEffect(() => {
+    if (!isHydrated || isSupabase || !serverSyncRef.current) return;
+    if (pushTimerRef.current) clearTimeout(pushTimerRef.current);
+    pushTimerRef.current = setTimeout(() => {
+      pushServerStore(data).catch((e) => {
+        if (e instanceof UnauthorizedError) {
+          // Sesi berakhir (logout/kadaluarsa) → matikan sinkron sementara;
+          // login berikutnya menghidupkannya lagi lewat efek retry.
+          disarmServerSync();
+        } else {
+          console.warn("[store] sinkron ke server gagal", e);
+        }
+      });
+    }, 400);
+    return () => {
+      if (pushTimerRef.current) clearTimeout(pushTimerRef.current);
+    };
+  }, [data, isHydrated, isSupabase]);
 
   const computedBookings = data.bookings.map((b) => {
     if (
@@ -213,20 +502,35 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       } as Asset;
-      if (isSupabase) {
-        apiRequest("/api/data/assets", {
-          method: "POST",
-          body: JSON.stringify({ ...a, tagIds: a.tagIds }),
+      // Force to Supabase
+      if (isSupabaseConfigured()) {
+        supaInsert("assets", {
+          ...newAsset,
+          tagIds: undefined,
+          customValues: undefined,
+          notes: undefined,
         });
+        // handle asset_tags
+        if (a.tagIds?.length) {
+          (async () => {
+            const supa = getSupabase();
+            if (!supa) return;
+            for (const tagId of a.tagIds) {
+              await supa
+                .from("asset_tags")
+                .insert({ asset_id: newAsset.id, tag_id: tagId })
+                .then(
+                  ({ error }) =>
+                    error && console.warn("asset_tags insert", error.message)
+                );
+            }
+          })();
+        }
       }
       setData((d) => ({ ...d, assets: [newAsset, ...d.assets] }));
     },
     updateAsset: (id, patch) => {
-      if (isSupabase)
-        apiRequest(`/api/data/assets/${id}`, {
-          method: "PATCH",
-          body: JSON.stringify(patch),
-        });
+      if (isSupabaseConfigured()) supaUpdate("assets", id, patch);
       setData((d) => ({
         ...d,
         assets: d.assets.map((x) =>
@@ -237,9 +541,146 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       }));
     },
     deleteAsset: (id) => {
-      if (isSupabase)
-        apiRequest(`/api/data/assets/${id}`, { method: "DELETE" });
+      if (isSupabaseConfigured()) supaDelete("assets", id);
       setData((d) => ({ ...d, assets: d.assets.filter((x) => x.id !== id) }));
+    },
+    importAssets: (rows) => {
+      const result: ImportAssetsResult = {
+        imported: 0,
+        skipped: 0,
+        categoriesCreated: 0,
+        locationsCreated: 0,
+      };
+      const now = new Date().toISOString();
+      const VALID_STATUS: AssetStatus[] = [
+        "AVAILABLE",
+        "CHECKED_OUT",
+        "MAINTENANCE",
+        "RETIRED",
+      ];
+      const supa = isSupabaseConfigured();
+
+      setData((d) => {
+        const categories = [...d.categories];
+        const locations = [...d.locations];
+        const findCat = (name: string) =>
+          categories.find(
+            (c) => c.name.trim().toLowerCase() === name.toLowerCase()
+          );
+        const findLoc = (name: string) =>
+          locations.find(
+            (l) => l.name.trim().toLowerCase() === name.toLowerCase()
+          );
+        const takenQr = new Set(d.assets.map((a) => a.qrCode.toLowerCase()));
+        const takenId = new Set(d.assets.map((a) => a.id));
+        const newAssets: Asset[] = [];
+
+        for (const row of rows) {
+          const name = row.name?.trim();
+          if (!name) {
+            result.skipped++;
+            continue;
+          }
+          const qr = row.qrCode?.trim() || "";
+          const incomingId = (row as any).id?.trim?.() || "";
+          if (
+            (qr && takenQr.has(qr.toLowerCase())) ||
+            (incomingId && takenId.has(incomingId))
+          ) {
+            result.skipped++;
+            continue;
+          }
+
+          let categoryId: string | undefined;
+          const catName = row.categoryName?.trim();
+          if (catName) {
+            let cat = findCat(catName);
+            if (!cat) {
+              cat = {
+                id: generateId(),
+                name: catName,
+                description: "",
+                color: "#64748b",
+                createdAt: now,
+              };
+              categories.push(cat);
+              result.categoriesCreated++;
+              if (supa) supaInsert("categories", cat);
+            }
+            categoryId = cat.id;
+          }
+
+          let locationId: string | undefined;
+          const locName = row.locationName?.trim();
+          if (locName) {
+            let loc = findLoc(locName);
+            if (!loc) {
+              loc = {
+                id: generateId(),
+                name: locName,
+                description: "",
+                parentId: null,
+                createdAt: now,
+              };
+              locations.push(loc);
+              result.locationsCreated++;
+              if (supa) supaInsert("locations", loc);
+            }
+            locationId = loc.id;
+          }
+
+          const qrCode = qr || generateQRCode();
+          const asset: Asset = {
+            id: generateId(),
+            name,
+            description: row.description?.trim() || undefined,
+            status:
+              row.status && VALID_STATUS.includes(row.status)
+                ? row.status
+                : "AVAILABLE",
+            categoryId,
+            locationId,
+            qrCode,
+            value:
+              typeof row.value === "number" && Number.isFinite(row.value)
+                ? row.value
+                : undefined,
+            serialNumber: row.serialNumber?.trim() || undefined,
+            tagIds: [],
+            customValues: {},
+            notes: [],
+            createdAt: now,
+            updatedAt: now,
+          };
+          newAssets.push(asset);
+          takenQr.add(qrCode.toLowerCase());
+          result.imported++;
+          if (supa)
+            supaInsert("assets", {
+              ...asset,
+              tagIds: undefined,
+              customValues: undefined,
+              notes: undefined,
+            });
+        }
+
+        if (
+          newAssets.length === 0 &&
+          result.categoriesCreated === 0 &&
+          result.locationsCreated === 0
+        ) {
+          return d;
+        }
+        // Aset impor di depan (baru → lama), konsisten dengan addAsset.
+        return {
+          ...d,
+          categories,
+          locations,
+          assets: [...newAssets.reverse(), ...d.assets],
+        };
+      });
+
+      return result;
     },
     addCategory: (c) => {
       const row = {
@@ -247,11 +688,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         id: generateId(),
         createdAt: new Date().toISOString(),
       } as Category;
-      if (isSupabase) apiInsert("categories", c);
+      if (isSupabaseConfigured()) supaInsert("categories", row);
       setData((d) => ({ ...d, categories: [row, ...d.categories] }));
     },
     updateCategory: (id, patch) => {
-      if (isSupabase) apiUpdate("categories", id, patch);
+      if (isSupabaseConfigured()) supaUpdate("categories", id, patch);
       setData((d) => ({
         ...d,
         categories: d.categories.map((x) =>
@@ -260,7 +701,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       }));
     },
     deleteCategory: (id) => {
-      if (isSupabase) apiDelete("categories", id);
+      if (isSupabaseConfigured()) supaDelete("categories", id);
       setData((d) => ({
         ...d,
         categories: d.categories.filter((x) => x.id !== id),
@@ -272,12 +713,22 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         id: generateId(),
         createdAt: new Date().toISOString(),
       } as Tag;
-      if (isSupabase) apiInsert("tags", t);
+      if (isSupabaseConfigured()) supaInsert("tags", row);
       setData((d) => ({ ...d, tags: [row, ...d.tags] }));
     },
+    updateTag: (id, patch) => {
+      if (isSupabaseConfigured()) supaUpdate("tags", id, patch);
+      setData((d) => ({
+        ...d,
+        tags: d.tags.map((x) => (x.id === id ? { ...x, ...patch } : x)),
+      }));
+    },
     deleteTag: (id) => {
-      if (isSupabase) apiDelete("tags", id);
-      setData((d) => ({ ...d, tags: d.tags.filter((x) => x.id !== id) }));
+      if (isSupabaseConfigured()) supaDelete("tags", id);
+      setData((d) => ({
+        ...d,
+        tags: d.tags.filter((x) => x.id !== id),
+      }));
     },
     addLocation: (l) => {
       const row = {
@@ -285,11 +736,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         id: generateId(),
         createdAt: new Date().toISOString(),
       } as Location;
-      if (isSupabase) apiInsert("locations", l);
+      if (isSupabaseConfigured()) supaInsert("locations", row);
       setData((d) => ({ ...d, locations: [row, ...d.locations] }));
+      return row.id;
     },
     updateLocation: (id, patch) => {
-      if (isSupabase) apiUpdate("locations", id, patch);
+      if (isSupabaseConfigured()) supaUpdate("locations", id, patch);
       setData((d) => ({
         ...d,
         locations: d.locations.map((x) =>
@@ -298,7 +750,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       }));
     },
     deleteLocation: (id) => {
-      if (isSupabase) apiDelete("locations", id);
+      if (isSupabaseConfigured()) supaDelete("locations", id);
       setData((d) => ({
         ...d,
         locations: d.locations.filter((x) => x.id !== id),
@@ -310,11 +762,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         id: generateId(),
         createdAt: new Date().toISOString(),
       } as CustomField;
-      if (isSupabase) apiInsert("customFields", f);
+      if (isSupabaseConfigured()) supaInsert("custom_fields", row);
       setData((d) => ({ ...d, customFields: [row, ...d.customFields] }));
     },
     deleteCustomField: (id) => {
-      if (isSupabase) apiDelete("customFields", id);
+      if (isSupabaseConfigured()) supaDelete("custom_fields", id);
       setData((d) => ({
         ...d,
         customFields: d.customFields.filter((x) => x.id !== id),
@@ -326,11 +778,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         id: generateId(),
         createdAt: new Date().toISOString(),
       } as AssetModel;
-      if (isSupabase) apiInsert("assetModels", m);
+      if (isSupabaseConfigured()) supaInsert("asset_models", row);
       setData((d) => ({ ...d, assetModels: [row, ...d.assetModels] }));
     },
     deleteAssetModel: (id) => {
-      if (isSupabase) apiDelete("assetModels", id);
+      if (isSupabaseConfigured()) supaDelete("asset_models", id);
       setData((d) => ({
         ...d,
         assetModels: d.assetModels.filter((x) => x.id !== id),
@@ -342,11 +794,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         id: generateId(),
         createdAt: new Date().toISOString(),
       } as Custodian;
-      if (isSupabase) apiInsert("custodians", c);
+      if (isSupabaseConfigured()) supaInsert("custodians", row);
       setData((d) => ({ ...d, custodians: [row, ...d.custodians] }));
     },
     updateCustodian: (id, patch) => {
-      if (isSupabase) apiUpdate("custodians", id, patch);
+      if (isSupabaseConfigured()) supaUpdate("custodians", id, patch);
       setData((d) => ({
         ...d,
         custodians: d.custodians.map((x) =>
@@ -355,7 +807,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       }));
     },
     deleteCustodian: (id) => {
-      if (isSupabase) apiDelete("custodians", id);
+      if (isSupabaseConfigured()) supaDelete("custodians", id);
       setData((d) => ({
         ...d,
         custodians: d.custodians.filter((x) => x.id !== id),
@@ -368,11 +820,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         qrCode: "KIT-" + generateId().slice(0, 6),
         createdAt: new Date().toISOString(),
       } as Kit;
-      if (isSupabase) apiInsert("kits", k);
+      if (isSupabaseConfigured()) supaInsert("kits", row);
       setData((d) => ({ ...d, kits: [row, ...d.kits] }));
     },
     deleteKit: (id) => {
-      if (isSupabase) apiDelete("kits", id);
+      if (isSupabaseConfigured()) supaDelete("kits", id);
       setData((d) => ({ ...d, kits: d.kits.filter((x) => x.id !== id) }));
     },
     addBooking: (b) => {
@@ -413,22 +865,18 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         createdAt: nowIso,
         history: [{ status, at: nowIso, by: "adminsystem" }],
       };
-      // Authoritative create + conflict re-check happens server-side; a
-      // rejection here (e.g. a race with another session) only surfaces via
-      // console.warn today, matching the pre-existing fire-and-forget pattern.
-      if (isSupabase) {
-        apiRequest("/api/data/bookings", {
-          method: "POST",
-          body: JSON.stringify({
-            name: b.name,
-            description: b.description,
-            custodianId: b.custodianId,
-            fromDate: b.fromDate,
-            toDate: b.toDate,
-            assetIds: b.assetIds,
-            status,
-          }),
-        });
+      if (isSupabaseConfigured()) {
+        supaInsert("bookings", booking);
+        // booking_assets
+        (async () => {
+          const supa = getSupabase();
+          if (!supa) return;
+          for (const aid of b.assetIds) {
+            await supa
+              .from("booking_assets")
+              .insert({ booking_id: id, asset_id: aid });
+          }
+        })();
       }
       setData((d) => {
         let assets = d.assets;
@@ -448,11 +896,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       return { ok: true, id };
     },
     updateBookingStatus: (id, status, extra) => {
-      if (isSupabase)
-        apiRequest(`/api/data/bookings/${id}`, {
-          method: "PATCH",
-          body: JSON.stringify({ status, ...extra }),
-        });
+      if (isSupabaseConfigured())
+        supaUpdate("bookings", id, { status, ...extra });
       setData((d) => {
         const bookings = d.bookings.map((bk) => {
           if (bk.id !== id) return bk;
@@ -479,6 +924,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
                 ? { ...a, status: "AVAILABLE" as const, custodianId: null }
                 : a
             );
+            if (isSupabaseConfigured()) {
+              // update assets status in supabase
+              for (const aid of target.assetIds)
+                supaUpdate("assets", aid, {
+                  status: "AVAILABLE",
+                  custodian_id: null,
+                });
+            }
           } else if (status === "ONGOING") {
             assets = assets.map((a) =>
               target.assetIds.includes(a.id)
@@ -489,14 +942,20 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
                   }
                 : a
             );
+            if (isSupabaseConfigured()) {
+              for (const aid of target.assetIds)
+                supaUpdate("assets", aid, {
+                  status: "CHECKED_OUT",
+                  custodian_id: target.custodianId,
+                });
+            }
           }
         }
         return { ...d, assets, bookings };
       });
     },
     deleteBooking: (id) => {
-      if (isSupabase)
-        apiRequest(`/api/data/bookings/${id}`, { method: "DELETE" });
+      if (isSupabaseConfigured()) supaDelete("bookings", id);
       setData((d) => ({
         ...d,
         bookings: d.bookings.filter((x) => x.id !== id),
@@ -516,19 +975,27 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           result: null,
         })),
       } as Audit;
-      if (isSupabase)
-        apiRequest("/api/data/audits", {
-          method: "POST",
-          body: JSON.stringify({ name: a.name, assetIds: a.assetIds }),
+      if (isSupabaseConfigured())
+        supaInsert("audits", {
+          id: newAudit.id,
+          name: newAudit.name,
+          status: newAudit.status,
+          createdBy: newAudit.createdBy,
         });
       setData((d) => ({ ...d, audits: [newAudit, ...d.audits] }));
     },
     updateAuditItem: (auditId, assetId, patch) => {
-      if (isSupabase) {
-        apiRequest(`/api/data/audits/${auditId}/items`, {
-          method: "PATCH",
-          body: JSON.stringify({ assetId, ...patch }),
-        });
+      if (isSupabaseConfigured()) {
+        // update audit_items
+        (async () => {
+          const supa = getSupabase();
+          if (!supa) return;
+          await supa
+            .from("audit_items")
+            .update(toDbRow(patch))
+            .eq("audit_id", auditId)
+            .eq("asset_id", assetId);
+        })();
       }
       setData((d) => ({
         ...d,
@@ -547,11 +1014,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       }));
     },
     completeAudit: (id) => {
-      if (isSupabase)
-        apiRequest(`/api/data/audits/${id}`, {
-          method: "PATCH",
-          body: JSON.stringify({ status: "COMPLETED" }),
-        });
+      if (isSupabaseConfigured())
+        supaUpdate("audits", id, { status: "COMPLETED" });
       setData((d) => ({
         ...d,
         audits: d.audits.map((a) =>
@@ -560,16 +1024,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       }));
     },
     deleteAudit: (id) => {
-      if (isSupabase)
-        apiRequest(`/api/data/audits/${id}`, { method: "DELETE" });
+      if (isSupabaseConfigured()) supaDelete("audits", id);
       setData((d) => ({ ...d, audits: d.audits.filter((x) => x.id !== id) }));
     },
     resetData: () => {
       localStorage.removeItem(STORAGE_KEY);
       setData(seedData);
-      if (isSupabase) {
+      // Also clear Supabase if configured (optional)
+      if (isSupabaseConfigured()) {
         console.log(
-          "[api] reset requested - clear local only, use SQL 00-reset for DB"
+          "[Supabase] reset requested - clear local only, use SQL 00-reset for DB"
         );
       }
     },

@@ -24,6 +24,7 @@ export interface Category {
 export interface Tag {
   id: string;
   name: string;
+  color?: string;
   createdAt: string;
 }
 
@@ -33,6 +34,8 @@ export interface Location {
   description?: string;
   address?: string;
   parentId?: string | null;
+  /** Lokasi induk (gedung/area) yang menaungi sub-lokasi. */
+  isParent?: boolean;
   image?: string;
   createdAt: string;
 }
@@ -43,6 +46,8 @@ export interface CustomField {
   type: "text" | "number" | "date" | "boolean" | "option";
   required: boolean;
   options?: string[];
+  /** Kategori yang memakai field ini. Kosong/undefined = semua kategori. */
+  categoryIds?: string[];
   createdAt: string;
 }
 

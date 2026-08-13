@@ -1,14 +1,16 @@
 "use client";
+import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useRef } from "react";
 import Link from "next/link";
 import { AppShell } from "@/components/layout/sidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useStore } from "@/lib/store";
+import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useT } from "@/lib/i18n";
-import { formatDate } from "@/lib/utils";
+import { formatDate, contrastTextColor } from "@/lib/utils";
+import { downloadQrPng, printQrPng } from "@/lib/qr-download";
 import { QRCodeSVG } from "qrcode.react";
 import {
   ArrowLeft,
@@ -18,9 +20,11 @@ import {
   MapPin,
   Tag as TagIcon,
   User,
-  DollarSign,
   Calendar,
+  Download,
+  Printer,
 } from "lucide-react";
+import { AssetImage } from "@/components/ui/asset-image";
 
 export default function AssetDetailPage() {
   const params = useParams();
@@ -37,7 +41,9 @@ export default function AssetDetailPage() {
     deleteAsset,
   } = useStore();
   const { t } = useT();
-  const qrRef = useRef<HTMLDivElement>(null);
+  const { ask, confirmDialog } = useConfirmDialog();
+  const [downloadingQr, setDownloadingQr] = useState(false);
+  const [printingQr, setPrintingQr] = useState(false);
   const asset = assets.find((a) => a.id === id);
   if (!asset)
     return (
@@ -56,63 +62,15 @@ export default function AssetDetailPage() {
   const cust = custodians.find((c) => c.id === asset.custodianId);
 
   const handleDelete = () => {
-    if (confirm("Hapus aset ini?")) {
-      deleteAsset(asset.id);
-      router.push("/assets");
-    }
-  };
-
-  const downloadQr = async () => {
-    const svg = qrRef.current?.querySelector("svg");
-    if (!svg) return;
-    const svgData = new XMLSerializer().serializeToString(svg);
-    const svgBlob = new Blob([svgData], {
-      type: "image/svg+xml;charset=utf-8",
+    ask({
+      title: "Hapus aset?",
+      description: `"${asset.name}" (${asset.qrCode}) akan dihapus permanen dan tidak bisa dikembalikan.`,
+      confirmLabel: "Ya, Hapus",
+      action: () => {
+        deleteAsset(asset.id);
+        router.push("/assets");
+      },
     });
-    const svgUrl = URL.createObjectURL(svgBlob);
-    try {
-      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-        const image = new Image();
-        image.onload = () => resolve(image);
-        image.onerror = reject;
-        image.src = svgUrl;
-      });
-
-      const width = 320;
-      const height = 420;
-      const qrSize = 200;
-      const canvas = document.createElement("canvas");
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return;
-
-      ctx.fillStyle = "#ffffff";
-      ctx.fillRect(0, 0, width, height);
-      ctx.textAlign = "center";
-
-      ctx.fillStyle = "#1a365d";
-      ctx.font = "bold 20px sans-serif";
-      ctx.fillText(asset.name, width / 2, 36, width - 32);
-
-      ctx.drawImage(img, (width - qrSize) / 2, 64, qrSize, qrSize);
-
-      ctx.fillStyle = "#1a365d";
-      ctx.font = "bold 16px monospace";
-      ctx.fillText(asset.qrCode, width / 2, 64 + qrSize + 32);
-
-      ctx.fillStyle = "#CBA12C";
-      ctx.font = "600 13px sans-serif";
-      ctx.fillText("GARUDA FOOD", width / 2, 64 + qrSize + 56);
-
-      const pngUrl = canvas.toDataURL("image/png");
-      const a = document.createElement("a");
-      a.href = pngUrl;
-      a.download = `${asset.qrCode}.png`;
-      a.click();
-    } finally {
-      URL.revokeObjectURL(svgUrl);
-    }
   };
 
   return (
@@ -127,110 +85,126 @@ export default function AssetDetailPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
-            <Card className="overflow-hidden">
-              <div className="h-64 bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 flex items-center justify-center relative">
-                {asset.mainImage ? (
-                  <img
-                    src={asset.mainImage}
-                    alt={asset.name}
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <div className="text-6xl">📦</div>
-                )}
-                <Badge
-                  className="absolute top-4 right-4"
-                  variant={
-                    asset.status === "AVAILABLE"
-                      ? "success"
-                      : asset.status === "CHECKED_OUT"
-                      ? "info"
-                      : asset.status === "MAINTENANCE"
-                      ? "warning"
-                      : "secondary"
-                  }
-                >
-                  {asset.status}
-                </Badge>
-              </div>
-              <CardHeader>
-                <CardTitle className="text-xl">{asset.name}</CardTitle>
-                <p className="text-sm text-muted-foreground">
-                  {asset.description || "Tanpa deskripsi"}
-                </p>
-              </CardHeader>
-              <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <TagIcon className="h-4 w-4 text-muted-foreground" />{" "}
-                    Kategori:{" "}
-                    <span className="font-medium">{cat?.name || "-"}</span>{" "}
-                    {cat && (
-                      <span
-                        className="h-3 w-3 rounded-full inline-block"
-                        style={{ background: cat.color }}
-                      />
+            <Card>
+              <CardContent className="p-5 sm:p-6 space-y-5">
+                {/* Foto kotak rapi (bukan banner memanjang) + identitas aset */}
+                <div className="flex flex-col sm:flex-row gap-5 sm:items-center">
+                  <div className="relative shrink-0 mx-auto sm:mx-0">
+                    <AssetImage
+                      src={asset.mainImage}
+                      alt={asset.name}
+                      size="xxl"
+                    />
+                    <Badge
+                      className="absolute -top-2.5 -right-2.5 shadow"
+                      variant={
+                        asset.status === "AVAILABLE"
+                          ? "success"
+                          : asset.status === "CHECKED_OUT"
+                          ? "info"
+                          : asset.status === "MAINTENANCE"
+                          ? "warning"
+                          : "secondary"
+                      }
+                    >
+                      {asset.status}
+                    </Badge>
+                  </div>
+                  <div className="flex-1 min-w-0 space-y-2 text-center sm:text-left">
+                    <h1 className="text-xl font-bold truncate">{asset.name}</h1>
+                    <p className="text-sm text-muted-foreground line-clamp-3">
+                      {asset.description || "Tanpa deskripsi"}
+                    </p>
+                    {asset.tagIds.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 pt-1 justify-center sm:justify-start">
+                        {asset.tagIds.map((tid) => {
+                          const tg = tags.find((x) => x.id === tid);
+                          return tg ? (
+                            <span
+                              key={tid}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold shadow-sm"
+                              style={{
+                                background: tg.color || "#64748b",
+                                color: contrastTextColor(tg.color || "#64748b"),
+                              }}
+                            >
+                              <TagIcon className="h-3 w-3" />
+                              {tg.name}
+                            </span>
+                          ) : null;
+                        })}
+                      </div>
                     )}
                   </div>
-                  <div className="flex items-center gap-2">
-                    <MapPin className="h-4 w-4 text-muted-foreground" /> Lokasi:{" "}
-                    <span className="font-medium">{loc?.name || "-"}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <User className="h-4 w-4 text-muted-foreground" />{" "}
-                    Custodian:{" "}
-                    <span className="font-medium">{cust?.name || "-"}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-muted-foreground" />{" "}
-                    Dibuat: {formatDate(asset.createdAt)}
-                  </div>
                 </div>
-                <div className="space-y-3">
-                  <div>
-                    Model:{" "}
-                    <span className="font-medium">{model?.name || "-"}</span>
+
+                <div className="border-t pt-5 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <TagIcon className="h-4 w-4 text-muted-foreground" />{" "}
+                      Kategori:{" "}
+                      <span className="font-medium">{cat?.name || "-"}</span>{" "}
+                      {cat && (
+                        <span
+                          className="h-3 w-3 rounded-full inline-block"
+                          style={{ background: cat.color }}
+                        />
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <MapPin className="h-4 w-4 text-muted-foreground" />{" "}
+                      Lokasi:{" "}
+                      <span className="font-medium">{loc?.name || "-"}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <User className="h-4 w-4 text-muted-foreground" />{" "}
+                      Custodian:{" "}
+                      <span className="font-medium">{cust?.name || "-"}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4 text-muted-foreground" />{" "}
+                      Dibuat: {formatDate(asset.createdAt)}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <DollarSign className="h-4 w-4 text-muted-foreground" />{" "}
-                    Nilai:{" "}
-                    <span className="font-medium">
-                      Rp {asset.value?.toLocaleString("id-ID") || "-"}
-                    </span>
+                  <div className="space-y-3">
+                    <div>
+                      Model:{" "}
+                      <span className="font-medium">{model?.name || "-"}</span>
+                    </div>
+                    <div>
+                      Serial:{" "}
+                      <span className="font-mono text-xs bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded">
+                        {asset.serialNumber || "-"}
+                      </span>
+                    </div>
                   </div>
-                  <div>
-                    Serial:{" "}
-                    <span className="font-mono text-xs bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded">
-                      {asset.serialNumber || "-"}
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap gap-1">
-                    {asset.tagIds.map((tid) => {
-                      const t = tags.find((x) => x.id === tid);
-                      return t ? (
-                        <Badge key={tid} variant="secondary">
-                          {t.name}
-                        </Badge>
-                      ) : null;
-                    })}
-                  </div>
-                </div>
-                {customFields.length > 0 && (
-                  <div className="sm:col-span-2 border-t pt-4 space-y-2">
-                    <div className="font-medium text-sm">Custom Fields</div>
-                    {customFields.map((cf) => (
-                      <div
-                        key={cf.id}
-                        className="flex justify-between text-sm border-b py-1"
-                      >
-                        <span className="text-muted-foreground">{cf.name}</span>
-                        <span className="font-medium">
-                          {asset.customValues[cf.id] || "-"}
-                        </span>
+                  {(() => {
+                    const visibleCustomFields = customFields.filter(
+                      (cf) =>
+                        !cf.categoryIds?.length ||
+                        (!!asset.categoryId &&
+                          cf.categoryIds.includes(asset.categoryId))
+                    );
+                    return visibleCustomFields.length > 0 ? (
+                      <div className="sm:col-span-2 border-t pt-4 space-y-2">
+                        <div className="font-medium text-sm">Custom Fields</div>
+                        {visibleCustomFields.map((cf) => (
+                          <div
+                            key={cf.id}
+                            className="flex justify-between text-sm border-b py-1"
+                          >
+                            <span className="text-muted-foreground">
+                              {cf.name}
+                            </span>
+                            <span className="font-medium">
+                              {asset.customValues[cf.id] || "-"}
+                            </span>
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                )}
+                    ) : null;
+                  })()}
+                </div>
               </CardContent>
             </Card>
 
@@ -271,7 +245,7 @@ export default function AssetDetailPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="flex flex-col items-center gap-4">
-                <div ref={qrRef} className="bg-white p-4 rounded-2xl shadow">
+                <div id="asset-qr" className="bg-white p-4 rounded-2xl shadow">
                   <QRCodeSVG
                     value={`${
                       typeof window !== "undefined"
@@ -293,15 +267,48 @@ export default function AssetDetailPage() {
                   <Button
                     variant="outline"
                     className="flex-1 rounded-xl text-xs"
-                    onClick={() => window.print()}
+                    disabled={downloadingQr}
+                    onClick={async () => {
+                      try {
+                        setDownloadingQr(true);
+                        await downloadQrPng({
+                          svgSelector: "#asset-qr svg",
+                          code: asset.qrCode,
+                          title: asset.name,
+                        });
+                      } catch (e) {
+                        console.error(e);
+                        alert("Gagal membuat PNG QR. Coba lagi.");
+                      } finally {
+                        setDownloadingQr(false);
+                      }
+                    }}
                   >
-                    Print
+                    <Download className="h-3.5 w-3.5" />
+                    {downloadingQr ? "Membuat..." : "Download"}
                   </Button>
                   <Button
+                    variant="outline"
                     className="flex-1 rounded-xl text-xs"
-                    onClick={downloadQr}
+                    disabled={printingQr}
+                    onClick={async () => {
+                      try {
+                        setPrintingQr(true);
+                        await printQrPng({
+                          svgSelector: "#asset-qr svg",
+                          code: asset.qrCode,
+                          title: asset.name,
+                        });
+                      } catch (e) {
+                        console.error(e);
+                        alert("Gagal menyiapkan print QR. Coba lagi.");
+                      } finally {
+                        setPrintingQr(false);
+                      }
+                    }}
                   >
-                    Download
+                    <Printer className="h-3.5 w-3.5" />
+                    {printingQr ? "Menyiapkan..." : "Print"}
                   </Button>
                 </div>
               </CardContent>
@@ -331,6 +338,8 @@ export default function AssetDetailPage() {
           </div>
         </div>
       </div>
+
+      {confirmDialog}
     </AppShell>
   );
 }

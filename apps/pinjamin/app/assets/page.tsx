@@ -1,5 +1,5 @@
 "use client";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import Link from "next/link";
 import { AppShell } from "@/components/layout/sidebar";
 import { Card, CardContent } from "@/components/ui/card";
@@ -7,7 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select } from "@/components/ui/select";
+import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useStore } from "@/lib/store";
+import type { Asset } from "@/lib/types";
 import { useT } from "@/lib/i18n";
 import { formatDate } from "@/lib/utils";
 import {
@@ -25,12 +27,30 @@ import {
   LayoutGrid,
   List,
   X,
+  CheckCircle2,
+  AlertCircle,
 } from "lucide-react";
 import Papa from "papaparse";
+import { parseCsvRows } from "@/lib/csv";
+import { AssetImage } from "@/components/ui/asset-image";
 
 export default function AssetsPage() {
-  const { assets, categories, locations, tags, custodians, deleteAsset } =
-    useStore(); const { t } = useT();
+  const {
+    assets,
+    categories,
+    locations,
+    tags,
+    custodians,
+    deleteAsset,
+    importAssets,
+  } = useStore();
+  const { t } = useT();
+  const { ask, confirmDialog } = useConfirmDialog();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [notice, setNotice] = useState<{
+    kind: "success" | "error";
+    msg: string;
+  } | null>(null);
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("ALL");
   const [cat, setCat] = useState("ALL");
@@ -64,36 +84,101 @@ export default function AssetsPage() {
   const totalPages = Math.max(1, Math.ceil(filtered.length / perPage));
   const paged = filtered.slice((page - 1) * perPage, page * perPage);
 
+  const confirmDeleteAsset = (a: Asset) =>
+    ask({
+      title: "Hapus aset?",
+      description: `"${a.name}" (${a.qrCode}) akan dihapus permanen dan tidak bisa dikembalikan.`,
+      confirmLabel: "Ya, Hapus",
+      action: () => deleteAsset(a.id),
+    });
+
   const exportCSV = () => {
-    const csv = Papa.unparse(
-      assets.map((a) => ({
-        id: a.id,
-        name: a.name,
-        status: a.status,
-        category: categories.find((c) => c.id === a.categoryId)?.name,
-        location: locations.find((l) => l.id === a.locationId)?.name,
-        qrCode: a.qrCode,
-        value: a.value,
-        serial: a.serialNumber,
-      }))
-    );
-    const blob = new Blob([csv], { type: "text/csv" });
+    if (filtered.length === 0) {
+      setNotice({
+        kind: "error",
+        msg: "Tidak ada aset untuk diekspor — filter saat ini kosong.",
+      });
+      return;
+    }
+    const rows = filtered.map((a) => ({
+      name: a.name,
+      status: a.status,
+      category: categories.find((c) => c.id === a.categoryId)?.name ?? "",
+      location: locations.find((l) => l.id === a.locationId)?.name ?? "",
+      qrCode: a.qrCode,
+      value: a.value ?? "",
+      serial: a.serialNumber ?? "",
+      description: a.description ?? "",
+      createdAt: a.createdAt,
+    }));
+    // BOM \uFEFF agar karakter non-ASCII tampil benar saat dibuka di Excel.
+    const csv = "\uFEFF" + Papa.unparse(rows);
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = "assets.csv";
+    link.download = `pinjamin-aset-${new Date()
+      .toISOString()
+      .slice(0, 10)}.csv`;
     link.click();
+    URL.revokeObjectURL(url);
+    setNotice({
+      kind: "success",
+      msg: `${rows.length} aset diekspor (mengikuti filter aktif). File CSV ini bisa langsung diimpor kembali.`,
+    });
   };
 
   const importCSV = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    e.target.value = ""; // reset: file yang sama bisa dipilih ulang
     if (!file) return;
-    Papa.parse(file, {
+    Papa.parse<Record<string, unknown>>(file, {
       header: true,
+      skipEmptyLines: "greedy",
+      transformHeader: (h) => h.trim(),
       complete: (res) => {
-        alert(
-          `Ditemukan ${res.data.length} baris. Fitur import massal siap dihubungkan ke store (demo).`
-        );
+        if (!Array.isArray(res.data) || res.data.length === 0) {
+          setNotice({
+            kind: "error",
+            msg: "CSV kosong atau tidak terbaca. Coba unduh dulu template lewat tombol Export.",
+          });
+          return;
+        }
+        const { rows, invalid } = parseCsvRows(res.data);
+        if (rows.length === 0) {
+          setNotice({
+            kind: "error",
+            msg: `Tidak ada baris valid — kolom nama wajib terisi (${invalid} baris dilewati).`,
+          });
+          return;
+        }
+        ask({
+          title: `Impor ${rows.length} aset?`,
+          description:
+            "Kategori/lokasi yang belum ada dibuat otomatis. Aset dengan QR yang sudah terdaftar akan dilewati (tidak ditimpa).",
+          confirmLabel: "Ya, Impor",
+          variant: "primary",
+          action: () => {
+            const r = importAssets(rows);
+            const parts = [`${r.imported} aset berhasil diimpor`];
+            if (r.categoriesCreated)
+              parts.push(`${r.categoriesCreated} kategori baru dibuat`);
+            if (r.locationsCreated)
+              parts.push(`${r.locationsCreated} lokasi baru dibuat`);
+            const skippedTotal = r.skipped;
+            setNotice({
+              kind: r.imported > 0 ? "success" : "error",
+              msg: `${parts.join(", ")}.${
+                skippedTotal
+                  ? ` ${skippedTotal} baris dilewati (QR duplikat atau nama kosong).`
+                  : ""
+              }`,
+            });
+          },
+        });
+      },
+      error: (err) => {
+        setNotice({ kind: "error", msg: `Gagal membaca CSV: ${err.message}` });
       },
     });
   };
@@ -109,15 +194,22 @@ export default function AssetsPage() {
             </p>
           </div>
           <div className="flex gap-2">
-            <label className="rounded-xl border bg-white px-4 py-2.5 text-sm font-medium cursor-pointer flex items-center gap-2 hover:bg-slate-50 dark:bg-slate-900">
-              <Upload className="h-4 w-4" /> Import{" "}
-              <input
-                type="file"
-                accept=".csv"
-                className="hidden"
-                onChange={importCSV}
-              />
-            </label>
+            {/* Tombol Import: pakai Button outline agar identik dengan Export
+                (label lama mewarisi teks putih di atas bg putih → terlihat blank) */}
+            <Button
+              variant="outline"
+              onClick={() => fileRef.current?.click()}
+              className="rounded-xl"
+            >
+              <Upload className="h-4 w-4" /> Import
+            </Button>
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".csv,text/csv"
+              className="hidden"
+              onChange={importCSV}
+            />
             <Button
               variant="outline"
               onClick={exportCSV}
@@ -132,6 +224,32 @@ export default function AssetsPage() {
             </Link>
           </div>
         </div>
+
+        {/* Notifikasi hasil import/export */}
+        {notice && (
+          <div
+            className={`flex items-start gap-2 rounded-xl border px-4 py-3 text-sm ${
+              notice.kind === "success"
+                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-200"
+                : "border-red-500/30 bg-red-500/10 text-red-200"
+            }`}
+            role="status"
+          >
+            {notice.kind === "success" ? (
+              <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0" />
+            ) : (
+              <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+            )}
+            <span className="flex-1">{notice.msg}</span>
+            <button
+              onClick={() => setNotice(null)}
+              aria-label="Tutup notifikasi"
+              className="shrink-0 opacity-70 hover:opacity-100 transition-opacity"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
 
         {/* Toolbar — Filter Rapi */}
         <Card className="border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
@@ -181,7 +299,9 @@ export default function AssetsPage() {
                     <button
                       onClick={() => setView("list")}
                       className={`px-3.5 py-2 rounded-lg flex items-center gap-1.5 text-sm font-medium transition-all ${
-                        view === "list" ? "bg-[#1a365d] text-white shadow" : "text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+                        view === "list"
+                          ? "bg-[#1a365d] text-white shadow"
+                          : "text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
                       }`}
                       title="List view"
                     >
@@ -191,7 +311,9 @@ export default function AssetsPage() {
                     <button
                       onClick={() => setView("card")}
                       className={`px-3.5 py-2 rounded-lg flex items-center gap-1.5 text-sm font-medium transition-all ${
-                        view === "card" ? "bg-[#1a365d] text-white shadow" : "text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+                        view === "card"
+                          ? "bg-[#1a365d] text-white shadow"
+                          : "text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
                       }`}
                       title="Grid view"
                     >
@@ -210,10 +332,19 @@ export default function AssetsPage() {
                 Filter
                 {(cat !== "ALL" || loc !== "ALL" || tag !== "ALL") && (
                   <span className="ml-1 bg-[#1a365d] text-white text-[10px] px-2 py-0.5 rounded-full">
-                    {[cat !== "ALL", loc !== "ALL", tag !== "ALL"].filter(Boolean).length} aktif
+                    {
+                      [cat !== "ALL", loc !== "ALL", tag !== "ALL"].filter(
+                        Boolean
+                      ).length
+                    }{" "}
+                    aktif
                   </span>
                 )}
-                {(cat !== "ALL" || loc !== "ALL" || tag !== "ALL" || status !== "ALL" || q) && (
+                {(cat !== "ALL" ||
+                  loc !== "ALL" ||
+                  tag !== "ALL" ||
+                  status !== "ALL" ||
+                  q) && (
                   <button
                     onClick={() => {
                       setCat("ALL");
@@ -299,7 +430,9 @@ export default function AssetsPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-slate-600 dark:text-slate-300">Per halaman</label>
+                  <label className="text-xs font-medium text-slate-600 dark:text-slate-300">
+                    Per halaman
+                  </label>
                   <Select
                     value={String(perPage)}
                     onChange={(e) => {
@@ -316,12 +449,18 @@ export default function AssetsPage() {
               </div>
 
               {/* Active filter chips */}
-              {(cat !== "ALL" || loc !== "ALL" || tag !== "ALL" || status !== "ALL") && (
+              {(cat !== "ALL" ||
+                loc !== "ALL" ||
+                tag !== "ALL" ||
+                status !== "ALL") && (
                 <div className="flex flex-wrap gap-2 pt-1">
                   {status !== "ALL" && (
                     <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#1a365d] text-white text-xs font-medium">
                       Status: {status}
-                      <button onClick={() => setStatus("ALL")} className="hover:bg-white/20 rounded-full p-0.5">
+                      <button
+                        onClick={() => setStatus("ALL")}
+                        className="hover:bg-white/20 rounded-full p-0.5"
+                      >
                         <X className="h-3 w-3" />
                       </button>
                     </span>
@@ -329,7 +468,10 @@ export default function AssetsPage() {
                   {cat !== "ALL" && (
                     <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-100 border border-amber-200 dark:border-amber-800 text-xs font-medium">
                       {categories.find((c) => c.id === cat)?.name}
-                      <button onClick={() => setCat("ALL")} className="hover:bg-black/10 rounded-full p-0.5">
+                      <button
+                        onClick={() => setCat("ALL")}
+                        className="hover:bg-black/10 rounded-full p-0.5"
+                      >
                         <X className="h-3 w-3" />
                       </button>
                     </span>
@@ -337,7 +479,10 @@ export default function AssetsPage() {
                   {loc !== "ALL" && (
                     <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-200 border border-blue-200 dark:border-blue-800 text-xs font-medium">
                       {locations.find((l) => l.id === loc)?.name}
-                      <button onClick={() => setLoc("ALL")} className="hover:bg-black/10 rounded-full p-0.5">
+                      <button
+                        onClick={() => setLoc("ALL")}
+                        className="hover:bg-black/10 rounded-full p-0.5"
+                      >
                         <X className="h-3 w-3" />
                       </button>
                     </span>
@@ -345,7 +490,10 @@ export default function AssetsPage() {
                   {tag !== "ALL" && (
                     <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-200 border border-emerald-200 dark:border-emerald-800 text-xs font-medium">
                       {tags.find((t) => t.id === tag)?.name}
-                      <button onClick={() => setTag("ALL")} className="hover:bg-black/10 rounded-full p-0.5">
+                      <button
+                        onClick={() => setTag("ALL")}
+                        className="hover:bg-black/10 rounded-full p-0.5"
+                      >
                         <X className="h-3 w-3" />
                       </button>
                     </span>
@@ -381,6 +529,7 @@ export default function AssetsPage() {
               <table className="w-full text-sm">
                 <thead className="bg-slate-50 dark:bg-slate-800 text-left text-xs uppercase tracking-widest text-muted-foreground">
                   <tr>
+                    <th className="px-4 py-3 w-14">Foto</th>
                     <th className="px-4 py-3">Nama</th>
                     <th className="px-4 py-3">Kategori</th>
                     <th className="px-4 py-3">Status</th>
@@ -404,6 +553,18 @@ export default function AssetsPage() {
                         key={a.id}
                         className="border-t hover:bg-slate-50 dark:hover:bg-slate-800/50"
                       >
+                        <td className="px-4 py-3">
+                          <Link
+                            href={`/assets/${a.id}`}
+                            aria-label={`Lihat ${a.name}`}
+                          >
+                            <AssetImage
+                              src={a.mainImage}
+                              alt={a.name}
+                              size="md"
+                            />
+                          </Link>
+                        </td>
                         <td className="px-4 py-3">
                           <div className="font-medium">{a.name}</div>
                           <div className="text-xs text-muted-foreground flex items-center gap-1">
@@ -446,7 +607,7 @@ export default function AssetsPage() {
                               variant="ghost"
                               size="icon"
                               className="h-8 w-8 text-red-600"
-                              onClick={() => deleteAsset(a.id)}
+                              onClick={() => confirmDeleteAsset(a)}
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -463,7 +624,13 @@ export default function AssetsPage() {
               {paged.map((a) => (
                 <Card key={a.id} className="overflow-hidden">
                   <CardContent className="p-4 space-y-3">
-                    <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-3">
+                      <Link
+                        href={`/assets/${a.id}`}
+                        aria-label={`Lihat ${a.name}`}
+                      >
+                        <AssetImage src={a.mainImage} alt={a.name} size="md" />
+                      </Link>
                       <div className="flex-1 min-w-0">
                         <div className="font-semibold truncate">{a.name}</div>
                         <div className="text-xs text-muted-foreground truncate">
@@ -516,7 +683,7 @@ export default function AssetsPage() {
                 key={a.id}
                 className="overflow-hidden hover:shadow-md transition-shadow"
               >
-                <div className="h-32 bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-900 flex items-center justify-center">
+                <div className="h-32 bg-slate-100 dark:bg-slate-800 flex items-center justify-center border-b border-slate-200/70 dark:border-slate-700/70">
                   {a.mainImage ? (
                     <img
                       src={a.mainImage}
@@ -524,7 +691,7 @@ export default function AssetsPage() {
                       className="h-full w-full object-cover"
                     />
                   ) : (
-                    <PackageIconLarge />
+                    <AssetImage src={null} alt={a.name} size="lg" />
                   )}
                 </div>
                 <CardContent className="p-4 space-y-2">
@@ -546,7 +713,7 @@ export default function AssetsPage() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => deleteAsset(a.id)}
+                      onClick={() => confirmDeleteAsset(a)}
                       className="text-red-600"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -585,6 +752,8 @@ export default function AssetsPage() {
           </div>
         </div>
       </div>
+
+      {confirmDialog}
     </AppShell>
   );
 }
@@ -611,12 +780,5 @@ function PackageIcon() {
       <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" />
       <path d="M3.3 7 12 12l8.7-5M12 22V12" />
     </svg>
-  );
-}
-function PackageIconLarge() {
-  return (
-    <div className="h-16 w-16 rounded-2xl bg-white dark:bg-slate-700 flex items-center justify-center shadow">
-      <PackageIcon />
-    </div>
   );
 }
