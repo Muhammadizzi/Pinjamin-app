@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { StoreProvider } from "@/lib/store";
 import { I18nProvider } from "@/lib/i18n";
+import { AuthProvider } from "@/lib/auth-client";
 
 export const metadata: Metadata = {
   title: "Pinjamin — Smart Asset Lending | Garuda Food",
@@ -35,7 +36,9 @@ export default function RootLayout({
     <html lang="id" className="dark h-full" style={{ colorScheme: "dark" }}>
       <body className="min-h-screen antialiased bg-[#0f1d33] text-white">
         <I18nProvider>
-          <StoreProvider>{children}</StoreProvider>
+          <AuthProvider>
+            <StoreProvider>{children}</StoreProvider>
+          </AuthProvider>
         </I18nProvider>
       </body>
     </html>

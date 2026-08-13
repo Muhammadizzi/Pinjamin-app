@@ -26,6 +26,7 @@ import type {
 } from "./types";
 import { generateId, generateQRCode } from "./utils";
 import { getSupabase, isSupabaseConfigured } from "./supabase";
+import { getCachedAdminUsername } from "./auth-client";
 
 const STORAGE_KEY = "pinjamin_data_v2_clean";
 
@@ -861,9 +862,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         toDate: b.toDate,
         assetIds: b.assetIds,
         kitIds: b.kitIds || [],
-        createdBy: "adminsystem",
+        createdBy: getCachedAdminUsername(),
         createdAt: nowIso,
-        history: [{ status, at: nowIso, by: "adminsystem" }],
+        history: [{ status, at: nowIso, by: getCachedAdminUsername() }],
       };
       if (isSupabaseConfigured()) {
         supaInsert("bookings", booking);
@@ -903,7 +904,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           if (bk.id !== id) return bk;
           const hist = [
             ...bk.history,
-            { status, at: new Date().toISOString(), by: "adminsystem" },
+            {
+              status,
+              at: new Date().toISOString(),
+              by: getCachedAdminUsername(),
+            },
           ];
           return {
             ...bk,
@@ -966,7 +971,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         id: generateId(),
         name: a.name,
         status: "OPEN" as const,
-        createdBy: "adminsystem",
+        createdBy: getCachedAdminUsername(),
         createdAt: new Date().toISOString(),
         items: a.assetIds.map((aid) => ({
           id: generateId(),

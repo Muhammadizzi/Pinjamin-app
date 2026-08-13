@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useT } from "@/lib/i18n";
+import { useAuth } from "@/lib/auth-client";
 import { uploadImage } from "@/lib/supabase";
 import { UserCog, KeyRound, ImagePlus, Trash2, Check } from "lucide-react";
 
@@ -17,17 +18,18 @@ function initials(p: Profile) {
 
 export default function AccountSettingsPage() {
   const { t } = useT();
+  const { user, loading: authLoading, setUser } = useAuth();
 
   // --- Profil ------------------------------------------------------------
   const [profile, setProfile] = useState<Profile>({
-    username: "adminsystem",
-    fullName: "Administrator",
-    avatar: "",
+    username: user?.username || "",
+    fullName: user?.fullName || "",
+    avatar: user?.avatar || "",
   });
-  const [fullName, setFullName] = useState("");
-  const [username, setUsername] = useState("");
-  const [avatar, setAvatar] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [fullName, setFullName] = useState(user?.fullName || "");
+  const [username, setUsername] = useState(user?.username || "");
+  const [avatar, setAvatar] = useState(user?.avatar || "");
+  const loading = authLoading;
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [profileMsg, setProfileMsg] = useState<{
@@ -37,22 +39,12 @@ export default function AccountSettingsPage() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    let alive = true;
-    fetch("/api/auth/me")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j) => {
-        if (!alive || !j?.profile) return;
-        setProfile(j.profile);
-        setFullName(j.profile.fullName);
-        setUsername(j.profile.username);
-        setAvatar(j.profile.avatar);
-      })
-      .catch(() => {})
-      .finally(() => alive && setLoading(false));
-    return () => {
-      alive = false;
-    };
-  }, []);
+    if (!user) return;
+    setProfile(user);
+    setFullName(user.fullName);
+    setUsername(user.username);
+    setAvatar(user.avatar);
+  }, [user]);
 
   const handlePickPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -100,11 +92,8 @@ export default function AccountSettingsPage() {
         return;
       }
       setProfile(j.profile);
+      setUser(j.profile);
       setProfileMsg({ ok: true, text: "Profil berhasil disimpan ✓" });
-      // Beri tahu sidebar/topbar agar nama & foto langsung berubah
-      window.dispatchEvent(
-        new CustomEvent("pinjamin:profile", { detail: j.profile })
-      );
     } catch {
       setProfileMsg({ ok: false, text: "Gagal menyimpan profil. Coba lagi." });
     } finally {
@@ -247,7 +236,7 @@ export default function AccountSettingsPage() {
               <Input
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="adminsystem"
+                placeholder={t("username")}
                 className="h-11 rounded-xl font-mono"
                 disabled={loading}
               />
@@ -324,8 +313,8 @@ export default function AccountSettingsPage() {
               </div>
             </div>
             <p className="text-xs text-muted-foreground">
-              Minimal 6 karakter. Login sesi ini tetap aktif; password baru
-              dipakai saat login berikutnya.
+              Minimal 8 karakter, harus berisi huruf dan angka. Sesi lain akan
+              keluar; sesi ini tetap aktif.
             </p>
             {pwMsg && (
               <div

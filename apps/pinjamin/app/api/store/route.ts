@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import { requireAuth, unauthorized } from "@/lib/auth";
 
 /**
  * Shared server-side store (lintas-browser) untuk data Pinjamin.
@@ -63,10 +64,6 @@ function warnIfServerless() {
   }
 }
 
-function hasSession(req: NextRequest) {
-  return Boolean(req.cookies.get("pinjamin_session")?.value);
-}
-
 function isValidAppDataShape(v: unknown): v is Record<string, unknown[]> {
   return (
     !!v &&
@@ -98,9 +95,7 @@ async function writeStoreFile(payload: StoreFilePayload) {
 }
 
 export async function GET(req: NextRequest) {
-  if (!hasSession(req)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!(await requireAuth(req))) return unauthorized();
   warnIfServerless();
   const file = await readStoreFile();
   if (!file) {
@@ -111,9 +106,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
-  if (!hasSession(req)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!(await requireAuth(req))) return unauthorized();
   warnIfServerless();
 
   let body: any;

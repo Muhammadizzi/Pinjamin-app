@@ -1,40 +1,33 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifySession, checkRateLimit } from "@/lib/auth";
+import { clientIp, requireAuth, ticketLimiter, unauthorized } from "@/lib/auth";
 import { createTicket, listTickets, validateNewTicket } from "@/lib/tickets";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function isAdmin(req: NextRequest) {
-  const token = req.cookies.get("pinjamin_session")?.value;
-  return token ? !!verifySession(token) : false;
-}
-
 /** GET /api/tickets — daftar semua tiket (khusus admin). */
 export async function GET(req: NextRequest) {
-  if (!isAdmin(req)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!(await requireAuth(req))) return unauthorized();
   return NextResponse.json({ tickets: listTickets() });
 }
 
 /** POST /api/tickets — buat tiket BARU (PUBLIK, tanpa login). */
 export async function POST(req: NextRequest) {
-  const ip =
-    req.headers.get("x-forwarded-for") ||
-    req.headers.get("x-real-ip") ||
-    "unknown";
-  const rate = checkRateLimit(ip);
+  const ip = clientIp(req);
+  const rate = ticketLimiter.check(`ticket:${ip}`);
   if (!rate.allowed) {
     return NextResponse.json(
       {
         error: `Terlalu banyak permintaan. Coba lagi dalam ${rate.retryAfter} detik.`,
       },
-      { status: 429 }
+      {
+        status: 429,
+        headers: { "Retry-After": String(rate.retryAfter) },
+      }
     );
   }
 
-  let body: any = {};
+  let body: unknown;
   try {
     body = await req.json();
   } catch {
@@ -47,7 +40,6 @@ export async function POST(req: NextRequest) {
   }
 
   const ticket = createTicket(result.data);
-  // Balasan publik sengaja minimal: hanya nomor tiket.
   return NextResponse.json(
     { ok: true, number: ticket.number, createdAt: ticket.createdAt },
     { status: 201 }

@@ -12,9 +12,8 @@
 > ```
 >
 > Urutan jalankan SQL: `01-schema.sql` → `02-storage.sql` → `03-seed.sql`
-> (opsional) → `04-enable-rls.sql` **paling akhir**, setelah app dengan
-> `app/api/data/**` sudah ter-deploy (kalau RLS dinyalakan duluan tanpa route
-> ini, app kehilangan akses ke datanya sendiri).
+> (opsional) → `05-auth-hardening.sql` (token_version) → `04-enable-rls.sql` > **paling akhir**, setelah app dengan `app/api/data/**` sudah ter-deploy
+> (kalau RLS dinyalakan duluan tanpa route ini, app kehilangan akses).
 
 Pinjamin support **2 mode** agar tetap jalan tanpa setup:
 

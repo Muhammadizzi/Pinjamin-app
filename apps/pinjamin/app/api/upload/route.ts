@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { requireAuth } from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
-  const session = requireAuth(req);
+  const session = await requireAuth(req);
   if (!session)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
