@@ -379,28 +379,71 @@ export default function AccountSettingsPage() {
                 {demoMsg.text}
               </div>
             )}
-            <Button
-              variant="outline"
-              className="rounded-xl"
-              onClick={() =>
-                ask({
-                  title: "Muat data contoh?",
-                  description:
-                    "Seluruh aset, booking, dan master data saat ini akan diganti dengan data dummy Garudafood.",
-                  confirmLabel: "Ya, muat demo",
-                  variant: "primary",
-                  action: () => {
-                    loadDemoData();
-                    setDemoMsg({
-                      ok: true,
-                      text: "Data contoh Garudafood berhasil dimuat.",
-                    });
-                  },
-                })
-              }
-            >
-              <Database className="h-4 w-4" /> Muat data demo
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                className="rounded-xl"
+                onClick={() =>
+                  ask({
+                    title: "Muat data aset contoh?",
+                    description:
+                      "Seluruh aset, booking, dan master data saat ini akan diganti dengan data dummy Garudafood.",
+                    confirmLabel: "Ya, muat demo aset",
+                    variant: "primary",
+                    action: () => {
+                      loadDemoData();
+                      setDemoMsg({
+                        ok: true,
+                        text: "Data aset contoh Garudafood berhasil dimuat.",
+                      });
+                    },
+                  })
+                }
+              >
+                <Database className="h-4 w-4" /> Demo aset
+              </Button>
+              <Button
+                variant="outline"
+                className="rounded-xl"
+                onClick={() =>
+                  ask({
+                    title: "Muat tiket contoh?",
+                    description:
+                      "Daftar tiket helpdesk akan diganti 18 tiket dummy (IT, pabrik, fasilitas).",
+                    confirmLabel: "Ya, muat demo tiket",
+                    variant: "primary",
+                    action: async () => {
+                      try {
+                        const res = await fetch("/api/tickets/seed", {
+                          method: "POST",
+                        });
+                        const j = await res.json().catch(() => ({}));
+                        if (!res.ok) {
+                          setDemoMsg({
+                            ok: false,
+                            text: j.error || "Gagal memuat tiket demo.",
+                          });
+                          return;
+                        }
+                        setDemoMsg({
+                          ok: true,
+                          text: `${
+                            j.count ?? 0
+                          } tiket contoh Garudafood dimuat.`,
+                        });
+                      } catch {
+                        setDemoMsg({
+                          ok: false,
+                          text: "Tidak bisa terhubung ke server.",
+                        });
+                      }
+                    },
+                  })
+                }
+              >
+                <Database className="h-4 w-4" /> Demo tiket
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>

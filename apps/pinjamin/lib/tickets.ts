@@ -5,6 +5,7 @@
  */
 import fs from "node:fs";
 import path from "node:path";
+import { buildDemoTickets } from "./ticket-seed";
 
 export type TicketStatus = "OPEN" | "IN_PROGRESS" | "RESOLVED" | "CLOSED";
 
@@ -57,14 +58,29 @@ function load(): Ticket[] {
     const raw = fs.readFileSync(TICKETS_FILE, "utf8");
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed)) {
+      if (parsed.length === 0) {
+        cache = buildDemoTickets();
+        persist(cache);
+        return cache;
+      }
       cache = parsed;
       return cache;
     }
   } catch {
-    /* file belum ada → mulai kosong */
+    cache = buildDemoTickets();
+    persist(cache);
+    return cache;
   }
-  cache = [];
+  cache = buildDemoTickets();
+  persist(cache);
   return cache;
+}
+
+/** Timpa semua tiket dengan dataset demo Garudafood. */
+export function loadDemoTickets(): Ticket[] {
+  const next = buildDemoTickets();
+  persist(next);
+  return listTickets();
 }
 
 function persist(next: Ticket[]) {
