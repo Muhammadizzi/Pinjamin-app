@@ -28,14 +28,11 @@ function initials(p: Profile) {
 export default function AccountSettingsPage() {
   const { t } = useT();
   const { user, loading: authLoading, setUser } = useAuth();
-<<<<<<< HEAD
-=======
   const { loadDemoData, assets } = useStore();
   const { ask, confirmDialog } = useConfirmDialog();
   const [demoMsg, setDemoMsg] = useState<{ ok: boolean; text: string } | null>(
     null
   );
->>>>>>> e583ae8 (feat(pinjamin): add Garudafood demo data and template-free Excel import)
 
   // --- Profil ------------------------------------------------------------
   const [profile, setProfile] = useState<Profile>({
