@@ -8,7 +8,16 @@ import { Label } from "@/components/ui/label";
 import { useT } from "@/lib/i18n";
 import { useAuth } from "@/lib/auth-client";
 import { uploadImage } from "@/lib/supabase";
-import { UserCog, KeyRound, ImagePlus, Trash2, Check } from "lucide-react";
+import { useStore } from "@/lib/store";
+import { useConfirmDialog } from "@/components/ui/confirm-dialog";
+import {
+  UserCog,
+  KeyRound,
+  ImagePlus,
+  Trash2,
+  Check,
+  Database,
+} from "lucide-react";
 
 type Profile = { username: string; fullName: string; avatar: string };
 
@@ -19,6 +28,14 @@ function initials(p: Profile) {
 export default function AccountSettingsPage() {
   const { t } = useT();
   const { user, loading: authLoading, setUser } = useAuth();
+<<<<<<< HEAD
+=======
+  const { loadDemoData, assets } = useStore();
+  const { ask, confirmDialog } = useConfirmDialog();
+  const [demoMsg, setDemoMsg] = useState<{ ok: boolean; text: string } | null>(
+    null
+  );
+>>>>>>> e583ae8 (feat(pinjamin): add Garudafood demo data and template-free Excel import)
 
   // --- Profil ------------------------------------------------------------
   const [profile, setProfile] = useState<Profile>({
@@ -338,7 +355,59 @@ export default function AccountSettingsPage() {
             </Button>
           </CardContent>
         </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Database className="h-4 w-4" /> Data contoh Garudafood
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Muat ulang dataset demo: 28 aset, pabrik Pati/Rembang, DC
+              Cikarang, peminjaman, kit, dan audit. Data aset yang ada akan
+              ditimpa.
+            </p>
+            <p className="text-xs text-slate-500">
+              Saat ini ada {assets.length} aset di sistem.
+            </p>
+            {demoMsg && (
+              <div
+                className={`text-sm rounded-xl border px-3 py-2 ${
+                  demoMsg.ok
+                    ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
+                    : "bg-red-500/10 border-red-500/30 text-red-300"
+                }`}
+              >
+                {demoMsg.text}
+              </div>
+            )}
+            <Button
+              variant="outline"
+              className="rounded-xl"
+              onClick={() =>
+                ask({
+                  title: "Muat data contoh?",
+                  description:
+                    "Seluruh aset, booking, dan master data saat ini akan diganti dengan data dummy Garudafood.",
+                  confirmLabel: "Ya, muat demo",
+                  variant: "primary",
+                  action: () => {
+                    loadDemoData();
+                    setDemoMsg({
+                      ok: true,
+                      text: "Data contoh Garudafood berhasil dimuat.",
+                    });
+                  },
+                })
+              }
+            >
+              <Database className="h-4 w-4" /> Muat data demo
+            </Button>
+          </CardContent>
+        </Card>
       </div>
+      {confirmDialog}
     </AppShell>
   );
 }

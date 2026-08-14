@@ -1,5 +1,5 @@
 "use client";
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo } from "react";
 import Link from "next/link";
 import { AppShell } from "@/components/layout/sidebar";
 import { Card, CardContent } from "@/components/ui/card";
@@ -30,8 +30,8 @@ import {
   CheckCircle2,
   AlertCircle,
 } from "lucide-react";
-import Papa from "papaparse";
-import { parseCsvRows } from "@/lib/csv";
+import * as XLSX from "xlsx";
+import { ImportDialog } from "@/components/import-dialog";
 import { AssetImage } from "@/components/ui/asset-image";
 
 export default function AssetsPage() {
@@ -43,10 +43,11 @@ export default function AssetsPage() {
     custodians,
     deleteAsset,
     importAssets,
+    loadDemoData,
   } = useStore();
   const { t } = useT();
   const { ask, confirmDialog } = useConfirmDialog();
-  const fileRef = useRef<HTMLInputElement>(null);
+  const [importOpen, setImportOpen] = useState(false);
   const [notice, setNotice] = useState<{
     kind: "success" | "error";
     msg: string;
@@ -101,85 +102,28 @@ export default function AssetsPage() {
       return;
     }
     const rows = filtered.map((a) => ({
-      name: a.name,
-      status: a.status,
-      category: categories.find((c) => c.id === a.categoryId)?.name ?? "",
-      location: locations.find((l) => l.id === a.locationId)?.name ?? "",
-      qrCode: a.qrCode,
-      value: a.value ?? "",
-      serial: a.serialNumber ?? "",
-      description: a.description ?? "",
-      createdAt: a.createdAt,
+      Nama: a.name,
+      Status: a.status,
+      Kategori: categories.find((c) => c.id === a.categoryId)?.name ?? "",
+      Lokasi: locations.find((l) => l.id === a.locationId)?.name ?? "",
+      "Kode QR": a.qrCode,
+      Nilai: a.value ?? "",
+      "No. Seri": a.serialNumber ?? "",
+      Deskripsi: a.description ?? "",
+      Peminjam: custodians.find((c) => c.id === a.custodianId)?.name ?? "",
+      Tag: a.tagIds
+        .map((id) => tags.find((tg) => tg.id === id)?.name)
+        .filter(Boolean)
+        .join(", "),
     }));
-    // BOM \uFEFF agar karakter non-ASCII tampil benar saat dibuka di Excel.
-    const csv = "\uFEFF" + Papa.unparse(rows);
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `pinjamin-aset-${new Date()
-      .toISOString()
-      .slice(0, 10)}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
+    const stamp = new Date().toISOString().slice(0, 10);
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Aset");
+    XLSX.writeFile(wb, `pinjamin-aset-${stamp}.xlsx`);
     setNotice({
       kind: "success",
-      msg: `${rows.length} aset diekspor (mengikuti filter aktif). File CSV ini bisa langsung diimpor kembali.`,
-    });
-  };
-
-  const importCSV = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = ""; // reset: file yang sama bisa dipilih ulang
-    if (!file) return;
-    Papa.parse<Record<string, unknown>>(file, {
-      header: true,
-      skipEmptyLines: "greedy",
-      transformHeader: (h) => h.trim(),
-      complete: (res) => {
-        if (!Array.isArray(res.data) || res.data.length === 0) {
-          setNotice({
-            kind: "error",
-            msg: "CSV kosong atau tidak terbaca. Coba unduh dulu template lewat tombol Export.",
-          });
-          return;
-        }
-        const { rows, invalid } = parseCsvRows(res.data);
-        if (rows.length === 0) {
-          setNotice({
-            kind: "error",
-            msg: `Tidak ada baris valid — kolom nama wajib terisi (${invalid} baris dilewati).`,
-          });
-          return;
-        }
-        ask({
-          title: `Impor ${rows.length} aset?`,
-          description:
-            "Kategori/lokasi yang belum ada dibuat otomatis. Aset dengan QR yang sudah terdaftar akan dilewati (tidak ditimpa).",
-          confirmLabel: "Ya, Impor",
-          variant: "primary",
-          action: () => {
-            const r = importAssets(rows);
-            const parts = [`${r.imported} aset berhasil diimpor`];
-            if (r.categoriesCreated)
-              parts.push(`${r.categoriesCreated} kategori baru dibuat`);
-            if (r.locationsCreated)
-              parts.push(`${r.locationsCreated} lokasi baru dibuat`);
-            const skippedTotal = r.skipped;
-            setNotice({
-              kind: r.imported > 0 ? "success" : "error",
-              msg: `${parts.join(", ")}.${
-                skippedTotal
-                  ? ` ${skippedTotal} baris dilewati (QR duplikat atau nama kosong).`
-                  : ""
-              }`,
-            });
-          },
-        });
-      },
-      error: (err) => {
-        setNotice({ kind: "error", msg: `Gagal membaca CSV: ${err.message}` });
-      },
+      msg: `${rows.length} aset diekspor ke Excel (.xlsx).`,
     });
   };
 
@@ -198,18 +142,11 @@ export default function AssetsPage() {
                 (label lama mewarisi teks putih di atas bg putih → terlihat blank) */}
             <Button
               variant="outline"
-              onClick={() => fileRef.current?.click()}
+              onClick={() => setImportOpen(true)}
               className="rounded-xl"
             >
-              <Upload className="h-4 w-4" /> Import
+              <Upload className="h-4 w-4" /> Import Excel
             </Button>
-            <input
-              ref={fileRef}
-              type="file"
-              accept=".csv,text/csv"
-              className="hidden"
-              onChange={importCSV}
-            />
             <Button
               variant="outline"
               onClick={exportCSV}
@@ -512,14 +449,32 @@ export default function AssetsPage() {
                 <PackageIcon />
               </div>
               <div>
-                <div className="font-semibold">No assets yet</div>
+                <div className="font-semibold">Belum ada aset</div>
                 <div className="text-sm text-muted-foreground">
-                  Buat aset pertama Anda
+                  Buat manual, impor Excel apa adanya, atau muat data contoh
+                  Garudafood.
                 </div>
               </div>
-              <Link href="/assets/new">
-                <Button>Create your first asset</Button>
-              </Link>
+              <div className="flex flex-wrap justify-center gap-2">
+                <Link href="/assets/new">
+                  <Button>Buat aset pertama</Button>
+                </Link>
+                <Button variant="outline" onClick={() => setImportOpen(true)}>
+                  <Upload className="h-4 w-4" /> Impor Excel
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    loadDemoData();
+                    setNotice({
+                      kind: "success",
+                      msg: "Data contoh Garudafood dimuat (aset, lokasi pabrik, peminjaman, audit).",
+                    });
+                  }}
+                >
+                  Muat data demo
+                </Button>
+              </div>
             </CardContent>
           </Card>
         ) : view === "list" ? (
@@ -754,6 +709,21 @@ export default function AssetsPage() {
       </div>
 
       {confirmDialog}
+      <ImportDialog
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        onImport={(rows) => {
+          const r = importAssets(rows);
+          setNotice({
+            kind: r.imported > 0 ? "success" : "error",
+            msg:
+              r.imported > 0
+                ? `${r.imported} aset diimpor dari spreadsheet.`
+                : "Tidak ada baris yang masuk (mungkin semua duplikat).",
+          });
+          return r;
+        }}
+      />
     </AppShell>
   );
 }

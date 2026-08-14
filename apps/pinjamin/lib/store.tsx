@@ -28,7 +28,7 @@ import { generateId, generateQRCode } from "./utils";
 import { getSupabase, isSupabaseConfigured } from "./supabase";
 import { getCachedAdminUsername } from "./auth-client";
 
-const STORAGE_KEY = "pinjamin_data_v2_clean";
+const STORAGE_KEY = "pinjamin_data_v3_gf";
 
 /** Baris hasil parse CSV impor aset (lihat app/assets/page.tsx). */
 export type AssetImportRow = {
@@ -40,6 +40,9 @@ export type AssetImportRow = {
   value?: number;
   serialNumber?: string;
   description?: string;
+  custodianName?: string;
+  tagNames?: string;
+  modelName?: string;
 };
 
 export type ImportAssetsResult = {
@@ -48,6 +51,9 @@ export type ImportAssetsResult = {
   skipped: number;
   categoriesCreated: number;
   locationsCreated: number;
+  custodiansCreated: number;
+  tagsCreated: number;
+  modelsCreated: number;
 };
 
 type StoreContextType = AppData & {
@@ -103,6 +109,8 @@ type StoreContextType = AppData & {
   completeAudit: (id: string) => void;
   deleteAudit: (id: string) => void;
   resetData: () => void;
+  /** Timpa store dengan data contoh Garudafood (seed). */
+  loadDemoData: () => void;
   isHydrated: boolean;
   isSupabase: boolean;
 };
@@ -138,7 +146,16 @@ function loadFromStorage(): AppData {
   if (typeof window === "undefined") return seedData;
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const parsed = JSON.parse(raw) as AppData;
+      if (
+        parsed &&
+        Array.isArray(parsed.assets) &&
+        Object.values(parsed).some((v) => Array.isArray(v) && v.length > 0)
+      ) {
+        return parsed;
+      }
+    }
   } catch {}
   return seedData;
 }
@@ -296,19 +313,20 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       serverSyncRef.current = true;
       authRetryRef.current = false;
 
-      if (serverData) {
-        // Server sudah punya data → server jadi sumber kebenaran,
-        // apa pun isi localStorage browser ini.
+      if (serverData && hasAnyItems(serverData)) {
+        // Server sudah punya data nyata → sumber kebenaran.
         const normalized = normalizeOverdueBookings(serverData);
         setData(normalized);
-        saveToStorage(normalized); // segarkan cache offline
+        saveToStorage(normalized);
       } else {
-        // Server masih kosong → MIGRASI: browser pertama dengan data
-        // lokal (mis. Safari) mengunggahnya agar browser lain ikut
-        // memakai data yang sama.
-        setData(loaded);
-        if (hasAnyItems(loaded)) {
-          pushServerStore(loaded).catch((e) => {
+        // Server kosong (atau hanya koleksi kosong) → pakai cache lokal,
+        // atau seed dummy Garudafood jika lokal juga kosong.
+        const local = hasAnyItems(loaded)
+          ? loaded
+          : normalizeOverdueBookings(seedData);
+        setData(local);
+        if (hasAnyItems(local)) {
+          pushServerStore(local).catch((e) => {
             if (e instanceof UnauthorizedError) disarmServerSync();
             else console.warn("[store] migrasi ke server gagal", e);
           });
@@ -551,6 +569,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         skipped: 0,
         categoriesCreated: 0,
         locationsCreated: 0,
+        custodiansCreated: 0,
+        tagsCreated: 0,
+        modelsCreated: 0,
       };
       const now = new Date().toISOString();
       const VALID_STATUS: AssetStatus[] = [
@@ -560,18 +581,25 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         "RETIRED",
       ];
       const supa = isSupabaseConfigured();
+      const PALETTE = [
+        "#123367",
+        "#CBA12C",
+        "#3b82f6",
+        "#10b981",
+        "#8b5cf6",
+        "#f59e0b",
+        "#ef4444",
+        "#64748b",
+      ];
 
       setData((d) => {
         const categories = [...d.categories];
         const locations = [...d.locations];
-        const findCat = (name: string) =>
-          categories.find(
-            (c) => c.name.trim().toLowerCase() === name.toLowerCase()
-          );
-        const findLoc = (name: string) =>
-          locations.find(
-            (l) => l.name.trim().toLowerCase() === name.toLowerCase()
-          );
+        const custodians = [...d.custodians];
+        const tags = [...d.tags];
+        const assetModels = [...d.assetModels];
+        const byName = <T extends { name: string }>(list: T[], name: string) =>
+          list.find((x) => x.name.trim().toLowerCase() === name.toLowerCase());
         const takenQr = new Set(d.assets.map((a) => a.qrCode.toLowerCase()));
         const takenId = new Set(d.assets.map((a) => a.id));
         const newAssets: Asset[] = [];
@@ -583,7 +611,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             continue;
           }
           const qr = row.qrCode?.trim() || "";
-          const incomingId = (row as any).id?.trim?.() || "";
+          const incomingId = (row as { id?: string }).id?.trim?.() || "";
           if (
             (qr && takenQr.has(qr.toLowerCase())) ||
             (incomingId && takenId.has(incomingId))
@@ -595,13 +623,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           let categoryId: string | undefined;
           const catName = row.categoryName?.trim();
           if (catName) {
-            let cat = findCat(catName);
+            let cat = byName(categories, catName);
             if (!cat) {
               cat = {
                 id: generateId(),
                 name: catName,
                 description: "",
-                color: "#64748b",
+                color: PALETTE[categories.length % PALETTE.length]!,
                 createdAt: now,
               };
               categories.push(cat);
@@ -614,7 +642,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           let locationId: string | undefined;
           const locName = row.locationName?.trim();
           if (locName) {
-            let loc = findLoc(locName);
+            let loc = byName(locations, locName);
             if (!loc) {
               loc = {
                 id: generateId(),
@@ -630,24 +658,82 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             locationId = loc.id;
           }
 
+          let custodianId: string | null = null;
+          const cusName = row.custodianName?.trim();
+          if (cusName) {
+            let cus = byName(custodians, cusName);
+            if (!cus) {
+              cus = {
+                id: generateId(),
+                name: cusName,
+                createdAt: now,
+              };
+              custodians.push(cus);
+              result.custodiansCreated++;
+              if (supa) supaInsert("custodians", cus);
+            }
+            custodianId = cus.id;
+          }
+
+          let assetModelId: string | undefined;
+          const modelName = row.modelName?.trim();
+          if (modelName) {
+            let model = byName(assetModels, modelName);
+            if (!model) {
+              model = {
+                id: generateId(),
+                name: modelName,
+                categoryId,
+                createdAt: now,
+              };
+              assetModels.push(model);
+              result.modelsCreated++;
+              if (supa) supaInsert("asset_models", model);
+            }
+            assetModelId = model.id;
+          }
+
+          const tagIds: string[] = [];
+          const rawTags = row.tagNames?.trim();
+          if (rawTags) {
+            for (const part of rawTags.split(/[,;|/]+/)) {
+              const tname = part.trim();
+              if (!tname) continue;
+              let tag = byName(tags, tname);
+              if (!tag) {
+                tag = { id: generateId(), name: tname, createdAt: now };
+                tags.push(tag);
+                result.tagsCreated++;
+                if (supa) supaInsert("tags", tag);
+              }
+              tagIds.push(tag.id);
+            }
+          }
+
+          const status: AssetStatus =
+            row.status && VALID_STATUS.includes(row.status)
+              ? row.status
+              : custodianId
+              ? "CHECKED_OUT"
+              : "AVAILABLE";
+
           const qrCode = qr || generateQRCode();
           const asset: Asset = {
             id: generateId(),
             name,
             description: row.description?.trim() || undefined,
-            status:
-              row.status && VALID_STATUS.includes(row.status)
-                ? row.status
-                : "AVAILABLE",
+            status,
             categoryId,
             locationId,
+            assetModelId,
+            custodianId,
             qrCode,
             value:
               typeof row.value === "number" && Number.isFinite(row.value)
                 ? row.value
                 : undefined,
             serialNumber: row.serialNumber?.trim() || undefined,
-            tagIds: [],
+            tagIds,
             customValues: {},
             notes: [],
             createdAt: now,
@@ -665,18 +751,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             });
         }
 
-        if (
-          newAssets.length === 0 &&
-          result.categoriesCreated === 0 &&
-          result.locationsCreated === 0
-        ) {
+        if (newAssets.length === 0 && result.categoriesCreated === 0) {
           return d;
         }
-        // Aset impor di depan (baru → lama), konsisten dengan addAsset.
         return {
           ...d,
           categories,
           locations,
+          custodians,
+          tags,
+          assetModels,
           assets: [...newAssets.reverse(), ...d.assets],
         };
       });
@@ -1035,12 +1119,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     resetData: () => {
       localStorage.removeItem(STORAGE_KEY);
       setData(seedData);
-      // Also clear Supabase if configured (optional)
       if (isSupabaseConfigured()) {
         console.log(
           "[Supabase] reset requested - clear local only, use SQL 00-reset for DB"
         );
       }
+    },
+    loadDemoData: () => {
+      const next = normalizeOverdueBookings(seedData);
+      setData(next);
+      saveToStorage(next);
     },
   };
 
