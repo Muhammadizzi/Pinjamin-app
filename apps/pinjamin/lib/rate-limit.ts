@@ -65,6 +65,16 @@ export const ticketLimiter = createRateLimiter({
   windowMs: 15 * 60 * 1000,
 });
 
+/**
+ * Lacak tiket publik: 30 pencarian / 5 menit per IP. Endpoint ini menerima
+ * nomor tiket tanpa login, jadi tanpa batas ia bisa dipakai menebak nomor
+ * tiket orang lain secara massal.
+ */
+export const trackLimiter = createRateLimiter({
+  maxAttempts: 30,
+  windowMs: 5 * 60 * 1000,
+});
+
 export function clientIp(req: {
   headers: { get(name: string): string | null };
 }): string {
