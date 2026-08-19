@@ -25,7 +25,7 @@ import type {
   Audit,
 } from "./types";
 import { generateId, generateQRCode } from "./utils";
-import { getSupabase, isSupabaseConfigured } from "./supabase";
+import { isSupabaseConfigured } from "./supabase";
 import { getCachedAdminUsername } from "./auth-client";
 
 const STORAGE_KEY = "pinjamin_data_v3_gf";
@@ -117,28 +117,15 @@ type StoreContextType = AppData & {
 
 const StoreContext = createContext<StoreContextType | null>(null);
 
-// Helpers to convert camelCase <-> snake_case for Supabase
+// Helper konversi camelCase -> snake_case (untuk payload API).
 const toSnake = (s: string) =>
   s.replace(/[A-Z]/g, (l) => `_${l.toLowerCase()}`);
-const toCamel = (s: string) =>
-  s.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
 function toDbRow(obj: any): any {
   const out: any = {};
   for (const [k, v] of Object.entries(obj)) {
     if (v === undefined) continue;
     out[toSnake(k)] = v;
   }
-  return out;
-}
-function fromDbRow(obj: any): any {
-  const out: any = {};
-  for (const [k, v] of Object.entries(obj)) {
-    out[toCamel(k)] = v;
-  }
-  // fix dates
-  if (out.createdAt && typeof out.createdAt === "string")
-    out.createdAt = out.createdAt;
-  if (out.updatedAt) out.updatedAt = out.updatedAt;
   return out;
 }
 
@@ -223,55 +210,139 @@ function normalizeOverdueBookings(d: AppData): AppData {
   };
 }
 
-// Supabase force helpers
-async function supaInsert(table: string, row: any) {
-  const supa = getSupabase();
-  if (!supa) return;
-  try {
-    const dbRow = toDbRow(row);
-    // Ensure UUID for Supabase if id is not UUID (use randomUUID)
-    if (dbRow.id && !/^[0-9a-f]{8}-/.test(dbRow.id)) {
-      try {
-        dbRow.id = crypto.randomUUID();
-        row.id = dbRow.id;
-      } catch {}
-    }
-    const { error } = await supa.from(table).insert(dbRow);
-    if (error)
-      console.warn(`[Supabase] insert ${table} failed:`, error.message);
-    else console.log(`[Supabase] inserted ${table} ${row.id}`);
-  } catch (e) {
-    console.warn(`[Supabase] insert ${table} exception`, e);
-  }
-}
-async function supaUpdate(table: string, id: string, patch: any) {
-  const supa = getSupabase();
-  if (!supa) return;
-  try {
-    const dbPatch = toDbRow(patch);
-    const { error } = await supa.from(table).update(dbPatch).eq("id", id);
-    if (error)
-      console.warn(`[Supabase] update ${table} failed:`, error.message);
-  } catch (e) {
-    console.warn(`[Supabase] update ${table} exception`, e);
-  }
-}
-async function supaDelete(table: string, id: string) {
-  const supa = getSupabase();
-  if (!supa) return;
-  try {
-    const { error } = await supa.from(table).delete().eq("id", id);
-    if (error)
-      console.warn(`[Supabase] delete ${table} failed:`, error.message);
-  } catch (e) {
-    console.warn(`[Supabase] delete ${table} exception`, e);
+/** Teriakkan error Supabase: console.error + dispatch event buat UI. */
+function fireSupaError(context: string, err: unknown) {
+  const msg =
+    err && typeof err === "object" && "message" in err
+      ? (err as Error).message
+      : String(err);
+  const full = `[Supabase] ${context}: ${msg}`;
+  console.error(full);
+  if (typeof window !== "undefined") {
+    try {
+      window.dispatchEvent(
+        new CustomEvent("pinjamin:supa-error", { detail: full })
+      );
+    } catch {}
   }
 }
 
+// Mapping nama tabel DB -> resource generic di /api/data/[resource] untuk
+// resource sederhana (categories, tags, dll). assets/bookings/audits TIDAK
+// ada di sini untuk insert — mereka pakai route khusus (lihat apiMutate).
+const TABLE_TO_API: Record<string, string> = {
+  categories: "categories",
+  tags: "tags",
+  locations: "locations",
+  custom_fields: "customFields",
+  asset_models: "assetModels",
+  custodians: "custodians",
+  kits: "kits",
+  assets: "assets",
+  bookings: "bookings",
+  audits: "audits",
+};
+
+// Mutasi via /api/data/[resource] — ganti direct Supabase (anon key).
+async function supaInsert(table: string, row: any) {
+  const resource = TABLE_TO_API[table];
+  if (!resource || !isSupabaseConfigured()) return;
+  try {
+    const dbRow = toDbRow(row);
+    const res = await fetch(`/api/data/${resource}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(dbRow),
+    });
+    if (res.status === 401) return; // sesi habis, sinkron tertunda
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      fireSupaError(
+        `insert ${table} via API`,
+        new Error(err.error || "HTTP " + res.status)
+      );
+    }
+  } catch (e) {
+    fireSupaError(`insert ${table} via API exception`, e);
+  }
+}
+async function supaUpdate(table: string, id: string, patch: any) {
+  const resource = TABLE_TO_API[table];
+  if (!resource || !isSupabaseConfigured()) return;
+  try {
+    const dbPatch = toDbRow(patch);
+    const res = await fetch(`/api/data/${resource}/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(dbPatch),
+    });
+    if (res.status === 401) return;
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      fireSupaError(
+        `update ${table} via API`,
+        new Error(err.error || "HTTP " + res.status)
+      );
+    }
+  } catch (e) {
+    fireSupaError(`update ${table} via API exception`, e);
+  }
+}
+async function supaDelete(table: string, id: string) {
+  const resource = TABLE_TO_API[table];
+  if (!resource || !isSupabaseConfigured()) return;
+  try {
+    const res = await fetch(`/api/data/${resource}/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+    });
+    if (res.status === 401) return;
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      fireSupaError(
+        `delete ${table} via API`,
+        new Error(err.error || "HTTP " + res.status)
+      );
+    }
+  } catch (e) {
+    fireSupaError(`delete ${table} via API exception`, e);
+  }
+}
+
+/**
+ * Mutasi langsung ke route khusus (assets/bookings/audits) yang punya
+ * kontrak payload sendiri. Tidak konversi toDbRow otomatis — pemanggil
+ * menyiapkan body sesuai kontrak route tersebut.
+ */
+async function apiMutate(
+  path: string,
+  method: "POST" | "PATCH" | "DELETE",
+  body?: any
+) {
+  if (!isSupabaseConfigured()) return;
+  try {
+    const res = await fetch(path, {
+      method,
+      headers:
+        body !== undefined ? { "Content-Type": "application/json" } : undefined,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+    if (res.status === 401) return; // sesi habis, sinkron tertunda
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      fireSupaError(
+        `${method} ${path}`,
+        new Error(err.error || "HTTP " + res.status)
+      );
+    }
+  } catch (e) {
+    fireSupaError(`${method} ${path} exception`, e);
+  }
+}
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [data, setData] = useState<AppData>(seedData);
   const [isHydrated, setHydrated] = useState(false);
   const [isSupabase, setIsSupabase] = useState(false);
+  const [supaError, setSupaError] = useState<string | null>(null);
   const pathname = usePathname();
   /**
    * true setelah server store berhasil dihubungi saat hidrasi — mulai saat
@@ -363,76 +434,36 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     const checkSupa = isSupabaseConfigured();
     setIsSupabase(checkSupa);
 
-    // If Supabase configured, force load from Supabase (source of truth)
+    // If Supabase configured, load via authenticated API endpoint (/api/data).
+    // Server-side admin client reads all tables in one round-trip, no anon key.
     if (checkSupa) {
       (async () => {
-        const supa = getSupabase()!;
         try {
-          const tables: (keyof AppData)[] = [
-            "categories",
-            "tags",
-            "locations",
-            "customFields",
-            "assetModels",
-            "custodians",
-            "assets",
-            "kits",
-            "bookings",
-            "audits",
-          ];
-          // Map JS keys to DB table names
-          const tableMap: Record<string, string> = {
-            categories: "categories",
-            tags: "tags",
-            locations: "locations",
-            customFields: "custom_fields",
-            assetModels: "asset_models",
-            custodians: "custodians",
-            assets: "assets",
-            kits: "kits",
-            bookings: "bookings",
-            audits: "audits",
-          };
-          const results: Partial<AppData> = {};
-          for (const key of tables) {
-            const dbTable = tableMap[key as string] || key;
-            try {
-              const { data: rows, error } = await supa
-                .from(dbTable)
-                .select("*")
-                .limit(100);
-              if (!error && rows) {
-                (results as any)[key] = rows.map(fromDbRow);
-              } else if (error) {
-                console.warn(
-                  `[Supabase] fetch ${dbTable} error:`,
-                  error.message
-                );
-                (results as any)[key] = (seedData as any)[key] || [];
-              }
-            } catch (e) {
-              console.warn(`[Supabase] fetch ${key} exception`, e);
-              (results as any)[key] = (seedData as any)[key] || [];
-            }
+          const res = await fetch("/api/data", { cache: "no-store" });
+          if (res.status === 401) {
+            // Belum login — store kosong dulu tanpa error.
+            // Data akan termuat setelah login lewat retry mechanism.
+            setData(seedData);
+            return;
           }
-          // Also handle bookings overdue
-          if (results.bookings) {
-            const now = new Date();
-            results.bookings = (results.bookings as any).map((b: any) => {
-              if (
-                (b.status === "ONGOING" || b.status === "RESERVED") &&
-                new Date(b.toDate) < now
-              ) {
-                return { ...b, status: "OVERDUE" as BookingStatus };
-              }
-              return b;
-            });
+          if (!res.ok) throw new Error(`GET /api/data -> ${res.status}`);
+          const json = await res.json();
+          if (json.configured && json.data) {
+            const normalized = normalizeOverdueBookings(json.data as AppData);
+            setData(normalized);
+            saveToStorage(normalized);
+          } else {
+            // Admin key tidak dikonfigurasi di server atau response kosong.
+            const loaded = loadFromStorage();
+            if (hasAnyItems(loaded)) setData(loaded);
           }
-          setData((prev) => ({ ...prev, ...results }) as AppData);
         } catch (e) {
-          console.warn("[Supabase] load failed, fallback to localStorage", e);
+          console.warn(
+            "[Supabase] load via /api/data gagal, fallback localStorage",
+            e
+          );
           const loaded = loadFromStorage();
-          setData(loaded);
+          if (hasAnyItems(loaded)) setData(loaded);
         } finally {
           setHydrated(true);
         }
@@ -454,9 +485,29 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       if (!isSupabase && authRetryRef.current && !serverSyncRef.current) {
         void hydrateFromServer();
       }
+      // Untuk mode Supabase: re-fetch data setelah login.
+      if (isSupabase) {
+        (async () => {
+          try {
+            const res = await fetch("/api/data", { cache: "no-store" });
+            if (res.ok) {
+              const json = await res.json();
+              if (json.configured && json.data) {
+                const normalized = normalizeOverdueBookings(
+                  json.data as AppData
+                );
+                setData(normalized);
+                saveToStorage(normalized);
+              }
+            }
+          } catch {}
+        })();
+      }
     };
     const onSessionEnd = () => {
       if (!isSupabase) disarmServerSync();
+      // Untuk Supabase: reset data saat logout.
+      if (isSupabase) setData(seedData);
     };
     window.addEventListener("pinjamin:session", retry);
     window.addEventListener("pinjamin:session-end", onSessionEnd);
@@ -496,6 +547,17 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     };
   }, [data, isHydrated, isSupabase]);
 
+  // Dengarkan error Supabase dan tampilkan di UI. Auto-hilang 10 detik.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const msg = (e as CustomEvent<string>).detail;
+      setSupaError(msg);
+      setTimeout(() => setSupaError(null), 10_000);
+    };
+    window.addEventListener("pinjamin:supa-error", handler);
+    return () => window.removeEventListener("pinjamin:supa-error", handler);
+  }, []);
+
   const computedBookings = data.bookings.map((b) => {
     if (
       (b.status === "ONGOING" || b.status === "RESERVED") &&
@@ -521,35 +583,34 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       } as Asset;
-      // Force to Supabase
+      // Sinkron ke Supabase via route khusus /api/data/assets
+      // (route tsb yang membuat asset + relasi asset_tags sekaligus).
       if (isSupabaseConfigured()) {
-        supaInsert("assets", {
-          ...newAsset,
-          tagIds: undefined,
-          customValues: undefined,
-          notes: undefined,
+        apiMutate("/api/data/assets", "POST", {
+          ...toDbRow({
+            name: newAsset.name,
+            description: newAsset.description,
+            status: newAsset.status,
+            categoryId: newAsset.categoryId,
+            locationId: newAsset.locationId,
+            assetModelId: newAsset.assetModelId,
+            custodianId: newAsset.custodianId,
+            value: newAsset.value,
+            serialNumber: newAsset.serialNumber,
+          }),
+          tagIds: a.tagIds || [],
         });
-        // handle asset_tags
-        if (a.tagIds?.length) {
-          (async () => {
-            const supa = getSupabase();
-            if (!supa) return;
-            for (const tagId of a.tagIds) {
-              await supa
-                .from("asset_tags")
-                .insert({ asset_id: newAsset.id, tag_id: tagId })
-                .then(
-                  ({ error }) =>
-                    error && console.warn("asset_tags insert", error.message)
-                );
-            }
-          })();
-        }
       }
       setData((d) => ({ ...d, assets: [newAsset, ...d.assets] }));
     },
     updateAsset: (id, patch) => {
-      if (isSupabaseConfigured()) supaUpdate("assets", id, patch);
+      if (isSupabaseConfigured()) {
+        const { tagIds, ...fields } = patch;
+        apiMutate(`/api/data/assets/${encodeURIComponent(id)}`, "PATCH", {
+          ...toDbRow(fields),
+          ...(Array.isArray(tagIds) ? { tagIds } : {}),
+        });
+      }
       setData((d) => ({
         ...d,
         assets: d.assets.map((x) =>
@@ -950,18 +1011,18 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         createdAt: nowIso,
         history: [{ status, at: nowIso, by: getCachedAdminUsername() }],
       };
+      // Sinkron via route khusus /api/data/bookings — route tsb yang
+      // membuat booking + relasi booking_assets + cascade status aset.
       if (isSupabaseConfigured()) {
-        supaInsert("bookings", booking);
-        // booking_assets
-        (async () => {
-          const supa = getSupabase();
-          if (!supa) return;
-          for (const aid of b.assetIds) {
-            await supa
-              .from("booking_assets")
-              .insert({ booking_id: id, asset_id: aid });
-          }
-        })();
+        apiMutate("/api/data/bookings", "POST", {
+          name: b.name,
+          description: b.description,
+          custodianId: b.custodianId,
+          fromDate: b.fromDate,
+          toDate: b.toDate,
+          assetIds: b.assetIds,
+          status,
+        });
       }
       setData((d) => {
         let assets = d.assets;
@@ -981,8 +1042,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       return { ok: true, id };
     },
     updateBookingStatus: (id, status, extra) => {
-      if (isSupabaseConfigured())
-        supaUpdate("bookings", id, { status, ...extra });
+      // Route khusus /api/data/bookings/[id] yang meng-cascade status aset
+      // secara server-side (COMPLETE/CANCELLED -> AVAILABLE, ONGOING -> CHECKED_OUT).
+      if (isSupabaseConfigured()) {
+        apiMutate(`/api/data/bookings/${encodeURIComponent(id)}`, "PATCH", {
+          ...toDbRow({ status, ...extra }),
+        });
+      }
       setData((d) => {
         const bookings = d.bookings.map((bk) => {
           if (bk.id !== id) return bk;
@@ -1013,14 +1079,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
                 ? { ...a, status: "AVAILABLE" as const, custodianId: null }
                 : a
             );
-            if (isSupabaseConfigured()) {
-              // update assets status in supabase
-              for (const aid of target.assetIds)
-                supaUpdate("assets", aid, {
-                  status: "AVAILABLE",
-                  custodian_id: null,
-                });
-            }
           } else if (status === "ONGOING") {
             assets = assets.map((a) =>
               target.assetIds.includes(a.id)
@@ -1031,13 +1089,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
                   }
                 : a
             );
-            if (isSupabaseConfigured()) {
-              for (const aid of target.assetIds)
-                supaUpdate("assets", aid, {
-                  status: "CHECKED_OUT",
-                  custodian_id: target.custodianId,
-                });
-            }
           }
         }
         return { ...d, assets, bookings };
@@ -1064,27 +1115,28 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           result: null,
         })),
       } as Audit;
-      if (isSupabaseConfigured())
-        supaInsert("audits", {
-          id: newAudit.id,
-          name: newAudit.name,
-          status: newAudit.status,
-          createdBy: newAudit.createdBy,
+      // Route khusus /api/data/audits — membuat audit + audit_items sekaligus.
+      if (isSupabaseConfigured()) {
+        apiMutate("/api/data/audits", "POST", {
+          name: a.name,
+          assetIds: a.assetIds,
         });
+      }
       setData((d) => ({ ...d, audits: [newAudit, ...d.audits] }));
     },
     updateAuditItem: (auditId, assetId, patch) => {
+      // Route khusus /api/data/audits/[id]/items — update audit_items
+      // berdasarkan (audit_id, asset_id); scanned_at diisi server-side.
       if (isSupabaseConfigured()) {
-        // update audit_items
-        (async () => {
-          const supa = getSupabase();
-          if (!supa) return;
-          await supa
-            .from("audit_items")
-            .update(toDbRow(patch))
-            .eq("audit_id", auditId)
-            .eq("asset_id", assetId);
-        })();
+        apiMutate(
+          `/api/data/audits/${encodeURIComponent(auditId)}/items`,
+          "PATCH",
+          {
+            assetId,
+            ...(patch.result !== undefined ? { result: patch.result } : {}),
+            ...(patch.note !== undefined ? { note: patch.note } : {}),
+          }
+        );
       }
       setData((d) => ({
         ...d,
@@ -1103,8 +1155,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       }));
     },
     completeAudit: (id) => {
-      if (isSupabaseConfigured())
-        supaUpdate("audits", id, { status: "COMPLETED" });
+      if (isSupabaseConfigured()) {
+        apiMutate(`/api/data/audits/${encodeURIComponent(id)}`, "PATCH", {
+          status: "COMPLETED",
+        });
+      }
       setData((d) => ({
         ...d,
         audits: d.audits.map((a) =>
@@ -1132,7 +1187,24 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     },
   };
 
-  return <StoreContext.Provider value={ctx}>{children}</StoreContext.Provider>;
+  return (
+    <>
+      {supaError && (
+        <div className="fixed top-4 right-4 z-[9999] max-w-md bg-red-50 dark:bg-red-900/80 border border-red-200 dark:border-red-700 text-red-800 dark:text-red-200 px-4 py-3 rounded-lg shadow-xl text-sm">
+          <div className="flex items-start justify-between gap-2">
+            <span className="font-medium">⚠️ {supaError}</span>
+            <button
+              onClick={() => setSupaError(null)}
+              className="text-red-500 hover:text-red-700 dark:text-red-300 dark:hover:text-red-100 shrink-0 ml-2"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+      <StoreContext.Provider value={ctx}>{children}</StoreContext.Provider>
+    </>
+  );
 }
 
 export function useStore() {
