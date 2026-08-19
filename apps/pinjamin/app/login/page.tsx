@@ -93,17 +93,17 @@ function LoginForm() {
         <ArrowLeft className="h-4 w-4" />
         Kembali ke Beranda
       </Link>
-      {/* Background login menggunakan bg_login.jpg (dari user) */}
+      {/* Background menggunakan background.jpg yang user berikan */}
       <div
         className="absolute inset-0 bg-cover bg-center bg-no-repeat"
         style={{
-          backgroundImage: `url('/bg_login.jpg')`,
-          filter: "blur(8px) saturate(1.15) brightness(0.92)",
-          transform: "scale(1.08)",
+          backgroundImage: `url('/background.jpg')`,
+          filter: "blur(10px) saturate(1.1) brightness(0.88)",
+          transform: "scale(1.06)",
         }}
       />
-      {/* Overlay gelap untuk readability form */}
-      <div className="absolute inset-0 bg-gradient-to-br from-[#0a2240]/45 via-[#0a2240]/20 to-[#081a33]/50" />
+      {/* Overlay gelap agar form tetap mudah dibaca */}
+      <div className="absolute inset-0 bg-gradient-to-br from-[#0a2240]/55 via-[#0a2240]/25 to-[#081a33]/60" />
       <div className="absolute -top-32 -right-32 h-[500px] w-[500px] rounded-full bg-[#CBA12C]/20 blur-[100px] pointer-events-none" />
       <div className="absolute -bottom-32 -left-32 h-[400px] w-[400px] rounded-full bg-[#0a2240]/30 blur-[80px] pointer-events-none" />
 
