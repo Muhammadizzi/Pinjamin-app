@@ -25,12 +25,31 @@ export function formatDateTime(date: string | Date) {
   }).format(d);
 }
 
-export function generateId() {
-  return (
-    Math.random().toString(36).slice(2, 9).toUpperCase() +
-    "-" +
-    Date.now().toString(36).slice(-4).toUpperCase()
+/**
+ * Id entitas = UUID v4.
+ *
+ * WAJIB UUID: kolom id di Postgres bertipe uuid, dan server menerima id yang
+ * dikirim client (lihat clientIdRow di lib/resource-config.ts) supaya id
+ * lokal dan id DB identik. Dengan id acak non-UUID seperti sebelumnya,
+ * server terpaksa membuat id sendiri sehingga edit/hapus tepat setelah
+ * "tambah" mengenai baris yang tidak ada sampai halaman di-reload.
+ */
+export function generateId(): string {
+  const c = globalThis.crypto;
+  if (c?.randomUUID) return c.randomUUID();
+  // Fallback (browser lama / konteks non-secure): UUID v4 dari getRandomValues.
+  const bytes = new Uint8Array(16);
+  if (c?.getRandomValues) c.getRandomValues(bytes);
+  else for (let i = 0; i < 16; i++) bytes[i] = Math.floor(Math.random() * 256);
+  bytes[6] = (bytes[6]! & 0x0f) | 0x40;
+  bytes[8] = (bytes[8]! & 0x3f) | 0x80;
+  const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join(
+    ""
   );
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(
+    12,
+    16
+  )}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
 export function generateQRCode() {

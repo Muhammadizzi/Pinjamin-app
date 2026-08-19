@@ -588,6 +588,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       if (isSupabaseConfigured()) {
         apiMutate("/api/data/assets", "POST", {
           ...toDbRow({
+            // id & qrCode ikut dikirim supaya baris DB memakai identitas yang
+            // sama dengan state lokal (edit/hapus setelahnya langsung kena).
+            id: newAsset.id,
+            qrCode: newAsset.qrCode,
             name: newAsset.name,
             description: newAsset.description,
             status: newAsset.status,
@@ -595,20 +599,23 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             locationId: newAsset.locationId,
             assetModelId: newAsset.assetModelId,
             custodianId: newAsset.custodianId,
+            mainImage: newAsset.mainImage,
             value: newAsset.value,
             serialNumber: newAsset.serialNumber,
           }),
           tagIds: a.tagIds || [],
+          customValues: newAsset.customValues || {},
         });
       }
       setData((d) => ({ ...d, assets: [newAsset, ...d.assets] }));
     },
     updateAsset: (id, patch) => {
       if (isSupabaseConfigured()) {
-        const { tagIds, ...fields } = patch;
+        const { tagIds, customValues, notes: _notes, ...fields } = patch;
         apiMutate(`/api/data/assets/${encodeURIComponent(id)}`, "PATCH", {
           ...toDbRow(fields),
           ...(Array.isArray(tagIds) ? { tagIds } : {}),
+          ...(customValues ? { customValues } : {}),
         });
       }
       setData((d) => ({
@@ -803,13 +810,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           newAssets.push(asset);
           takenQr.add(qrCode.toLowerCase());
           result.imported++;
-          if (supa)
-            supaInsert("assets", {
-              ...asset,
-              tagIds: undefined,
-              customValues: undefined,
-              notes: undefined,
+          if (supa) {
+            // Lewat route khusus (bukan supaInsert) supaya relasi asset_tags
+            // ikut terbentuk — impor CSV boleh membawa kolom Tag.
+            const { tagIds: _t, customValues: _c, notes: _n, ...cols } = asset;
+            apiMutate("/api/data/assets", "POST", {
+              ...toDbRow(cols),
+              tagIds,
             });
+          }
         }
 
         if (newAssets.length === 0 && result.categoriesCreated === 0) {
@@ -963,7 +972,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       const row = {
         ...k,
         id: generateId(),
-        qrCode: "KIT-" + generateId().slice(0, 6),
+        qrCode: "KIT-" + generateQRCode().slice(4),
         createdAt: new Date().toISOString(),
       } as Kit;
       if (isSupabaseConfigured()) supaInsert("kits", row);
@@ -1015,6 +1024,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       // membuat booking + relasi booking_assets + cascade status aset.
       if (isSupabaseConfigured()) {
         apiMutate("/api/data/bookings", "POST", {
+          id,
           name: b.name,
           description: b.description,
           custodianId: b.custodianId,
@@ -1102,8 +1112,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       }));
     },
     addAudit: (a) => {
+      const auditId = generateId();
       const newAudit = {
-        id: generateId(),
+        id: auditId,
         name: a.name,
         status: "OPEN" as const,
         createdBy: getCachedAdminUsername(),
@@ -1118,6 +1129,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       // Route khusus /api/data/audits — membuat audit + audit_items sekaligus.
       if (isSupabaseConfigured()) {
         apiMutate("/api/data/audits", "POST", {
+          id: auditId,
           name: a.name,
           assetIds: a.assetIds,
         });

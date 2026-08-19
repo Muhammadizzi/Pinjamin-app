@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
-import { fromDbRow, isUuid } from "@/lib/resource-config";
+import { clientIdRow, fromDbRow, isUuid } from "@/lib/resource-config";
 
 export async function POST(req: NextRequest) {
   const session = await requireAuth(req);
@@ -42,11 +42,21 @@ export async function POST(req: NextRequest) {
 
   const { data: audit, error } = await supa
     .from("audits")
-    .insert({ name, status: "OPEN", created_by: admin?.id ?? null })
+    .insert({
+      ...clientIdRow(body),
+      name,
+      status: "OPEN",
+      created_by: admin?.id ?? null,
+    })
     .select()
     .single();
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error("[audits POST]", error.message);
+    return NextResponse.json(
+      { error: "Gagal membuat sesi audit." },
+      { status: 500 }
+    );
+  }
 
   const { data: items, error: itemsErr } = await supa
     .from("audit_items")

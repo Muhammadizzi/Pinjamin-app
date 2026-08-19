@@ -57,6 +57,31 @@ export function isUuid(value: unknown): value is string {
   return typeof value === "string" && UUID_RE.test(value);
 }
 
+/**
+ * Kode QR yang boleh dipakai apa adanya dari client: kode bawaan aplikasi
+ * (PIN-XXXXXXXX / KIT-XXXXXX) maupun kode inventaris sendiri dari impor CSV.
+ * Dibatasi karakter aman + panjang kolom (VARCHAR(50)).
+ */
+const QR_RE = /^[A-Za-z0-9][A-Za-z0-9._/-]{2,49}$/;
+
+export function isQrCode(value: unknown): value is string {
+  return typeof value === "string" && QR_RE.test(value);
+}
+
+/**
+ * Id yang dikirim client dipakai apa adanya BILA berupa UUID valid.
+ *
+ * Kenapa: store client membuat entitas secara optimistis dengan id sendiri,
+ * lalu memakai id itu untuk PATCH/DELETE berikutnya. Kalau server malah
+ * membuat UUID baru (DEFAULT gen_random_uuid()), id lokal dan id DB berbeda —
+ * setiap edit/hapus setelah "tambah" akan mengenai baris yang tidak ada
+ * sampai halaman di-reload. Dengan menerima id client, kedua sisi sinkron.
+ */
+export function clientIdRow(body: unknown): Record<string, string> {
+  const id = (body as Record<string, unknown> | null)?.id;
+  return isUuid(id) ? { id } : {};
+}
+
 export function pickAllowed(
   body: unknown,
   fields: string[]
