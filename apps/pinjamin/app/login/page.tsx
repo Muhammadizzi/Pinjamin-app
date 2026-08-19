@@ -93,20 +93,19 @@ function LoginForm() {
         <ArrowLeft className="h-4 w-4" />
         Kembali ke Beranda
       </Link>
-      {/* Foto background dengan efek blur agar form tetap terbaca jelas. */}
+      {/* Foto background dengan efek blur sebagai hero visual. */}
       <div
         className="absolute inset-0 bg-cover bg-center bg-no-repeat"
         style={{
           backgroundImage: `url('/bg_login.jpg')`,
-          filter: "blur(10px) brightness(0.55) saturate(1.1)",
-          transform: "scale(1.12)", // kompensasi sisi terpotong akibat blur
-          backgroundColor: "#0a2240",
+          filter: "blur(14px) saturate(1.25) brightness(0.95)",
+          transform: "scale(1.15)", // kompensasi sisi terpotong akibat blur
         }}
       />
-      {/* Overlay halus — pastikan teks form kontras tanpa nutup foto. */}
-      <div className="absolute inset-0 bg-gradient-to-br from-[#081a33]/55 via-[#0a2240]/35 to-[#0a2240]/60" />
-      <div className="absolute -top-32 -right-32 h-[500px] w-[500px] rounded-full bg-[#CBA12C]/15 blur-[100px] pointer-events-none" />
-      <div className="absolute -bottom-32 -left-32 h-[400px] w-[400px] rounded-full bg-[#0a2240]/40 blur-[80px] pointer-events-none" />
+      {/* Overlay tipis — readability saja, foto blur tetap jadi fokus. */}
+      <div className="absolute inset-0 bg-gradient-to-br from-[#0a2240]/25 via-transparent to-[#081a33]/35" />
+      <div className="absolute -top-32 -right-32 h-[500px] w-[500px] rounded-full bg-[#CBA12C]/20 blur-[100px] pointer-events-none" />
+      <div className="absolute -bottom-32 -left-32 h-[400px] w-[400px] rounded-full bg-[#0a2240]/30 blur-[80px] pointer-events-none" />
 
       <div ref={formRef} className="relative w-full max-w-[420px]">
         <div className="bg-white/95 dark:bg-slate-900/85 backdrop-blur-2xl rounded-[24px] shadow-[0_24px_64px_rgba(0,0,0,0.4)] border border-white/20 p-8 sm:p-8">
@@ -150,6 +149,9 @@ function LoginForm() {
                 onChange={(e) => setUsername(e.target.value)}
                 required
                 autoComplete="username"
+                spellCheck={false}
+                autoCorrect="off"
+                autoCapitalize="off"
                 autoFocus
                 className="h-11 rounded-xl bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700"
               />
@@ -170,7 +172,13 @@ function LoginForm() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  autoComplete="current-password"
+                  // Pakai 'new-password' agar browser tidak auto-inject
+                  // sandi lama dari password manager — sering jadi
+                  // penyebab 'salah padahal sudah benar'.
+                  autoComplete="new-password"
+                  spellCheck={false}
+                  autoCorrect="off"
+                  autoCapitalize="off"
                   className="h-11 rounded-xl pr-11 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700"
                 />
                 <button
