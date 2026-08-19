@@ -98,6 +98,10 @@ jobs:
 
       - name: 🔎 Type check
         run: pnpm run typecheck
+        env:
+          # @shelf/webapp is large enough that `tsc -b` exceeds Node's default
+          # ~2GB old-space on the runner and dies with an OOM (exit 134).
+          NODE_OPTIONS: --max-old-space-size=8192
 
   vitest:
     name: ⚡ Vitest
