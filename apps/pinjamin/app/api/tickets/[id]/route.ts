@@ -73,26 +73,42 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     );
   }
 
-  const updated = updateTicket(id, patch);
-  if (!updated) {
+  try {
+    const updated = await updateTicket(id, patch);
+    if (!updated) {
+      return NextResponse.json(
+        { error: "Tiket tidak ditemukan." },
+        { status: 404 }
+      );
+    }
+    return NextResponse.json({ ok: true, ticket: updated });
+  } catch (e) {
+    console.error("[tickets PATCH]", e);
     return NextResponse.json(
-      { error: "Tiket tidak ditemukan." },
-      { status: 404 }
+      { error: "Gagal menyimpan perubahan tiket." },
+      { status: 500 }
     );
   }
-  return NextResponse.json({ ok: true, ticket: updated });
 }
 
 /** DELETE /api/tickets/:id — hapus tiket (spam/dsb.), khusus admin. */
 export async function DELETE(req: NextRequest, ctx: Ctx) {
   if (!(await requireAuth(req))) return unauthorized();
   const { id } = await ctx.params;
-  const ok = deleteTicket(id);
-  if (!ok) {
+  try {
+    const ok = await deleteTicket(id);
+    if (!ok) {
+      return NextResponse.json(
+        { error: "Tiket tidak ditemukan." },
+        { status: 404 }
+      );
+    }
+    return NextResponse.json({ ok: true });
+  } catch (e) {
+    console.error("[tickets DELETE]", e);
     return NextResponse.json(
-      { error: "Tiket tidak ditemukan." },
-      { status: 404 }
+      { error: "Gagal menghapus tiket." },
+      { status: 500 }
     );
   }
-  return NextResponse.json({ ok: true });
 }

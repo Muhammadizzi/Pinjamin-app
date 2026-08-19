@@ -8,7 +8,12 @@ export const dynamic = "force-dynamic";
 /** GET /api/tickets — daftar semua tiket (khusus admin). */
 export async function GET(req: NextRequest) {
   if (!(await requireAuth(req))) return unauthorized();
-  return NextResponse.json({ tickets: listTickets() });
+  try {
+    return NextResponse.json({ tickets: await listTickets() });
+  } catch (e) {
+    console.error("[tickets GET]", e);
+    return NextResponse.json({ error: "Gagal memuat tiket." }, { status: 500 });
+  }
 }
 
 /** POST /api/tickets — buat tiket BARU (PUBLIK, tanpa login). */
@@ -39,9 +44,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: result.error }, { status: 400 });
   }
 
-  const ticket = createTicket(result.data);
-  return NextResponse.json(
-    { ok: true, number: ticket.number, createdAt: ticket.createdAt },
-    { status: 201 }
-  );
+  try {
+    const ticket = await createTicket(result.data);
+    return NextResponse.json(
+      { ok: true, number: ticket.number, createdAt: ticket.createdAt },
+      { status: 201 }
+    );
+  } catch (e) {
+    console.error("[tickets POST]", e);
+    return NextResponse.json(
+      { error: "Gagal menyimpan tiket. Coba lagi nanti." },
+      { status: 500 }
+    );
+  }
 }
