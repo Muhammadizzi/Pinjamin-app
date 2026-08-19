@@ -87,7 +87,7 @@ CREATE TABLE locations (
   name VARCHAR(150) NOT NULL,
   description TEXT,
   address TEXT,
-  parent_id UUID REFERENCES locations(id) ON DELETE SET_NULL,
+  parent_id UUID REFERENCES locations(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ DEFAULT now() NOT NULL
 );
 CREATE INDEX idx_locations_parent ON locations(parent_id);
