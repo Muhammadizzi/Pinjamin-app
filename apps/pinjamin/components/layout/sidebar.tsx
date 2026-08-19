@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
@@ -179,11 +180,13 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
             aria-hidden="true"
             className="absolute -inset-2.5 rounded-full bg-amber-300/25 blur-[12px]"
           />
-          <img
+          <Image
             src="/logo-pinjamin.png"
             alt="Pinjamin"
+            width={44}
+            height={44}
+            priority
             className="relative h-full w-full object-contain"
-            style={{ background: "transparent" }}
           />
         </div>
         <div>
@@ -425,11 +428,12 @@ export function TopBar({ onMenu }: { onMenu: () => void }) {
             aria-hidden="true"
             className="absolute h-10 w-10 rounded-full bg-amber-300/25 blur-[10px]"
           />
-          <img
+          <Image
             src="/logo-pinjamin.png"
             alt="Pinjamin"
+            width={28}
+            height={28}
             className="relative h-7 w-auto object-contain"
-            style={{ background: "transparent" }}
           />
         </span>
         <span className="font-extrabold tracking-tight text-white">

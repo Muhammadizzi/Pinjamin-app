@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import Image from "next/image";
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,6 +23,10 @@ import {
   BarChart3,
   Sparkles,
   Headset,
+  ArrowRight,
+  FileText,
+  Hash,
+  ShieldCheck,
 } from "lucide-react";
 
 /** HARUS sinkron dengan lib/tickets.ts (file server, tidak bisa di-import ke client). */
@@ -167,6 +172,25 @@ export default function LandingPage() {
     { icon: Headset, label: "Helpdesk" },
   ];
 
+  /** Alur helpdesk dalam 3 langkah — menjawab "habis kirim, terus apa?". */
+  const steps = [
+    {
+      icon: FileText,
+      title: "Isi form",
+      desc: "Tanpa akun, tanpa login. Cukup data diri dan detail kendala.",
+    },
+    {
+      icon: Hash,
+      title: "Simpan nomor",
+      desc: "Anda langsung dapat nomor tiket, mis. TKT-8F3K2A.",
+    },
+    {
+      icon: Search,
+      title: "Lacak status",
+      desc: "Tempel nomor di kolom Lacak Tiket — status muncul otomatis.",
+    },
+  ];
+
   return (
     <div className="min-h-screen bg-[#0f1d33] text-white relative overflow-hidden">
       {/* dekorasi glow latar */}
@@ -175,51 +199,133 @@ export default function LandingPage() {
 
       {/* Header */}
       <header className="relative z-10 border-b border-[#243a5e]/60 bg-[#0f1d33]/85 backdrop-blur-xl">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6 py-4 flex items-center gap-3">
-          <div className="relative h-10 w-10 flex items-center justify-center shrink-0">
-            <div
-              className="absolute inset-0 scale-90 rounded-full bg-white/85 blur-[5px]"
-              aria-hidden="true"
-            />
-            <div
-              className="absolute -inset-2 rounded-full bg-amber-300/25 blur-[10px]"
-              aria-hidden="true"
-            />
-            <img
-              src="/logo-pinjamin.png"
-              alt="Pinjamin"
-              className="relative h-full w-full object-contain"
-            />
-          </div>
-          <div>
-            <div className="font-extrabold leading-none tracking-tight">
-              Pinjamin
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 py-4 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="relative h-10 w-10 flex items-center justify-center shrink-0">
+              <div
+                className="absolute inset-0 scale-90 rounded-full bg-white/85 blur-[5px]"
+                aria-hidden="true"
+              />
+              <div
+                className="absolute -inset-2 rounded-full bg-amber-300/25 blur-[10px]"
+                aria-hidden="true"
+              />
+              <Image
+                src="/logo-pinjamin.png"
+                alt="Pinjamin"
+                width={40}
+                height={40}
+                priority
+                className="relative h-full w-full object-contain"
+              />
             </div>
-            <div className="text-[10px] text-[#fbd38d] font-medium tracking-widest uppercase">
-              Garuda Food
+            <div>
+              <div className="font-extrabold leading-none tracking-tight">
+                Pinjamin
+              </div>
+              <div className="text-[10px] text-[#fbd38d] font-medium tracking-widest uppercase whitespace-nowrap">
+                Garuda Food
+              </div>
             </div>
           </div>
+          {/* Navigasi ringkas ke dua aksi di halaman ini. Di layar sempit
+              hanya CTA utama yang tampil supaya header tidak pecah 2 baris. */}
+          <nav className="flex items-center gap-1.5 shrink-0">
+            <a
+              href="#lacak"
+              className="hidden sm:inline-flex rounded-xl px-3 py-2 text-sm font-medium text-slate-300 hover:text-white hover:bg-white/5 transition-colors whitespace-nowrap"
+            >
+              Lacak tiket
+            </a>
+            <a
+              href="#buat-tiket"
+              className="rounded-xl bg-[#CBA12C] px-3.5 py-2 text-sm font-bold text-[#0a2240] hover:bg-[#d4b44a] transition-colors whitespace-nowrap"
+            >
+              Buat tiket
+            </a>
+          </nav>
         </div>
       </header>
 
       <main className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6">
-        {/* Badge hero — dipusatkan */}
-        <section className="pt-10 sm:pt-14 pb-8 text-center">
+        {/* Hero — menjelaskan halaman ini sebelum menampilkan form. */}
+        <section className="pt-12 sm:pt-16 pb-10 text-center max-w-3xl mx-auto">
           <div className="inline-flex items-center gap-2 rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1 text-xs font-semibold text-amber-200">
             <Sparkles className="h-3.5 w-3.5" />
             Smart Asset Lending &amp; Helpdesk
           </div>
+          <h1 className="mt-5 text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight leading-[1.1]">
+            Butuh bantuan soal aset?
+            <span className="block text-[#CBA12C]">
+              Kirim tiket, kami urus.
+            </span>
+          </h1>
+          <p className="mt-4 text-sm sm:text-base text-slate-300/90 leading-relaxed">
+            Portal helpdesk Garuda Food untuk kendala aset, IT, dan fasilitas.
+            Laporkan tanpa akun, dapatkan nomor tiket, lalu pantau statusnya
+            kapan saja.
+          </p>
+          <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
+            <a href="#buat-tiket">
+              <Button className="h-11 rounded-xl px-5 font-bold">
+                Buat tiket sekarang
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </a>
+            <a href="#lacak">
+              <Button variant="outline" className="h-11 rounded-xl px-5">
+                <Search className="h-4 w-4" />
+                Lacak tiket saya
+              </Button>
+            </a>
+          </div>
+          <p className="mt-4 inline-flex items-center gap-1.5 text-xs text-slate-400">
+            <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
+            Tanpa akun • Data hanya dipakai untuk menindaklanjuti tiket
+          </p>
         </section>
 
-        {/* Grid utama: kiri = satu platform + lacak, kanan = form tiket.
+        {/* Alur 3 langkah */}
+        <section className="pb-12">
+          <div className="grid gap-3 sm:grid-cols-3">
+            {steps.map((s, i) => (
+              <div
+                key={s.title}
+                className="rounded-2xl border border-[#243a5e] bg-[#12263f]/50 p-5"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-400/10 border border-amber-400/25">
+                    <s.icon
+                      className="h-4.5 w-4.5 text-amber-300"
+                      strokeWidth={1.75}
+                    />
+                  </span>
+                  <span className="text-[11px] font-bold tracking-widest text-slate-500">
+                    LANGKAH {i + 1}
+                  </span>
+                </div>
+                <div className="mt-3 font-semibold">{s.title}</div>
+                <p className="mt-1 text-xs text-slate-400 leading-relaxed">
+                  {s.desc}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Grid utama: kiri = platform + lacak, kanan = form tiket.
             Di mobile form didahulukan (order-first) karena aksi utamanya. */}
         <section className="pb-14 flex flex-col lg:grid lg:grid-cols-2 gap-6 items-start">
-          <div className="space-y-6 w-full order-last lg:order-none">
+          <div className="space-y-6 w-full order-last lg:order-none lg:sticky lg:top-6">
             {/* Satu platform: Pinjamin + Ticketing */}
             <div className="rounded-2xl border border-[#243a5e] bg-[#12263f]/50 p-5 space-y-3">
               <div className="text-xs font-semibold tracking-widest uppercase text-slate-400">
                 Satu platform — Pinjamin
               </div>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Tiket Anda masuk ke sistem yang sama dengan katalog aset dan
+                peminjaman, jadi tim bisa langsung menautkannya ke aset terkait.
+              </p>
               <div className="flex flex-wrap gap-2">
                 {pinjaminFeatures.map((f) => (
                   <span
@@ -298,6 +404,23 @@ export default function LandingPage() {
                 )}
               </CardContent>
             </Card>
+
+            {/* Catatan privasi — akurat sesuai payload /api/tickets/track:
+                hanya nomor, subjek, kategori, status, dan waktu yang publik. */}
+            <div className="rounded-2xl border border-[#243a5e] bg-[#12263f]/50 p-5 flex gap-3">
+              <ShieldCheck
+                className="h-5 w-5 text-emerald-400 shrink-0 mt-0.5"
+                strokeWidth={1.75}
+              />
+              <div className="space-y-1">
+                <div className="text-sm font-semibold">Privasi pelapor</div>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Halaman lacak hanya menampilkan nomor, subjek, kategori,
+                  status, dan waktu update. Email, nomor WhatsApp, dan catatan
+                  internal tim tidak pernah ditampilkan ke publik.
+                </p>
+              </div>
+            </div>
           </div>
 
           {/* Form tiket */}

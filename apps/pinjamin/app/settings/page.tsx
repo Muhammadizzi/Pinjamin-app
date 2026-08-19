@@ -28,7 +28,7 @@ function initials(p: Profile) {
 export default function AccountSettingsPage() {
   const { t } = useT();
   const { user, loading: authLoading, setUser } = useAuth();
-  const { loadDemoData, assets } = useStore();
+  const { loadDemoData, assets, isSupabase } = useStore();
   const { ask, confirmDialog } = useConfirmDialog();
   const [demoMsg, setDemoMsg] = useState<{ ok: boolean; text: string } | null>(
     null
@@ -368,6 +368,16 @@ export default function AccountSettingsPage() {
             <p className="text-xs text-slate-500">
               Saat ini ada {assets.length} aset di sistem.
             </p>
+            {isSupabase && (
+              /* Mode Supabase: loadDemoData hanya mengubah state di browser
+                 ini dan tidak menulis ke database, jadi data asli kembali
+                 begitu halaman dimuat ulang. Lebih jujur dimatikan daripada
+                 menjanjikan sesuatu yang tidak terjadi. */
+              <div className="text-xs rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-300 px-3 py-2">
+                Database Supabase aktif — data contoh dimuat lewat SQL (
+                <code>supabase/03-seed.sql</code>), bukan dari tombol ini.
+              </div>
+            )}
             {demoMsg && (
               <div
                 className={`text-sm rounded-xl border px-3 py-2 ${
@@ -383,6 +393,7 @@ export default function AccountSettingsPage() {
               <Button
                 variant="outline"
                 className="rounded-xl"
+                disabled={isSupabase}
                 onClick={() =>
                   ask({
                     title: "Muat data aset contoh?",

@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useRef, Suspense } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +9,15 @@ import { Label } from "@/components/ui/label";
 import { ArrowLeft, Eye, EyeOff, Loader2 } from "lucide-react";
 import { useAuth } from "@/lib/auth-client";
 import { useT } from "@/lib/i18n";
+
+/**
+ * Blok "kredensial demo" di bawah form hanya ditampilkan di luar production,
+ * atau bila sengaja dinyalakan lewat NEXT_PUBLIC_SHOW_DEMO_CREDENTIALS=1
+ * (mis. deployment demo). Di production default-nya mati.
+ */
+const SHOW_DEMO_CREDENTIALS =
+  process.env.NODE_ENV !== "production" ||
+  process.env.NEXT_PUBLIC_SHOW_DEMO_CREDENTIALS === "1";
 
 function safeNextPath(raw: string | null) {
   if (!raw) return "/dashboard";
@@ -93,19 +103,58 @@ function LoginForm() {
         <ArrowLeft className="h-4 w-4" />
         Kembali ke Beranda
       </Link>
-      {/* Foto background dengan efek blur sebagai hero visual. */}
+      {/* Warna dasar — dipakai kalau foto belum/ gagal dimuat, supaya
+          halaman tidak pernah tampil putih polos. */}
+      <div className="absolute inset-0 bg-[#0a1a30]" />
+
+      {/* Foto background. next/image (bukan CSS background) supaya foto
+          beresolusi besar diperkecil & dikonversi WebP/AVIF otomatis.
+          Blur 6px saja: cukup untuk keterbacaan, foto tetap kelihatan —
+          blur 14px sebelumnya membuat foto tak terbaca sama sekali. */}
+      <Image
+        src="/bg_login.jpg"
+        alt=""
+        aria-hidden="true"
+        fill
+        priority
+        sizes="100vw"
+        className="object-cover scale-110 [filter:blur(6px)_saturate(1.15)]"
+      />
+
+      {/* Mesh cahaya brand — memberi kedalaman walau fotonya polos. */}
       <div
-        className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+        aria-hidden="true"
+        className="absolute inset-0"
         style={{
-          backgroundImage: `url('/bg_login.jpg')`,
-          filter: "blur(14px) saturate(1.25) brightness(0.95)",
-          transform: "scale(1.15)", // kompensasi sisi terpotong akibat blur
+          backgroundImage:
+            "radial-gradient(60% 50% at 78% 12%, rgba(203,161,44,0.28), transparent 70%)," +
+            "radial-gradient(55% 45% at 12% 88%, rgba(26,54,93,0.55), transparent 70%)",
         }}
       />
-      {/* Overlay tipis — readability saja, foto blur tetap jadi fokus. */}
-      <div className="absolute inset-0 bg-gradient-to-br from-[#0a2240]/25 via-transparent to-[#081a33]/35" />
-      <div className="absolute -top-32 -right-32 h-[500px] w-[500px] rounded-full bg-[#CBA12C]/20 blur-[100px] pointer-events-none" />
-      <div className="absolute -bottom-32 -left-32 h-[400px] w-[400px] rounded-full bg-[#0a2240]/30 blur-[80px] pointer-events-none" />
+      {/* Grid halus — tekstur, bukan hiasan mencolok. */}
+      <div
+        aria-hidden="true"
+        className="absolute inset-0 opacity-[0.07]"
+        style={{
+          backgroundImage:
+            "linear-gradient(to right, #fff 1px, transparent 1px)," +
+            "linear-gradient(to bottom, #fff 1px, transparent 1px)",
+          backgroundSize: "56px 56px",
+          maskImage:
+            "radial-gradient(70% 60% at 50% 45%, #000 30%, transparent 100%)",
+          WebkitMaskImage:
+            "radial-gradient(70% 60% at 50% 45%, #000 30%, transparent 100%)",
+        }}
+      />
+      {/* Vignette — menarik fokus ke kartu login di tengah. */}
+      <div
+        aria-hidden="true"
+        className="absolute inset-0"
+        style={{
+          background:
+            "radial-gradient(85% 75% at 50% 45%, transparent 25%, rgba(6,17,33,0.72) 100%)",
+        }}
+      />
 
       <div ref={formRef} className="relative w-full max-w-[420px]">
         <div className="bg-white/95 dark:bg-slate-900/85 backdrop-blur-2xl rounded-[24px] shadow-[0_24px_64px_rgba(0,0,0,0.4)] border border-white/20 p-8 sm:p-8">
@@ -119,11 +168,13 @@ function LoginForm() {
                 aria-hidden="true"
                 className="absolute h-20 w-20 rounded-full bg-amber-300/25 blur-[14px]"
               />
-              <img
+              <Image
                 src="/logo-pinjamin.png"
                 alt="Pinjamin"
+                width={56}
+                height={56}
+                priority
                 className="relative h-14 w-auto object-contain"
-                style={{ background: "transparent" }}
               />
             </span>
             <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white">
@@ -235,24 +286,28 @@ function LoginForm() {
             © 2026 Garuda Food • Pinjamin
           </div>
 
-          {/* Petunjuk kredensial demo (non-production only). */}
-          <div className="mt-4 mx-auto max-w-[320px] rounded-xl bg-slate-100/70 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 px-3.5 py-2.5 text-[11.5px] text-slate-600 dark:text-slate-300 backdrop-blur-sm">
-            <p className="font-semibold text-slate-700 dark:text-slate-200 mb-1 text-center">
-              Demo · kredensial bawaan
-            </p>
-            <p className="flex items-center justify-between gap-2 font-mono">
-              <span>username</span>
-              <code className="bg-white/80 dark:bg-slate-900/80 px-1.5 py-0.5 rounded text-slate-800 dark:text-slate-100">
-                adminsystem
-              </code>
-            </p>
-            <p className="flex items-center justify-between gap-2 font-mono mt-0.5">
-              <span>password</span>
-              <code className="bg-white/80 dark:bg-slate-900/80 px-1.5 py-0.5 rounded text-slate-800 dark:text-slate-100">
-                admin123
-              </code>
-            </p>
-          </div>
+          {/* Petunjuk kredensial demo — hanya saat SHOW_DEMO_CREDENTIALS
+              aktif (dev / demo). Di production build blok ini tidak dirender
+              sama sekali sehingga kredensial bawaan tidak bocor ke publik. */}
+          {SHOW_DEMO_CREDENTIALS && (
+            <div className="mt-4 mx-auto max-w-[320px] rounded-xl bg-slate-100/70 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 px-3.5 py-2.5 text-[11.5px] text-slate-600 dark:text-slate-300 backdrop-blur-sm">
+              <p className="font-semibold text-slate-700 dark:text-slate-200 mb-1 text-center">
+                Demo · kredensial bawaan
+              </p>
+              <p className="flex items-center justify-between gap-2 font-mono">
+                <span>username</span>
+                <code className="bg-white/80 dark:bg-slate-900/80 px-1.5 py-0.5 rounded text-slate-800 dark:text-slate-100">
+                  adminsystem
+                </code>
+              </p>
+              <p className="flex items-center justify-between gap-2 font-mono mt-0.5">
+                <span>password</span>
+                <code className="bg-white/80 dark:bg-slate-900/80 px-1.5 py-0.5 rounded text-slate-800 dark:text-slate-100">
+                  admin123
+                </code>
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </div>

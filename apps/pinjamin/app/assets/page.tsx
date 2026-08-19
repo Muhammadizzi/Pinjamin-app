@@ -44,6 +44,7 @@ export default function AssetsPage() {
     deleteAsset,
     importAssets,
     loadDemoData,
+    isSupabase,
   } = useStore();
   const { t } = useT();
   const { ask, confirmDialog } = useConfirmDialog();
@@ -462,18 +463,22 @@ export default function AssetsPage() {
                 <Button variant="outline" onClick={() => setImportOpen(true)}>
                   <Upload className="h-4 w-4" /> Impor Excel
                 </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    loadDemoData();
-                    setNotice({
-                      kind: "success",
-                      msg: "Data contoh Garudafood dimuat (aset, lokasi pabrik, peminjaman, audit).",
-                    });
-                  }}
-                >
-                  Muat data demo
-                </Button>
+                {/* Mode Supabase: data contoh dimuat lewat SQL seed, bukan
+                    dari sini — loadDemoData tidak menulis ke database. */}
+                {!isSupabase && (
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      loadDemoData();
+                      setNotice({
+                        kind: "success",
+                        msg: "Data contoh Garudafood dimuat (aset, lokasi pabrik, peminjaman, audit).",
+                      });
+                    }}
+                  >
+                    Muat data demo
+                  </Button>
+                )}
               </div>
             </CardContent>
           </Card>
