@@ -93,17 +93,17 @@ function LoginForm() {
         <ArrowLeft className="h-4 w-4" />
         Kembali ke Beranda
       </Link>
-      {/* Foto background dengan efek blur sebagai hero visual. */}
+      {/* Background login menggunakan bg_login.jpg (dari user) */}
       <div
         className="absolute inset-0 bg-cover bg-center bg-no-repeat"
         style={{
           backgroundImage: `url('/bg_login.jpg')`,
-          filter: "blur(14px) saturate(1.25) brightness(0.95)",
-          transform: "scale(1.15)", // kompensasi sisi terpotong akibat blur
+          filter: "blur(8px) saturate(1.15) brightness(0.92)",
+          transform: "scale(1.08)",
         }}
       />
-      {/* Overlay tipis — readability saja, foto blur tetap jadi fokus. */}
-      <div className="absolute inset-0 bg-gradient-to-br from-[#0a2240]/25 via-transparent to-[#081a33]/35" />
+      {/* Overlay gelap untuk readability form */}
+      <div className="absolute inset-0 bg-gradient-to-br from-[#0a2240]/45 via-[#0a2240]/20 to-[#081a33]/50" />
       <div className="absolute -top-32 -right-32 h-[500px] w-[500px] rounded-full bg-[#CBA12C]/20 blur-[100px] pointer-events-none" />
       <div className="absolute -bottom-32 -left-32 h-[400px] w-[400px] rounded-full bg-[#0a2240]/30 blur-[80px] pointer-events-none" />
 
