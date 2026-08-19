@@ -1,100 +1,122 @@
-# Supabase untuk Pinjamin
+# Supabase Setup untuk Pinjamin (Garuda Food)
 
-> **Penting (security):** sejak migration `04-enable-rls.sql`, RLS aktif di
-> semua tabel dan browser tidak lagi mengakses tabel data langsung lewat
-> anon key. Semua baca/tulis data lewat `app/api/data/**`, yang memverifikasi
-> cookie sesi (JWT) dan menggunakan `SUPABASE_SERVICE_ROLE` di server. Wajib
-> set env berikut di server (jangan pernah expose ke client / `NEXT_PUBLIC_*`):
->
-> ```bash
-> SUPABASE_SERVICE_ROLE=eyJ...   # Project Settings → API → service_role
-> AUTH_SECRET=$(openssl rand -base64 32)  # wajib di production, lihat lib/auth.ts
-> ```
->
-> Urutan jalankan SQL: `01-schema.sql` → `02-storage.sql` → `03-seed.sql`
-> (opsional) → `05-auth-hardening.sql` (token_version) → `04-enable-rls.sql` > **paling akhir**, setelah app dengan `app/api/data/**` sudah ter-deploy
-> (kalau RLS dinyalakan duluan tanpa route ini, app kehilangan akses).
+> **PENTING**: Semua data sekarang diakses **hanya lewat server** (`/api/data/**`) menggunakan `SUPABASE_SERVICE_ROLE`.  
+> Browser **tidak boleh** langsung query Supabase setelah RLS diaktifkan.
 
-Pinjamin support **2 mode** agar tetap jalan tanpa setup:
+## Cara Paling Mudah (Recommended)
 
-- **Offline (default):** tanpa env, upload disimpan sebagai `base64` di `localStorage` → instant, tidak butuh Supabase.
-- **Production:** set env + buat bucket `assets` → upload ke Supabase Storage (public URL).
-
-## 1. Setup cepat (5 menit)
-
-1. Buat project di https://supabase.com/dashboard
-2. Copy **Project URL** dan **anon public key** dari `Project Settings → API`
-3. Di Vercel (atau `.env.local` untuk lokal), set:
+Gunakan **satu file** ini:
 
 ```bash
-NEXT_PUBLIC_SUPABASE_URL=https://xxxxx.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOi... (anon public)
-# opsional, kompatibel dengan shelf:
-SUPABASE_URL=https://xxxxx.supabase.co
-SUPABASE_ANON_PUBLIC=eyJ...
+# 1. Buka Supabase Dashboard → SQL Editor
+# 2. Copy seluruh isi file berikut lalu paste & jalankan:
+apps/pinjamin/supabase/full-setup.sql
 ```
 
-4. Buat bucket `assets` (public):
-   - Dashboard → Storage → New bucket → Name: `assets` → Public: ON → Create
-   - Atau via SQL (jalankan di SQL Editor):
+File `full-setup.sql` sudah berisi **semua langkah** dalam urutan yang benar:
+
+1. RESET (opsional)
+2. SCHEMA
+3. AUTH HARDENING
+4. STORAGE BUCKET + POLICY
+5. SEED DATA (data dummy lengkap)
+6. ENABLE RLS (paling akhir)
+
+---
+
+## Langkah Manual (jika mau terpisah)
+
+Urutan yang **WAJIB**:
 
 ```sql
--- Buat bucket jika belum ada
-insert into storage.buckets (id, name, public)
-values ('assets', 'assets', true)
-on conflict (id) do nothing;
+-- 1. (Opsional) Bersihkan
+\i 00-reset-drop.sql
 
--- Policy: allow public read, authenticated upload (anon bisa upload untuk demo)
--- Jika RLS strict, pakai service_role di server. Untuk demo, izinkan anon:
-create policy "Public read"
-on storage.objects for select
-using (bucket_id = 'assets');
+-- 2. Buat tabel
+\i 01-schema.sql
 
-create policy "Allow upload"
-on storage.objects for insert
-with check (bucket_id = 'assets');
+-- 3. Auth hardening
+\i 05-auth-hardening.sql
 
-create policy "Allow update"
-on storage.objects for update
-using (bucket_id = 'assets');
+-- 4. Storage
+\i 02-storage.sql
 
-create policy "Allow delete"
-on storage.objects for delete
-using (bucket_id = 'assets');
+-- 5. Seed data
+\i 03-seed.sql
+
+-- 6. AKTIFKAN RLS (PALING AKHIR!)
+\i 04-enable-rls.sql
 ```
 
-5. Deploy / restart `pnpm dev` → Upload di `Assets → Tambah → Foto Aset` akan otomatis ke Supabase (badge hijau `Supabase Storage`). Jika env kosong, fallback base64 (badge kuning).
+---
 
-## 2. Env lokal
+## Environment Variables
 
-Copy `.env.example` (root) ke `.env.local` di `apps/pinjamin`:
+### Lokal
 
 ```bash
-cp ../../.env.example .env.local
-# lalu isi NEXT_PUBLIC_SUPABASE_URL dan ANON_KEY
+cp .env.example .env.local
 ```
 
-## 3. Migrasi DB (opsional, jika mau pakai Postgres bukan localStorage)
+Isi `.env.local`:
 
-Saat ini Pinjamin pakai `localStorage` (sesuai PRD MVP, tanpa pg-boss). Untuk migrasi ke Postgres + Drizzle:
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://nryxcsarvyoqtcuwytxs.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...anon...
+SUPABASE_SERVICE_ROLE=eyJ...service_role...
 
-```bash
-# buat .env dengan DATABASE_URL (Supabase connection pooling 6543)
-# DIRECT_URL (5432) untuk migrasi
-pnpm db:prepare-migration  # dari root, paket @shelf/database sebagai contoh
-# atau buat schema baru di apps/pinjamin/drizzle/
+AUTH_SECRET=$(openssl rand -base64 32)
 ```
 
-Untuk MVP, **tidak wajib** — localStorage sudah cukup untuk demo & Vercel free tier.
+### Vercel (Production)
 
-## 4. Test
+Tambahkan di **Vercel Dashboard → Project → Settings → Environment Variables**:
 
-- Buka `http://localhost:5003/assets/new` → upload gambar (drag & drop)
-- Lihat badge: `Supabase Storage` = sukses cloud, `Base64 • Offline` = fallback
-- Lihat di Supabase Dashboard → Storage → assets → file `pinjamin/<timestamp>-xxxxx.jpg`
+| Name                              | Value                                      | Environment |
+|-----------------------------------|--------------------------------------------|-----------|
+| `NEXT_PUBLIC_SUPABASE_URL`        | https://nryxcsarvyoqtcuwytxs.supabase.co   | Production + Preview |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY`   | eyJ... (anon)                              | Production + Preview |
+| `SUPABASE_SERVICE_ROLE`           | eyJ... (service_role)                      | Production + Preview |
+| `AUTH_SECRET`                     | (generate: `openssl rand -base64 32`)      | Production + Preview |
+
+---
+
+## Setelah SQL Berhasil
+
+1. Pastikan bucket `assets` ada:
+   - Supabase Dashboard → Storage → `assets` (harus **Public**)
+
+2. Jalankan aplikasi:
+   ```bash
+   pnpm pinjamin:dev
+   ```
+
+3. Login:
+   - Username: `adminsystem`
+   - Password: `admin123`
+
+4. Cek apakah data seed muncul di Dashboard.
+
+---
 
 ## Troubleshooting
 
-- **Bucket not found:** buat bucket `assets` manual di dashboard.
-- **Policy error / 403:** jalankan SQL policy di atas atau set bucket Public.
-- **CORS:** di Storage Settings → Allowed origins tambah `http://localhost:5003` dan domain Vercel.
+| Masalah                        | Solusi |
+|--------------------------------|--------|
+| Error 401 di `/api/data`       | Pastikan sudah login admin |
+| Tidak bisa upload foto         | Pastikan `SUPABASE_SERVICE_ROLE` benar + bucket `assets` public |
+| Data tidak muncul              | Jalankan ulang STEP 5 (seed) + refresh |
+| RLS aktif tapi app error       | Pastikan `04-enable-rls.sql` dijalankan **setelah** semua route `/api/data` sudah ada |
+| Bucket 404                     | Buat manual di Storage atau jalankan ulang bagian storage di `full-setup.sql` |
+
+---
+
+## Keamanan
+
+- `SUPABASE_SERVICE_ROLE` **hanya** boleh ada di server / Vercel (jangan di client)
+- Setelah RLS aktif, `anon` key **hanya** boleh untuk Storage read (public)
+- Selalu gunakan `requireAuth()` di semua route API
+
+---
+
+**Selesai!** Sekarang aplikasi siap pakai Supabase + data seed.
