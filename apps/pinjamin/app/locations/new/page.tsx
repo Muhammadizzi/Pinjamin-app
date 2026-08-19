@@ -203,8 +203,9 @@ export default function NewLocationPage() {
                   </Select>
                   {parentOptions.length === 0 && (
                     <p className="text-xs text-amber-700 dark:text-amber-300">
-                      Belum ada lokasi parent — buat lewat tombol "Buat Parent
-                      Baru" di atas, atau pilih tipe "Lokasi Parent".
+                      Belum ada lokasi parent — buat lewat tombol &quot;Buat
+                      Parent Baru&quot; di atas, atau pilih tipe &quot;Lokasi
+                      Parent&quot;.
                     </p>
                   )}
                   {showParentCreate && (

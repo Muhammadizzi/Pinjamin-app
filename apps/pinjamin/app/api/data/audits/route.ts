@@ -4,7 +4,7 @@ import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { fromDbRow, isUuid } from "@/lib/resource-config";
 
 export async function POST(req: NextRequest) {
-  const session = requireAuth(req);
+  const session = await requireAuth(req);
   if (!session)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 

@@ -15,7 +15,9 @@ CREATE TABLE admins (
   password_hash TEXT NOT NULL,
   name VARCHAR(100) NOT NULL,
   avatar_url TEXT,
-  created_at TIMESTAMPTZ DEFAULT now() NOT NULL
+  token_version INTEGER NOT NULL DEFAULT 1,
+  created_at TIMESTAMPTZ DEFAULT now() NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT now() NOT NULL
 );
 COMMENT ON TABLE admins IS 'Admin login - PRD §4.1 hanya 1 role';
 

@@ -6,8 +6,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useT } from "@/lib/i18n";
+import { useAuth } from "@/lib/auth-client";
 import { uploadImage } from "@/lib/supabase";
-import { UserCog, KeyRound, ImagePlus, Trash2, Check } from "lucide-react";
+import { useStore } from "@/lib/store";
+import { useConfirmDialog } from "@/components/ui/confirm-dialog";
+import {
+  UserCog,
+  KeyRound,
+  ImagePlus,
+  Trash2,
+  Check,
+  Database,
+} from "lucide-react";
 
 type Profile = { username: string; fullName: string; avatar: string };
 
@@ -17,17 +27,23 @@ function initials(p: Profile) {
 
 export default function AccountSettingsPage() {
   const { t } = useT();
+  const { user, loading: authLoading, setUser } = useAuth();
+  const { loadDemoData, assets } = useStore();
+  const { ask, confirmDialog } = useConfirmDialog();
+  const [demoMsg, setDemoMsg] = useState<{ ok: boolean; text: string } | null>(
+    null
+  );
 
   // --- Profil ------------------------------------------------------------
   const [profile, setProfile] = useState<Profile>({
-    username: "adminsystem",
-    fullName: "Administrator",
-    avatar: "",
+    username: user?.username || "",
+    fullName: user?.fullName || "",
+    avatar: user?.avatar || "",
   });
-  const [fullName, setFullName] = useState("");
-  const [username, setUsername] = useState("");
-  const [avatar, setAvatar] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [fullName, setFullName] = useState(user?.fullName || "");
+  const [username, setUsername] = useState(user?.username || "");
+  const [avatar, setAvatar] = useState(user?.avatar || "");
+  const loading = authLoading;
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [profileMsg, setProfileMsg] = useState<{
@@ -37,22 +53,12 @@ export default function AccountSettingsPage() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    let alive = true;
-    fetch("/api/auth/me")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j) => {
-        if (!alive || !j?.profile) return;
-        setProfile(j.profile);
-        setFullName(j.profile.fullName);
-        setUsername(j.profile.username);
-        setAvatar(j.profile.avatar);
-      })
-      .catch(() => {})
-      .finally(() => alive && setLoading(false));
-    return () => {
-      alive = false;
-    };
-  }, []);
+    if (!user) return;
+    setProfile(user);
+    setFullName(user.fullName);
+    setUsername(user.username);
+    setAvatar(user.avatar);
+  }, [user]);
 
   const handlePickPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -100,11 +106,8 @@ export default function AccountSettingsPage() {
         return;
       }
       setProfile(j.profile);
+      setUser(j.profile);
       setProfileMsg({ ok: true, text: "Profil berhasil disimpan ✓" });
-      // Beri tahu sidebar/topbar agar nama & foto langsung berubah
-      window.dispatchEvent(
-        new CustomEvent("pinjamin:profile", { detail: j.profile })
-      );
     } catch {
       setProfileMsg({ ok: false, text: "Gagal menyimpan profil. Coba lagi." });
     } finally {
@@ -247,7 +250,7 @@ export default function AccountSettingsPage() {
               <Input
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="adminsystem"
+                placeholder={t("username")}
                 className="h-11 rounded-xl font-mono"
                 disabled={loading}
               />
@@ -324,8 +327,8 @@ export default function AccountSettingsPage() {
               </div>
             </div>
             <p className="text-xs text-muted-foreground">
-              Minimal 6 karakter. Login sesi ini tetap aktif; password baru
-              dipakai saat login berikutnya.
+              Minimal 8 karakter, harus berisi huruf dan angka. Sesi lain akan
+              keluar; sesi ini tetap aktif.
             </p>
             {pwMsg && (
               <div
@@ -349,7 +352,102 @@ export default function AccountSettingsPage() {
             </Button>
           </CardContent>
         </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Database className="h-4 w-4" /> Data contoh Garudafood
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Muat ulang dataset demo: 28 aset, pabrik Pati/Rembang, DC
+              Cikarang, peminjaman, kit, dan audit. Data aset yang ada akan
+              ditimpa.
+            </p>
+            <p className="text-xs text-slate-500">
+              Saat ini ada {assets.length} aset di sistem.
+            </p>
+            {demoMsg && (
+              <div
+                className={`text-sm rounded-xl border px-3 py-2 ${
+                  demoMsg.ok
+                    ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
+                    : "bg-red-500/10 border-red-500/30 text-red-300"
+                }`}
+              >
+                {demoMsg.text}
+              </div>
+            )}
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                className="rounded-xl"
+                onClick={() =>
+                  ask({
+                    title: "Muat data aset contoh?",
+                    description:
+                      "Seluruh aset, booking, dan master data saat ini akan diganti dengan data dummy Garudafood.",
+                    confirmLabel: "Ya, muat demo aset",
+                    variant: "primary",
+                    action: () => {
+                      loadDemoData();
+                      setDemoMsg({
+                        ok: true,
+                        text: "Data aset contoh Garudafood berhasil dimuat.",
+                      });
+                    },
+                  })
+                }
+              >
+                <Database className="h-4 w-4" /> Demo aset
+              </Button>
+              <Button
+                variant="outline"
+                className="rounded-xl"
+                onClick={() =>
+                  ask({
+                    title: "Muat tiket contoh?",
+                    description:
+                      "Daftar tiket helpdesk akan diganti 18 tiket dummy (IT, pabrik, fasilitas).",
+                    confirmLabel: "Ya, muat demo tiket",
+                    variant: "primary",
+                    action: async () => {
+                      try {
+                        const res = await fetch("/api/tickets/seed", {
+                          method: "POST",
+                        });
+                        const j = await res.json().catch(() => ({}));
+                        if (!res.ok) {
+                          setDemoMsg({
+                            ok: false,
+                            text: j.error || "Gagal memuat tiket demo.",
+                          });
+                          return;
+                        }
+                        setDemoMsg({
+                          ok: true,
+                          text: `${
+                            j.count ?? 0
+                          } tiket contoh Garudafood dimuat.`,
+                        });
+                      } catch {
+                        setDemoMsg({
+                          ok: false,
+                          text: "Tidak bisa terhubung ke server.",
+                        });
+                      }
+                    },
+                  })
+                }
+              >
+                <Database className="h-4 w-4" /> Demo tiket
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       </div>
+      {confirmDialog}
     </AppShell>
   );
 }

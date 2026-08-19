@@ -309,7 +309,7 @@ export default function AuditsPage() {
           {audits.length === 0 && (
             <Card className="border-dashed">
               <CardContent className="py-12 text-center text-muted-foreground">
-                Belum ada audit — klik "Sesi Baru" untuk membuat.
+                Belum ada audit — klik &quot;Sesi Baru&quot; untuk membuat.
               </CardContent>
             </Card>
           )}

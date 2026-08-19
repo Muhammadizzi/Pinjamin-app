@@ -18,7 +18,7 @@ export async function POST(
   req: NextRequest,
   ctx: { params: Promise<{ resource: string }> }
 ) {
-  const session = requireAuth(req);
+  const session = await requireAuth(req);
   if (!session)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 

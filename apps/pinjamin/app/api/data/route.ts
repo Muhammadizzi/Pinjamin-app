@@ -8,7 +8,7 @@ type Row = Record<string, any>;
 // Single authenticated bulk-load endpoint. Replaces the old pattern of the
 // browser querying every Supabase table directly with the anon key.
 export async function GET(req: NextRequest) {
-  const session = requireAuth(req);
+  const session = await requireAuth(req);
   if (!session)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 

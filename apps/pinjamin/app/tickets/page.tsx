@@ -353,18 +353,62 @@ export default function TicketsPage() {
               — user tidak perlu login.
             </p>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => load(true)}
-            disabled={refreshing}
-            className="rounded-xl"
-          >
-            <RefreshCw
-              className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
-            />
-            Muat Ulang
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => load(true)}
+              disabled={refreshing}
+              className="rounded-xl"
+            >
+              <RefreshCw
+                className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
+              />
+              Muat Ulang
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={refreshing}
+              className="rounded-xl"
+              onClick={() =>
+                ask({
+                  title: "Muat tiket contoh?",
+                  description:
+                    "Daftar tiket saat ini akan diganti 18 tiket dummy Garudafood (IT, pabrik, fasilitas). Beberapa tertaut ke aset demo.",
+                  confirmLabel: "Ya, muat demo",
+                  variant: "primary",
+                  action: async () => {
+                    setRefreshing(true);
+                    try {
+                      const res = await fetch("/api/tickets/seed", {
+                        method: "POST",
+                      });
+                      const j = await res.json().catch(() => ({}));
+                      if (!res.ok) {
+                        showNotice(
+                          "err",
+                          j.error || "Gagal memuat tiket demo."
+                        );
+                        return;
+                      }
+                      setTickets(j.tickets || []);
+                      showNotice(
+                        "ok",
+                        `${
+                          j.count ?? j.tickets?.length ?? 0
+                        } tiket contoh dimuat.`
+                      );
+                    } finally {
+                      setRefreshing(false);
+                    }
+                  },
+                })
+              }
+            >
+              <Inbox className="h-4 w-4" /> Muat data demo
+            </Button>
+          </div>
         </div>
 
         {/* Statistik — klik kartu untuk memfilter daftar */}
@@ -443,7 +487,7 @@ export default function TicketsPage() {
               <div className="font-medium text-white">Belum ada tiket</div>
               <div className="text-sm mt-1">
                 {filter === "ALL"
-                  ? "Tiket yang dibuat dari landing page akan muncul di sini."
+                  ? "Tiket dari landing page akan muncul di sini, atau muat data contoh Garudafood."
                   : `Tidak ada tiket berstatus ${FILTERS.find(
                       (f) => f.key === filter
                     )?.label}.`}

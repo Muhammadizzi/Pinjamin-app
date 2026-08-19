@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifySession } from "@/lib/auth";
+import { requireAuth, unauthorized } from "@/lib/auth";
 import {
   deleteTicket,
   TICKET_STATUSES,
@@ -10,18 +10,11 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function isAdmin(req: NextRequest) {
-  const token = req.cookies.get("pinjamin_session")?.value;
-  return token ? !!verifySession(token) : false;
-}
-
 type Ctx = { params: Promise<{ id: string }> };
 
 /** PATCH /api/tickets/:id — ubah status / catatan admin (khusus admin). */
 export async function PATCH(req: NextRequest, ctx: Ctx) {
-  if (!isAdmin(req)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!(await requireAuth(req))) return unauthorized();
   const { id } = await ctx.params;
 
   let body: any = {};
@@ -92,9 +85,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
 
 /** DELETE /api/tickets/:id — hapus tiket (spam/dsb.), khusus admin. */
 export async function DELETE(req: NextRequest, ctx: Ctx) {
-  if (!isAdmin(req)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!(await requireAuth(req))) return unauthorized();
   const { id } = await ctx.params;
   const ok = deleteTicket(id);
   if (!ok) {

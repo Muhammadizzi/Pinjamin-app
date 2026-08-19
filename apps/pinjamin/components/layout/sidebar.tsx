@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { LanguageToggle } from "@/components/language-toggle";
 import { useT } from "@/lib/i18n";
 import { useStore } from "@/lib/store";
+import { useAuth } from "@/lib/auth-client";
 import {
   LayoutDashboard,
   Package,
@@ -63,36 +64,13 @@ function useAdminMode(): [AdminMode, (m: AdminMode) => void] {
   return [mode, setMode];
 }
 
-/**
- * Profil admin (nama, username, foto) untuk ditampilkan di sidebar/topbar.
- * Diambil dari server; langsung ikut berubah saat Account Settings menyimpan
- * (event `pinjamin:profile`), tanpa perlu refresh halaman.
- */
 function useAdminProfile(): AdminProfileInfo {
-  const [profile, setProfile] = useState<AdminProfileInfo>({
-    username: "adminsystem",
-    fullName: "Administrator",
-    avatar: "",
-  });
-  useEffect(() => {
-    let alive = true;
-    fetch("/api/auth/me")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j) => {
-        if (alive && j?.profile) setProfile(j.profile);
-      })
-      .catch(() => {});
-    const onUpdated = (e: Event) => {
-      const detail = (e as CustomEvent).detail;
-      if (detail) setProfile((p) => ({ ...p, ...detail }));
-    };
-    window.addEventListener("pinjamin:profile", onUpdated);
-    return () => {
-      alive = false;
-      window.removeEventListener("pinjamin:profile", onUpdated);
-    };
-  }, []);
-  return profile;
+  const { user } = useAuth();
+  return {
+    username: user?.username || "admin",
+    fullName: user?.fullName || "Administrator",
+    avatar: user?.avatar || "",
+  };
 }
 
 /** Lingkaran avatar admin — foto kalau ada, fallback huruf pertama nama. */
@@ -129,10 +107,10 @@ function AdminAvatar({
 
 export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
-  const router = useRouter();
   const { t } = useT();
   const { assets } = useStore();
   const profile = useAdminProfile();
+  const { logout } = useAuth();
   const [mode] = useAdminMode();
   const [bookingsOpen, setBookingsOpen] = useState(
     pathname.startsWith("/bookings")

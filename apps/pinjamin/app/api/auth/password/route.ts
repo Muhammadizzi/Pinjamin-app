@@ -1,56 +1,54 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
+  attachSessionCookie,
   getAdminProfile,
+  passwordSchema,
+  requireAuth,
   setAdminPassword,
+  unauthorized,
   verifyPassword,
-  verifySession,
 } from "@/lib/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
-  const token = req.cookies.get("pinjamin_session")?.value;
-  if (!token || !verifySession(token)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  let body: any = {};
+  const session = await requireAuth(req);
+  if (!session) return unauthorized();
+
+  let body: unknown;
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: "Body tidak valid." }, { status: 400 });
   }
 
-  const currentPassword = String(body.currentPassword ?? "");
-  const newPassword = String(body.newPassword ?? "");
-  if (!currentPassword || !newPassword) {
-    return NextResponse.json(
-      { error: "Password saat ini dan password baru wajib diisi." },
-      { status: 400 }
-    );
-  }
-  if (newPassword.length < 6) {
-    return NextResponse.json(
-      { error: "Password baru minimal 6 karakter." },
-      { status: 400 }
-    );
+  const parsed = passwordSchema.safeParse(body);
+  if (!parsed.success) {
+    const msg = parsed.error.issues[0]?.message || "Data password tidak valid.";
+    return NextResponse.json({ error: msg }, { status: 400 });
   }
 
-  const p = getAdminProfile();
-  const ok = await verifyPassword(currentPassword, p.hash);
+  const { currentPassword, newPassword } = parsed.data;
+  const current = await getAdminProfile();
+  const ok = await verifyPassword(currentPassword, current.hash);
   if (!ok) {
     return NextResponse.json(
       { error: "Password saat ini salah." },
       { status: 400 }
     );
   }
-  if (await verifyPassword(newPassword, p.hash)) {
+  if (await verifyPassword(newPassword, current.hash)) {
     return NextResponse.json(
       { error: "Password baru tidak boleh sama dengan password lama." },
       { status: 400 }
     );
   }
 
-  setAdminPassword(newPassword);
-  return NextResponse.json({ ok: true });
+  const next = await setAdminPassword(newPassword);
+  // Token version naik → sesi lain mati. Sesi ini diterbitkan ulang.
+  const remaining = Math.max(60, session.exp - Math.floor(Date.now() / 1000));
+  const res = NextResponse.json({ ok: true });
+  await attachSessionCookie(res, next, remaining);
+  return res;
 }

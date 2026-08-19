@@ -7,7 +7,7 @@ export async function PATCH(
   req: NextRequest,
   ctx: { params: Promise<{ id: string }> }
 ) {
-  const session = requireAuth(req);
+  const session = await requireAuth(req);
   if (!session)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -43,7 +43,7 @@ export async function DELETE(
   req: NextRequest,
   ctx: { params: Promise<{ id: string }> }
 ) {
-  const session = requireAuth(req);
+  const session = await requireAuth(req);
   if (!session)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 

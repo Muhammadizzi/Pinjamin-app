@@ -4,12 +4,10 @@
 -- Isi: admin, categories, tags, locations, models, custodians, assets, kits, bookings, audits
 -- ============================================================
 
--- ADMIN (password: admin123 → bcrypt hash)
--- hash untuk admin123: $2a$10$X9ZAz0q4l9XJ9XJ9XJ9XJ9uXJ9XJ9XJ9XJ9XJ9XJ9XJ9XJ9XJ9XJ9X (ganti dengan hash asli via lib/auth.ts)
--- Untuk demo, kita insert dengan hash yang sudah di-generate di app (bcrypt hashSync admin123)
--- Hash asli Pinjamin: $2a$10$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeG6Lruj3vjPGga31lW
+-- ADMIN (password demo: admin123) — bcrypt cost 10
+-- GANTI password ini setelah deploy production lewat Pengaturan Akun.
 INSERT INTO admins (id, username, password_hash, name) VALUES
-('00000000-0000-0000-0000-000000000001', 'adminsystem', '$2a$10$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeG6Lruj3vjPGga31lW', 'Administrator')
+('00000000-0000-0000-0000-000000000001', 'adminsystem', '$2b$10$5.IJMK0xao/c3qsPEeW5EulR37iU7EEr0CZyJ3a9OVtN/M/wrbzxG', 'Administrator')
 ON CONFLICT (username) DO NOTHING;
 
 -- CATEGORIES
