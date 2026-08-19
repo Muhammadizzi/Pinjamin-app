@@ -5,7 +5,6 @@ import {
   SIMPLE_RESOURCE_TABLE,
   SIMPLE_RESOURCE_FIELDS,
   pickAllowed,
-  isUuid,
   fromDbRow,
   type SimpleResourceKey,
 } from "@/lib/resource-config";
@@ -26,7 +25,7 @@ export async function PATCH(
   if (!isSimpleResource(resource)) {
     return NextResponse.json({ error: "Unknown resource" }, { status: 404 });
   }
-  if (!isUuid(id))
+  if (!id || typeof id !== "string" || id.length === 0)
     return NextResponse.json({ error: "Invalid id" }, { status: 400 });
 
   const body = await req.json().catch(() => null);
@@ -70,7 +69,7 @@ export async function DELETE(
   if (!isSimpleResource(resource)) {
     return NextResponse.json({ error: "Unknown resource" }, { status: 404 });
   }
-  if (!isUuid(id))
+  if (!id || typeof id !== "string" || id.length === 0)
     return NextResponse.json({ error: "Invalid id" }, { status: 400 });
 
   const supa = getSupabaseAdmin();
