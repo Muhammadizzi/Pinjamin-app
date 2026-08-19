@@ -1,0 +1,61 @@
+{
+  "_meta": {
+    "app": "Pinjamin - Garuda Food",
+    "version": "1.0",
+    "exportedAt": "2026-08-19T06:30:00.000Z",
+    "source": "lib/seed.ts (full local dummy data)",
+    "description": "Complete export of local seed data before switching to Supabase. Contains realistic Garuda Food assets, bookings, custodians, etc.",
+    "howToUse": "This JSON can be used as reference or imported later. For now we recommend using full-setup.sql seed in Supabase. You can create a custom import script using this data if needed."
+  },
+  "data": {
+    "categories": [
+      {"id": "gf-cat-it", "name": "IT & Elektronik", "description": "Laptop, printer, jaringan, perangkat digital", "color": "#123367", "createdAt": "2026-08-19T06:30:00.000Z"},
+      {"id": "gf-cat-kendaraan", "name": "Kendaraan Operasional", "description": "Mobil dinas, motor, kendaraan pabrik", "color": "#3b82f6", "createdAt": "2026-08-19T06:30:00.000Z"},
+      {"id": "gf-cat-produksi", "name": "Mesin Produksi", "description": "Line snack, oven, mixer, packing", "color": "#CBA12C", "createdAt": "2026-08-19T06:30:00.000Z"},
+      {"id": "gf-cat-qc", "name": "Quality Control", "description": "Alat ukur, timbangan, laboratorium", "color": "#10b981", "createdAt": "2026-08-19T06:30:00.000Z"},
+      {"id": "gf-cat-kantor", "name": "Peralatan Kantor", "description": "Meja, kursi, proyektor, sound", "color": "#8b5cf6", "createdAt": "2026-08-19T06:30:00.000Z"},
+      {"id": "gf-cat-gudang", "name": "Gudang & Material Handling", "description": "Forklift, pallet jack, racking", "color": "#f59e0b", "createdAt": "2026-08-19T06:30:00.000Z"},
+      {"id": "gf-cat-fasilitas", "name": "Fasilitas Pabrik", "description": "Utilitas, safety, pendingin", "color": "#ef4444", "createdAt": "2026-08-19T06:30:00.000Z"},
+      {"id": "gf-cat-marketing", "name": "Marketing & Event", "description": "Booth, kamera, merchandise kit", "color": "#ec4899", "createdAt": "2026-08-19T06:30:00.000Z"}
+    ],
+    "tags": [
+      {"id": "gf-tag-prioritas", "name": "Prioritas", "color": "#ef4444", "createdAt": "2026-08-19T06:30:00.000Z"},
+      {"id": "gf-tag-baru", "name": "Baru 2025/2026", "color": "#10b981", "createdAt": "2026-08-19T06:30:00.000Z"},
+      {"id": "gf-tag-kalibrasi", "name": "Perlu Kalibrasi", "color": "#f59e0b", "createdAt": "2026-08-19T06:30:00.000Z"},
+      {"id": "gf-tag-shared", "name": "Shared Pool", "color": "#3b82f6", "createdAt": "2026-08-19T06:30:00.000Z"},
+      {"id": "gf-tag-haccp", "name": "HACCP Critical", "color": "#CBA12C", "createdAt": "2026-08-19T06:30:00.000Z"},
+      {"id": "gf-tag-rusak", "name": "Rusak Ringan", "color": "#64748b", "createdAt": "2026-08-19T06:30:00.000Z"}
+    ],
+    "locations": [
+      {"id": "gf-loc-hq", "name": "Kantor Pusat Jakarta", "description": "HQ Garudafood", "address": "Bintaro Jaya, Tangerang Selatan", "parentId": null, "createdAt": "2026-08-19T06:30:00.000Z"},
+      {"id": "gf-loc-hq-it", "name": "HQ — Lantai 5 IT", "description": "Ruang server & helpdesk", "address": "Kantor Pusat Lt.5", "parentId": "gf-loc-hq", "createdAt": "2026-08-19T06:30:00.000Z"},
+      {"id": "gf-loc-hq-meeting", "name": "HQ — Ruang Meeting Garuda", "description": "Ruang rapat direksi", "address": "Kantor Pusat Lt.2", "parentId": "gf-loc-hq", "createdAt": "2026-08-19T06:30:00.000Z"},
+      {"id": "gf-loc-pati", "name": "Pabrik Pati", "description": "Pabrik snack utama", "address": "Pati, Jawa Tengah", "parentId": null, "createdAt": "2026-08-19T06:30:00.000Z"},
+      {"id": "gf-loc-pati-line1", "name": "Pati — Produksi Line 1", "parentId": "gf-loc-pati", "createdAt": "2026-08-19T06:30:00.000Z"},
+      {"id": "gf-loc-pati-gudang", "name": "Pati — Gudang Finished Goods", "parentId": "gf-loc-pati", "createdAt": "2026-08-19T06:30:00.000Z"},
+      {"id": "gf-loc-rembang", "name": "Pabrik Rembang", "description": "Pabrik biskuit & wafer", "address": "Rembang, Jawa Tengah", "parentId": null, "createdAt": "2026-08-19T06:30:00.000Z"},
+      {"id": "gf-loc-cikarang", "name": "DC Cikarang", "description": "Distribution center Jawa Barat", "address": "MM2100, Cikarang", "parentId": null, "createdAt": "2026-08-19T06:30:00.000Z"}
+    ],
+    "custodians": [
+      {"id": "gf-cus-budi", "name": "Budi Santoso", "nik": "19900112001", "department": "IT", "email": "budi.santoso@garudafood.co.id", "phone": "081234567890", "createdAt": "2026-08-19T06:30:00.000Z"},
+      {"id": "gf-cus-siti", "name": "Siti Aminah", "nik": "19920304002", "department": "Marketing", "email": "siti.aminah@garudafood.co.id", "phone": "081298765432", "createdAt": "2026-08-19T06:30:00.000Z"},
+      {"id": "gf-cus-joko", "name": "Joko Prasetyo", "nik": "19881122003", "department": "Produksi Pati", "email": "joko.prasetyo@garudafood.co.id", "phone": "081233445566", "createdAt": "2026-08-19T06:30:00.000Z"},
+      {"id": "gf-cus-dewi", "name": "Dewi Lestari", "nik": "19950515004", "department": "Finance", "email": "dewi.lestari@garudafood.co.id", "phone": "081212345678", "createdAt": "2026-08-19T06:30:00.000Z"}
+    ],
+    "assets": [
+      {"id": "gf-ast-001", "name": "MacBook Air M3 — IT 01", "description": "Laptop helpdesk & development HQ", "status": "AVAILABLE", "categoryId": "gf-cat-it", "locationId": "gf-loc-hq-it", "qrCode": "PIN-MBA001", "value": 21500000, "serialNumber": "C02-GF-MBA-001", "tagIds": ["gf-tag-baru", "gf-tag-shared"], "createdAt": "2026-08-19T06:30:00.000Z"},
+      {"id": "gf-ast-002", "name": "ThinkPad X1 — Dev 02", "description": "Laptop backup developer", "status": "CHECKED_OUT", "categoryId": "gf-cat-it", "locationId": "gf-loc-hq-it", "qrCode": "PIN-TP002", "value": 24800000, "serialNumber": "PF4-GF-X1-002", "custodianId": "gf-cus-budi", "tagIds": ["gf-tag-prioritas"], "createdAt": "2026-08-19T06:30:00.000Z"},
+      {"id": "gf-ast-003", "name": "Proyektor Epson Ruang Garuda", "description": "Proyektor tetap ruang meeting direksi", "status": "CHECKED_OUT", "categoryId": "gf-cat-kantor", "locationId": "gf-loc-hq-meeting", "qrCode": "PIN-PRJ003", "value": 8200000, "serialNumber": "EPS-X51-003", "custodianId": "gf-cus-siti", "createdAt": "2026-08-19T06:30:00.000Z"},
+      {"id": "gf-ast-004", "name": "Avanza Operasional HQ B 1234 GF", "description": "Pool kendaraan HQ — antar-jemput meeting", "status": "AVAILABLE", "categoryId": "gf-cat-kendaraan", "locationId": "gf-loc-hq", "qrCode": "PIN-AVZ004", "value": 265000000, "serialNumber": "B1234GF", "createdAt": "2026-08-19T06:30:00.000Z"},
+      {"id": "gf-ast-005", "name": "Innova Zenix Direksi B 88 GF", "description": "Kendaraan direksi", "status": "CHECKED_OUT", "categoryId": "gf-cat-kendaraan", "locationId": "gf-loc-hq", "qrCode": "PIN-INV005", "value": 520000000, "serialNumber": "B88GF", "custodianId": "gf-cus-dewi", "createdAt": "2026-08-19T06:30:00.000Z"}
+    ],
+    "bookings": [
+      {"id": "gf-bk-001", "name": "Peminjaman Proyektor — Rapat Brand Gery", "status": "ONGOING", "custodianId": "gf-cus-siti", "fromDate": "2026-08-18T08:00:00.000Z", "toDate": "2026-08-20T18:00:00.000Z", "assetIds": ["gf-ast-003"], "createdAt": "2026-08-19T06:30:00.000Z"},
+      {"id": "gf-bk-002", "name": "Laptop IT — migrasi SAP", "status": "OVERDUE", "custodianId": "gf-cus-budi", "fromDate": "2026-08-09T08:00:00.000Z", "toDate": "2026-08-17T17:00:00.000Z", "assetIds": ["gf-ast-002"], "createdAt": "2026-08-19T06:30:00.000Z"}
+    ],
+    "kits": [],
+    "audits": [],
+    "customFields": [],
+    "assetModels": []
+  }
+}
