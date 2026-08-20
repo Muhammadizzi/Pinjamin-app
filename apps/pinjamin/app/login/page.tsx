@@ -276,29 +276,6 @@ function LoginForm() {
           <div className="mt-6 text-center text-xs text-slate-400 dark:text-slate-500">
             © 2026 Garuda Food • Pinjamin
           </div>
-
-          {/* Petunjuk kredensial demo — hanya saat SHOW_DEMO_CREDENTIALS
-              aktif (dev / demo). Di production build blok ini tidak dirender
-              sama sekali sehingga kredensial bawaan tidak bocor ke publik. */}
-          {SHOW_DEMO_CREDENTIALS && (
-            <div className="mt-4 mx-auto max-w-[320px] rounded-xl bg-slate-100/70 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 px-3.5 py-2.5 text-[11.5px] text-slate-600 dark:text-slate-300 backdrop-blur-sm">
-              <p className="font-semibold text-slate-700 dark:text-slate-200 mb-1 text-center">
-                Demo · kredensial bawaan
-              </p>
-              <p className="flex items-center justify-between gap-2 font-mono">
-                <span>username</span>
-                <code className="bg-white/80 dark:bg-slate-900/80 px-1.5 py-0.5 rounded text-slate-800 dark:text-slate-100">
-                  adminsystem
-                </code>
-              </p>
-              <p className="flex items-center justify-between gap-2 font-mono mt-0.5">
-                <span>password</span>
-                <code className="bg-white/80 dark:bg-slate-900/80 px-1.5 py-0.5 rounded text-slate-800 dark:text-slate-100">
-                  admin123
-                </code>
-              </p>
-            </div>
-          )}
         </div>
       </div>
     </div>

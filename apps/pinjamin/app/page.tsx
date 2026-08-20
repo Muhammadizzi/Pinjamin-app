@@ -349,10 +349,6 @@ export default function LandingPage() {
                   <Search className="h-5 w-5 text-amber-300" />
                   Lacak Tiket
                 </CardTitle>
-                <p className="text-xs text-slate-400">
-                  Ketik nomor tiket lengkap (mis. TKT-8F3K2A) — status muncul
-                  otomatis, tanpa klik tombol.
-                </p>
               </CardHeader>
               <CardContent className="space-y-4">
                 <form onSubmit={submitTrack} className="relative">
@@ -430,9 +426,6 @@ export default function LandingPage() {
                 <LifeBuoy className="h-5 w-5 text-amber-300" />
                 Buat Tiket Bantuan
               </CardTitle>
-              <p className="text-xs text-slate-400">
-                Isi form di bawah — gratis, tanpa akun, tanpa login.
-              </p>
             </CardHeader>
             <CardContent>
               {createdNumber ? (
@@ -514,7 +507,7 @@ export default function LandingPage() {
                         onChange={(e) =>
                           setForm({ ...form, email: e.target.value })
                         }
-                        placeholder="nama@garudafood.com"
+                        placeholder="nama@garudafood.co.id"
                         className="h-11 rounded-xl"
                         required
                       />
