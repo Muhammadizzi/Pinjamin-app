@@ -103,56 +103,47 @@ function LoginForm() {
         <ArrowLeft className="h-4 w-4" />
         Kembali ke Beranda
       </Link>
-      {/* Warna dasar — dipakai kalau foto belum/ gagal dimuat, supaya
-          halaman tidak pernah tampil putih polos. */}
+      {/* Warna dasar — terlihat sekejap sebelum foto termuat, dan jadi
+          cadangan kalau file foto hilang. */}
       <div className="absolute inset-0 bg-[#0a1a30]" />
 
-      {/* Foto background. next/image (bukan CSS background) supaya foto
-          beresolusi besar diperkecil & dikonversi WebP/AVIF otomatis.
-          Blur 6px saja: cukup untuk keterbacaan, foto tetap kelihatan —
-          blur 14px sebelumnya membuat foto tak terbaca sama sekali. */}
+      {/* Foto kantor Garudafood sebagai latar. Pakai next/image supaya file
+          asli (5712x4284, ~4MB dari kamera ponsel) otomatis diperkecil sesuai
+          lebar layar dan dikirim sebagai AVIF/WebP — kalau dipasang lewat CSS
+          background, browser mengunduh 4MB penuh.
+          Blur hanya 3px: cukup melembutkan detail agar teks form tetap
+          nyaman dibaca, tapi gedung & logo masih jelas terlihat. */}
       <Image
         src="/bg_login.jpg"
         alt=""
         aria-hidden="true"
         fill
         priority
+        quality={70}
         sizes="100vw"
-        className="object-cover scale-110 [filter:blur(6px)_saturate(1.15)]"
+        /* object-position digeser ke atas: di layar ponsel yang tinggi,
+           crop tengah hanya menampilkan pintu kaca — dengan 32% papan nama
+           Garudafood ikut terlihat. */
+        className="object-cover object-[50%_32%] scale-105 [filter:blur(3px)_saturate(1.05)_brightness(0.92)]"
       />
 
-      {/* Mesh cahaya brand — memberi kedalaman walau fotonya polos. */}
-      <div
-        aria-hidden="true"
-        className="absolute inset-0"
-        style={{
-          backgroundImage:
-            "radial-gradient(60% 50% at 78% 12%, rgba(203,161,44,0.28), transparent 70%)," +
-            "radial-gradient(55% 45% at 12% 88%, rgba(26,54,93,0.55), transparent 70%)",
-        }}
-      />
-      {/* Grid halus — tekstur, bukan hiasan mencolok. */}
-      <div
-        aria-hidden="true"
-        className="absolute inset-0 opacity-[0.07]"
-        style={{
-          backgroundImage:
-            "linear-gradient(to right, #fff 1px, transparent 1px)," +
-            "linear-gradient(to bottom, #fff 1px, transparent 1px)",
-          backgroundSize: "56px 56px",
-          maskImage:
-            "radial-gradient(70% 60% at 50% 45%, #000 30%, transparent 100%)",
-          WebkitMaskImage:
-            "radial-gradient(70% 60% at 50% 45%, #000 30%, transparent 100%)",
-        }}
-      />
-      {/* Vignette — menarik fokus ke kartu login di tengah. */}
+      {/* Scrim navy miring — kontras untuk kartu login tanpa menenggelamkan
+          foto. Sengaja ringan (0.3–0.55) karena fotonya terang. */}
       <div
         aria-hidden="true"
         className="absolute inset-0"
         style={{
           background:
-            "radial-gradient(85% 75% at 50% 45%, transparent 25%, rgba(6,17,33,0.72) 100%)",
+            "linear-gradient(135deg, rgba(8,22,42,0.62) 0%, rgba(10,34,64,0.34) 45%, rgba(8,26,51,0.60) 100%)",
+        }}
+      />
+      {/* Vignette lembut — mengarahkan mata ke kartu di tengah. */}
+      <div
+        aria-hidden="true"
+        className="absolute inset-0"
+        style={{
+          background:
+            "radial-gradient(80% 70% at 50% 45%, transparent 35%, rgba(6,17,33,0.5) 100%)",
         }}
       />
 
@@ -177,7 +168,7 @@ function LoginForm() {
                 className="relative h-14 w-auto object-contain"
               />
             </span>
-            <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white">
+            <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white">
               {t("welcome")}
             </h1>
             <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
