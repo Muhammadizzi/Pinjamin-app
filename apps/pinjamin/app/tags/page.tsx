@@ -54,7 +54,7 @@ export default function TagsPage() {
     <AppShell>
       <div className="max-w-2xl mx-auto space-y-6">
         <div>
-          <h1 className="text-2xl font-bold">{t("tags")}</h1>
+          <h1 className="text-xl sm:text-2xl font-bold">{t("tags")}</h1>
           <p className="text-sm text-muted-foreground">
             Label fleksibel lintas kategori (many-to-many) • atur warna tiap tag
           </p>
@@ -147,7 +147,7 @@ export default function TagsPage() {
                   className="h-1.5 w-full"
                   style={{ background: tagColor }}
                 />
-                <CardContent className="p-4 flex items-center gap-3">
+                <CardContent className="p-3 sm:p-4 flex items-center gap-2.5 sm:gap-3">
                   <div
                     className="h-9 w-9 rounded-xl flex items-center justify-center shadow-sm"
                     style={{

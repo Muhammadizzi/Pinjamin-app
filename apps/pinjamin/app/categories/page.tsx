@@ -56,7 +56,7 @@ export default function CategoriesPage() {
       <div className="space-y-6 max-w-4xl mx-auto">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold">{t("categories")}</h1>
+            <h1 className="text-xl sm:text-2xl font-bold">{t("categories")}</h1>
             <p className="text-sm text-muted-foreground">
               Kelola kategori aset (satu kategori per aset)
             </p>
@@ -146,7 +146,7 @@ export default function CategoriesPage() {
                       {count} aset
                     </Badge>
                   </div>
-                  <div className="flex flex-col gap-1">
+                  <div className="flex shrink-0 items-center gap-1">
                     <Button
                       variant="ghost"
                       size="icon"

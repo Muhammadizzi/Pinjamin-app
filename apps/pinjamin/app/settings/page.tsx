@@ -167,7 +167,7 @@ export default function AccountSettingsPage() {
     <AppShell>
       <div className="max-w-2xl mx-auto space-y-6">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white flex items-center gap-2">
             <UserCog className="h-6 w-6 text-amber-300" />
             {t("accountSetting")}
           </h1>

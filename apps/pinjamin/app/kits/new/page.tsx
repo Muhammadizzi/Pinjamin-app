@@ -66,7 +66,7 @@ export default function NewKitPage() {
         </Link>
 
         <div>
-          <h1 className="text-2xl font-bold">Buat Kit Baru</h1>
+          <h1 className="text-xl sm:text-2xl font-bold">Buat Kit Baru</h1>
           <p className="text-sm text-muted-foreground">
             Isi informasi kit. Kit yang sudah terdaftar tidak tampil di sini —
             hanya form.

@@ -59,7 +59,7 @@ export default function CustodiansPage() {
       <div className="max-w-4xl mx-auto space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold">{t("custodians")}</h1>
+            <h1 className="text-xl sm:text-2xl font-bold">{t("custodians")}</h1>
             <p className="text-sm text-muted-foreground">
               Data peminjam dikelola admin (tanpa login)
             </p>
@@ -172,7 +172,7 @@ export default function CustodiansPage() {
                     {c.email} {c.phone && `• ${c.phone}`}
                   </div>
                 </div>
-                <div className="flex flex-col gap-1">
+                <div className="flex shrink-0 items-center gap-1">
                   <Button
                     variant="ghost"
                     size="icon"

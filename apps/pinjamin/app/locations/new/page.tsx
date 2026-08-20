@@ -96,7 +96,7 @@ export default function NewLocationPage() {
         </Link>
 
         <div>
-          <h1 className="text-2xl font-bold">Tambah Lokasi Baru</h1>
+          <h1 className="text-xl sm:text-2xl font-bold">Tambah Lokasi Baru</h1>
           <p className="text-sm text-muted-foreground">
             Pilih tipe: lokasi parent (gedung/area) atau lokasi biasa
             (ruangan/titik yang bisa masuk parent).

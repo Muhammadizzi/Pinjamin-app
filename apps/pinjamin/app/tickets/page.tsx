@@ -341,25 +341,27 @@ export default function TicketsPage() {
 
   return (
     <AppShell>
-      <div className="space-y-6 max-w-6xl mx-auto">
+      <div className="space-y-4 sm:space-y-6 max-w-6xl mx-auto">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
-              <LifeBuoy className="h-6 w-6 text-amber-300" />
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+              <LifeBuoy className="h-5 w-5 sm:h-6 sm:w-6 text-amber-300" />
               Tiket Bantuan
             </h1>
-            <p className="text-sm text-slate-400 mt-1">
+            {/* Deskripsi panjang disembunyikan di ponsel — memakan 3 baris
+                sebelum konten yang sebenarnya dicari. */}
+            <p className="hidden sm:block text-sm text-slate-400 mt-1">
               Terima, lacak, dan selesaikan permintaan bantuan dari landing page
               — user tidak perlu login.
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 w-full sm:w-auto">
             <Button
               variant="outline"
               size="sm"
               onClick={() => load(true)}
               disabled={refreshing}
-              className="rounded-xl"
+              className="rounded-xl flex-1 sm:flex-none"
             >
               <RefreshCw
                 className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
@@ -370,7 +372,7 @@ export default function TicketsPage() {
               variant="outline"
               size="sm"
               disabled={refreshing}
-              className="rounded-xl"
+              className="rounded-xl flex-1 sm:flex-none"
               onClick={() =>
                 ask({
                   title: "Muat tiket contoh?",
@@ -412,7 +414,7 @@ export default function TicketsPage() {
         </div>
 
         {/* Statistik — klik kartu untuk memfilter daftar */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
           {statCards.map((s) => {
             const active = filter === s.key;
             return (
@@ -434,13 +436,18 @@ export default function TicketsPage() {
                   active ? "ring-2 ring-[#CBA12C] border-[#CBA12C]/50" : ""
                 }`}
               >
-                <CardContent className="p-4 flex items-center gap-3">
-                  <s.icon className="h-8 w-8 opacity-80" strokeWidth={1.5} />
-                  <div>
-                    <div className="text-2xl font-extrabold text-white leading-none">
+                <CardContent className="p-3 sm:p-4 flex items-center gap-2.5 sm:gap-3">
+                  <s.icon
+                    className="h-6 w-6 sm:h-8 sm:w-8 shrink-0 opacity-80"
+                    strokeWidth={1.5}
+                  />
+                  <div className="min-w-0">
+                    <div className="text-xl sm:text-2xl font-extrabold text-white leading-none">
                       {s.value}
                     </div>
-                    <div className="text-xs mt-1 opacity-80">{s.label}</div>
+                    <div className="text-[11px] sm:text-xs mt-0.5 sm:mt-1 opacity-80 truncate">
+                      {s.label}
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -449,21 +456,23 @@ export default function TicketsPage() {
         </div>
 
         {/* Filter + cari */}
-        <div className="flex flex-wrap items-center gap-2">
-          {FILTERS.map((f) => (
-            <button
-              key={f.key}
-              onClick={() => setFilter(f.key)}
-              className={`rounded-full px-3.5 py-1.5 text-xs font-semibold border transition-all ${
-                filter === f.key
-                  ? "bg-[#CBA12C] text-[#1a365d] border-[#CBA12C]"
-                  : "bg-transparent text-slate-300 border-[#243a5e] hover:border-slate-500"
-              }`}
-            >
-              {f.label}
-            </button>
-          ))}
-          <div className="relative ml-auto w-full sm:w-64">
+        <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2">
+          <div className="-mx-3 flex gap-2 overflow-x-auto px-3 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {FILTERS.map((f) => (
+              <button
+                key={f.key}
+                onClick={() => setFilter(f.key)}
+                className={`shrink-0 rounded-full px-3.5 py-1.5 text-xs font-semibold border transition-all ${
+                  filter === f.key
+                    ? "bg-[#CBA12C] text-[#1a365d] border-[#CBA12C]"
+                    : "bg-transparent text-slate-300 border-[#243a5e] hover:border-slate-500"
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+          <div className="relative w-full sm:ml-auto sm:w-64">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
             <Input
               value={search}
