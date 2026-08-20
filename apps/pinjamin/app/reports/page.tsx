@@ -97,7 +97,10 @@ export default function ReportsPage() {
   };
 
   const exportPDF = async () => {
-    const jsPDF = (await import("jspdf")).default;
+    // jsPDF 4 tidak lagi mengekspor konstruktor sebagai `default` — harus
+    // named export. Bentuk lama (.default) menghasilkan objek, bukan kelas,
+    // sehingga `new` melempar "jsPDF is not a constructor".
+    const { jsPDF } = await import("jspdf");
     const doc = new jsPDF();
     doc.setFillColor(10, 34, 64);
     doc.rect(0, 0, 210, 22, "F");
