@@ -5,9 +5,12 @@ import {
   SIMPLE_RESOURCE_TABLE,
   SIMPLE_RESOURCE_FIELDS,
   pickAllowed,
+  clientIdRow,
+  isQrCode,
   fromDbRow,
   type SimpleResourceKey,
 } from "@/lib/resource-config";
+import { generateQRCode } from "@/lib/utils";
 
 function isSimpleResource(key: string): key is SimpleResourceKey {
   return key in SIMPLE_RESOURCE_TABLE;
@@ -39,9 +42,19 @@ export async function POST(
       { status: 503 }
     );
 
-  const row = pickAllowed(body, SIMPLE_RESOURCE_FIELDS[resource]);
+  const row: Record<string, unknown> = {
+    ...pickAllowed(body, SIMPLE_RESOURCE_FIELDS[resource]),
+    // id client dipakai bila UUID valid → id lokal & DB tetap sama.
+    ...clientIdRow(body),
+  };
   if (Object.keys(row).length === 0) {
     return NextResponse.json({ error: "No valid fields" }, { status: 400 });
+  }
+
+  // kits.qr_code NOT NULL UNIQUE — tanpa ini insert kit selalu gagal.
+  if (resource === "kits") {
+    const qr = (body as Record<string, unknown>).qr_code;
+    row.qr_code = isQrCode(qr) ? qr : `KIT-${generateQRCode().slice(4)}`;
   }
 
   const { data, error } = await supa
@@ -50,7 +63,12 @@ export async function POST(
     .select()
     .single();
 
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error(`[data POST ${resource}]`, error.message);
+    return NextResponse.json(
+      { error: `Gagal menyimpan ${resource}.` },
+      { status: 500 }
+    );
+  }
   return NextResponse.json({ data: fromDbRow(data) });
 }

@@ -59,9 +59,15 @@ function warnIfServerless() {
     console.warn(
       "[store] Berjalan di environment serverless tanpa PINJAMIN_DATA_DIR — " +
         "file store TIDAK persisten antar deploy/request. Konfigurasikan Supabase " +
-        "(NEXT_PUBLIC_SUPABASE_URL/NEXT_PUBLIC_SUPABASE_ANON_KEY) untuk penyimpanan awet."
+        "(NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE) untuk penyimpanan awet."
     );
   }
+}
+
+/** Filesystem read-only (Vercel/Lambda) — bukan bug, tapi mode ini tidak bisa dipakai. */
+function isReadOnlyFsError(e: unknown): boolean {
+  const code = (e as { code?: string } | null)?.code;
+  return code === "EROFS" || code === "EACCES" || code === "EPERM";
 }
 
 function isValidAppDataShape(v: unknown): v is Record<string, unknown[]> {
@@ -139,6 +145,24 @@ export async function PUT(req: NextRequest) {
     writeQueue = writeQueue.then(() => writeStoreFile(payload));
     await writeQueue;
   } catch (e) {
+    if (isReadOnlyFsError(e)) {
+      // Host serverless: tidak ada disk yang bisa ditulis. Jawab 501 (bukan
+      // 500) supaya jelas ini keterbatasan mode, lalu client tetap jalan
+      // dengan localStorage sampai Supabase dikonfigurasi.
+      console.error(
+        "[store] Filesystem read-only — mode file store tidak didukung di sini. " +
+          "Set SUPABASE_SERVICE_ROLE + NEXT_PUBLIC_SUPABASE_URL (jalankan supabase/01-schema.sql) " +
+          "atau arahkan PINJAMIN_DATA_DIR ke volume persisten."
+      );
+      return NextResponse.json(
+        {
+          error:
+            "Penyimpanan file tidak tersedia di server ini. Konfigurasikan Supabase agar data tersimpan permanen.",
+          readOnly: true,
+        },
+        { status: 501 }
+      );
+    }
     console.error("[store] gagal menulis file store:", e);
     return NextResponse.json(
       { error: "Gagal menyimpan data ke server" },

@@ -40,7 +40,7 @@ export default function BookingsPage() {
       <div className="space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-bold">{t("bookings")}</h1>
+            <h1 className="text-xl sm:text-2xl font-bold">{t("bookings")}</h1>
             <p className="text-sm text-muted-foreground">
               {filtered.length} booking • cegah bentrok otomatis
             </p>

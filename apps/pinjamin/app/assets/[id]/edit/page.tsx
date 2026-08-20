@@ -72,7 +72,7 @@ export default function EditAssetPage() {
   return (
     <AppShell>
       <div className="max-w-3xl mx-auto space-y-6">
-        <h1 className="text-2xl font-bold">Edit Aset</h1>
+        <h1 className="text-xl sm:text-2xl font-bold">Edit Aset</h1>
         <Card>
           <CardHeader>
             <CardTitle>Edit {asset.name}</CardTitle>

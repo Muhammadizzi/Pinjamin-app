@@ -77,7 +77,7 @@ export default function NewBookingPage() {
     <AppShell>
       <div className="max-w-3xl mx-auto space-y-6">
         <div>
-          <h1 className="text-2xl font-bold">Booking Baru</h1>
+          <h1 className="text-xl sm:text-2xl font-bold">Booking Baru</h1>
           <p className="text-sm text-muted-foreground">
             Pilih aset/kit + peminjam + tanggal. Sistem cegah bentrok otomatis.
           </p>

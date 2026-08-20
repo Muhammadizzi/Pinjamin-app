@@ -196,7 +196,7 @@ const dict = {
     username: "Username",
     password: "Password",
     login: "Sign In",
-    loginAdmin: "Admin Sign In",
+    loginAdmin: "Login",
     rememberMe: "Remember me",
     forgotPassword: "Forgot password? Contact admin",
     scannerTitle: "QR Scanner",

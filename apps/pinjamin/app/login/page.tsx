@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useRef, Suspense } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +9,15 @@ import { Label } from "@/components/ui/label";
 import { ArrowLeft, Eye, EyeOff, Loader2 } from "lucide-react";
 import { useAuth } from "@/lib/auth-client";
 import { useT } from "@/lib/i18n";
+
+/**
+ * Blok "kredensial demo" di bawah form hanya ditampilkan di luar production,
+ * atau bila sengaja dinyalakan lewat NEXT_PUBLIC_SHOW_DEMO_CREDENTIALS=1
+ * (mis. deployment demo). Di production default-nya mati.
+ */
+const SHOW_DEMO_CREDENTIALS =
+  process.env.NODE_ENV !== "production" ||
+  process.env.NEXT_PUBLIC_SHOW_DEMO_CREDENTIALS === "1";
 
 function safeNextPath(raw: string | null) {
   if (!raw) return "/dashboard";
@@ -93,19 +103,49 @@ function LoginForm() {
         <ArrowLeft className="h-4 w-4" />
         Kembali ke Beranda
       </Link>
-      {/* Foto background dengan efek blur sebagai hero visual. */}
+      {/* Warna dasar — terlihat sekejap sebelum foto termuat, dan jadi
+          cadangan kalau file foto hilang. */}
+      <div className="absolute inset-0 bg-[#0a1a30]" />
+
+      {/* Foto kantor Garudafood sebagai latar. Pakai next/image supaya file
+          asli (5712x4284, ~4MB dari kamera ponsel) otomatis diperkecil sesuai
+          lebar layar dan dikirim sebagai AVIF/WebP — kalau dipasang lewat CSS
+          background, browser mengunduh 4MB penuh.
+          Blur hanya 3px: cukup melembutkan detail agar teks form tetap
+          nyaman dibaca, tapi gedung & logo masih jelas terlihat. */}
+      <Image
+        src="/bg_login.jpg"
+        alt=""
+        aria-hidden="true"
+        fill
+        priority
+        quality={70}
+        sizes="100vw"
+        /* object-position digeser ke atas: di layar ponsel yang tinggi,
+           crop tengah hanya menampilkan pintu kaca — dengan 32% papan nama
+           Garudafood ikut terlihat. */
+        className="object-cover object-[50%_32%] scale-105 [filter:blur(3px)_saturate(1.05)_brightness(0.92)]"
+      />
+
+      {/* Scrim navy miring — kontras untuk kartu login tanpa menenggelamkan
+          foto. Sengaja ringan (0.3–0.55) karena fotonya terang. */}
       <div
-        className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+        aria-hidden="true"
+        className="absolute inset-0"
         style={{
-          backgroundImage: `url('/bg_login.jpg')`,
-          filter: "blur(14px) saturate(1.25) brightness(0.95)",
-          transform: "scale(1.15)", // kompensasi sisi terpotong akibat blur
+          background:
+            "linear-gradient(135deg, rgba(8,22,42,0.62) 0%, rgba(10,34,64,0.34) 45%, rgba(8,26,51,0.60) 100%)",
         }}
       />
-      {/* Overlay tipis — readability saja, foto blur tetap jadi fokus. */}
-      <div className="absolute inset-0 bg-gradient-to-br from-[#0a2240]/25 via-transparent to-[#081a33]/35" />
-      <div className="absolute -top-32 -right-32 h-[500px] w-[500px] rounded-full bg-[#CBA12C]/20 blur-[100px] pointer-events-none" />
-      <div className="absolute -bottom-32 -left-32 h-[400px] w-[400px] rounded-full bg-[#0a2240]/30 blur-[80px] pointer-events-none" />
+      {/* Vignette lembut — mengarahkan mata ke kartu di tengah. */}
+      <div
+        aria-hidden="true"
+        className="absolute inset-0"
+        style={{
+          background:
+            "radial-gradient(80% 70% at 50% 45%, transparent 35%, rgba(6,17,33,0.5) 100%)",
+        }}
+      />
 
       <div ref={formRef} className="relative w-full max-w-[420px]">
         <div className="bg-white/95 dark:bg-slate-900/85 backdrop-blur-2xl rounded-[24px] shadow-[0_24px_64px_rgba(0,0,0,0.4)] border border-white/20 p-8 sm:p-8">
@@ -119,14 +159,16 @@ function LoginForm() {
                 aria-hidden="true"
                 className="absolute h-20 w-20 rounded-full bg-amber-300/25 blur-[14px]"
               />
-              <img
+              <Image
                 src="/logo-pinjamin.png"
                 alt="Pinjamin"
+                width={56}
+                height={56}
+                priority
                 className="relative h-14 w-auto object-contain"
-                style={{ background: "transparent" }}
               />
             </span>
-            <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white">
+            <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white">
               {t("welcome")}
             </h1>
             <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
@@ -233,25 +275,6 @@ function LoginForm() {
 
           <div className="mt-6 text-center text-xs text-slate-400 dark:text-slate-500">
             © 2026 Garuda Food • Pinjamin
-          </div>
-
-          {/* Petunjuk kredensial demo (non-production only). */}
-          <div className="mt-4 mx-auto max-w-[320px] rounded-xl bg-slate-100/70 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 px-3.5 py-2.5 text-[11.5px] text-slate-600 dark:text-slate-300 backdrop-blur-sm">
-            <p className="font-semibold text-slate-700 dark:text-slate-200 mb-1 text-center">
-              Demo · kredensial bawaan
-            </p>
-            <p className="flex items-center justify-between gap-2 font-mono">
-              <span>username</span>
-              <code className="bg-white/80 dark:bg-slate-900/80 px-1.5 py-0.5 rounded text-slate-800 dark:text-slate-100">
-                adminsystem
-              </code>
-            </p>
-            <p className="flex items-center justify-between gap-2 font-mono mt-0.5">
-              <span>password</span>
-              <code className="bg-white/80 dark:bg-slate-900/80 px-1.5 py-0.5 rounded text-slate-800 dark:text-slate-100">
-                admin123
-              </code>
-            </p>
           </div>
         </div>
       </div>

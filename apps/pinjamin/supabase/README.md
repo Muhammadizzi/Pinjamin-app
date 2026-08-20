@@ -12,13 +12,19 @@
 > ```
 >
 > Urutan jalankan SQL: `01-schema.sql` → `02-storage.sql` → `03-seed.sql`
-> (opsional) → `05-auth-hardening.sql` (token_version) → `04-enable-rls.sql` > **paling akhir**, setelah app dengan `app/api/data/**` sudah ter-deploy
-> (kalau RLS dinyalakan duluan tanpa route ini, app kehilangan akses).
+> (opsional) → `05-auth-hardening.sql` (token_version) → `06-tickets.sql`
+> (helpdesk) → `04-enable-rls.sql` **paling akhir**, setelah app dengan
+> `app/api/data/**` sudah ter-deploy (kalau RLS dinyalakan duluan tanpa route
+> ini, app kehilangan akses).
 
 Pinjamin support **2 mode** agar tetap jalan tanpa setup:
 
-- **Offline (default):** tanpa env, upload disimpan sebagai `base64` di `localStorage` → instant, tidak butuh Supabase.
-- **Production:** set env + buat bucket `assets` → upload ke Supabase Storage (public URL).
+- **Offline (dev/VPS):** tanpa env, data di `data/*.json` + `localStorage`,
+  upload disimpan sebagai `base64`. **Tidak boleh dipakai di Vercel** —
+  filesystem serverless read-only dan ephemeral, jadi tiket & data gagal
+  tersimpan (`/api/store` menjawab `501`).
+- **Production (wajib untuk Vercel):** set env Supabase + buat bucket
+  `assets` → semua data di Postgres, upload ke Supabase Storage.
 
 ## 1. Setup cepat (5 menit)
 
@@ -74,18 +80,17 @@ cp ../../.env.example .env.local
 # lalu isi NEXT_PUBLIC_SUPABASE_URL dan ANON_KEY
 ```
 
-## 3. Migrasi DB (opsional, jika mau pakai Postgres bukan localStorage)
+## 3. Skema database
 
-Saat ini Pinjamin pakai `localStorage` (sesuai PRD MVP, tanpa pg-boss). Untuk migrasi ke Postgres + Drizzle:
+Skema lengkap ada di file SQL folder ini — dijalankan manual lewat SQL Editor
+Supabase (tidak ada migration runner untuk Pinjamin; `pnpm db:*` di root
+milik app `@shelf/webapp`, bukan app ini).
 
-```bash
-# buat .env dengan DATABASE_URL (Supabase connection pooling 6543)
-# DIRECT_URL (5432) untuk migrasi
-pnpm db:prepare-migration  # dari root, paket @shelf/database sebagai contoh
-# atau buat schema baru di apps/pinjamin/drizzle/
-```
+Begitu `SUPABASE_SERVICE_ROLE` di-set, app otomatis beralih ke Postgres:
 
-Untuk MVP, **tidak wajib** — localStorage sudah cukup untuk demo & Vercel free tier.
+- master data & aset → `app/api/data/**`
+- tiket helpdesk → `app/api/tickets/**` (butuh `06-tickets.sql`)
+- foto aset → bucket `assets`
 
 ## 4. Test
 

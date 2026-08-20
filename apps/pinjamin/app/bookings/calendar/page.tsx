@@ -11,7 +11,8 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default function CalendarPage() {
-  const { bookings } = useStore(); const { t } = useT();
+  const { bookings } = useStore();
+  const { t } = useT();
   const [cur, setCur] = useState(() => new Date());
   const year = cur.getFullYear();
   const month = cur.getMonth();
@@ -42,7 +43,7 @@ export default function CalendarPage() {
       <div className="space-y-4 max-w-5xl mx-auto">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold">Kalender Booking</h1>
+            <h1 className="text-xl sm:text-2xl font-bold">Kalender Booking</h1>
             <p className="text-sm text-muted-foreground">
               Tampilan kalender peminjaman
             </p>

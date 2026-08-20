@@ -22,6 +22,25 @@ function isPublicAsset(pathname: string) {
   return /\.(png|jpg|jpeg|webp|ico|svg|webmanifest|txt|map)$/i.test(pathname);
 }
 
+const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
+
+/**
+ * CSRF defense-in-depth: cookie sesi sudah SameSite=Lax (browser tidak
+ * mengirimnya pada POST lintas-situs), tapi kita tolak juga request mutasi
+ * yang header Origin-nya bukan host ini. Origin yang tidak ada (curl, health
+ * check, form non-browser) dibiarkan lewat — pemeriksaan sesi tetap berlaku.
+ */
+function isSameOrigin(req: NextRequest) {
+  const origin = req.headers.get("origin");
+  if (!origin) return true;
+  const host = req.headers.get("host");
+  try {
+    return new URL(origin).host === host;
+  } catch {
+    return false;
+  }
+}
+
 function isPublicApi(pathname: string, method: string) {
   if (pathname === "/api/auth/login" && method === "POST") return true;
   if (pathname === "/api/tickets" && method === "POST") return true;
@@ -39,6 +58,12 @@ export default async function proxy(req: NextRequest) {
   const session = token ? await verifySession(token) : null;
 
   if (pathname.startsWith("/api/")) {
+    if (!SAFE_METHODS.has(method) && !isSameOrigin(req)) {
+      return NextResponse.json(
+        { error: "Origin tidak diizinkan." },
+        { status: 403 }
+      );
+    }
     if (isPublicApi(pathname, method)) return NextResponse.next();
     if (pathname === "/api/auth/logout") return NextResponse.next();
     if (!session) {

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth } from "@/lib/auth";
+import { requireAuth, unauthorized } from "@/lib/auth";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import {
   ASSET_FIELDS,
@@ -7,14 +7,17 @@ import {
   fromDbRow,
   isUuid,
 } from "@/lib/resource-config";
+import { customValueRows } from "@/lib/asset-relations";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function PATCH(
   req: NextRequest,
   ctx: { params: Promise<{ id: string }> }
 ) {
   const session = await requireAuth(req);
-  if (!session)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session) return unauthorized();
 
   const { id } = await ctx.params;
   if (!isUuid(id))
@@ -42,8 +45,13 @@ export async function PATCH(
       .eq("id", id)
       .select()
       .single();
-    if (error)
-      return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) {
+      console.error("[assets PATCH]", error.message);
+      return NextResponse.json(
+        { error: "Gagal memperbarui aset." },
+        { status: 500 }
+      );
+    }
     asset = data;
   }
 
@@ -68,6 +76,32 @@ export async function PATCH(
     }
   }
 
+  // customValues dikirim sebagai map lengkap: kunci yang hilang berarti
+  // nilainya dikosongkan, jadi baris lama dihapus dulu lalu di-upsert.
+  const rawCustomValues = (body as Record<string, unknown>).customValues;
+  if (rawCustomValues && typeof rawCustomValues === "object") {
+    const { error: delErr } = await supa
+      .from("asset_custom_values")
+      .delete()
+      .eq("asset_id", id);
+    if (delErr)
+      console.warn(
+        "[assets PATCH] asset_custom_values delete failed:",
+        delErr.message
+      );
+    const rows = customValueRows(id, rawCustomValues);
+    if (rows.length) {
+      const { error: cvErr } = await supa
+        .from("asset_custom_values")
+        .upsert(rows, { onConflict: "asset_id,custom_field_id" });
+      if (cvErr)
+        console.warn(
+          "[assets PATCH] asset_custom_values upsert failed:",
+          cvErr.message
+        );
+    }
+  }
+
   return NextResponse.json({ data: asset ? fromDbRow(asset) : { id } });
 }
 
@@ -76,8 +110,7 @@ export async function DELETE(
   ctx: { params: Promise<{ id: string }> }
 ) {
   const session = await requireAuth(req);
-  if (!session)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session) return unauthorized();
 
   const { id } = await ctx.params;
   if (!isUuid(id))
@@ -91,7 +124,12 @@ export async function DELETE(
     );
 
   const { error } = await supa.from("assets").delete().eq("id", id);
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error("[assets DELETE]", error.message);
+    return NextResponse.json(
+      { error: "Gagal menghapus aset." },
+      { status: 500 }
+    );
+  }
   return NextResponse.json({ ok: true });
 }

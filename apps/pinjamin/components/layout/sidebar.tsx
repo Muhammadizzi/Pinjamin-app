@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
@@ -179,11 +180,13 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
             aria-hidden="true"
             className="absolute -inset-2.5 rounded-full bg-amber-300/25 blur-[12px]"
           />
-          <img
+          <Image
             src="/logo-pinjamin.png"
             alt="Pinjamin"
+            width={44}
+            height={44}
+            priority
             className="relative h-full w-full object-contain"
-            style={{ background: "transparent" }}
           />
         </div>
         <div>
@@ -406,7 +409,7 @@ export function TopBar({ onMenu }: { onMenu: () => void }) {
     router.push(m === "tickets" ? "/tickets" : "/dashboard");
   };
   return (
-    <header className="sticky top-0 z-20 flex h-[64px] items-center gap-3 border-b bg-[#0f1d33]/95 backdrop-blur-xl px-4 border-[#243a5e] shadow-sm">
+    <header className="sticky top-0 z-20 flex h-[56px] sm:h-[64px] items-center gap-1.5 sm:gap-3 border-b bg-[#0f1d33]/95 backdrop-blur-xl px-2 sm:px-4 border-[#243a5e] shadow-sm">
       <Button
         variant="ghost"
         size="icon"
@@ -415,7 +418,10 @@ export function TopBar({ onMenu }: { onMenu: () => void }) {
       >
         <Menu className="h-6 w-6" strokeWidth={1.5} />
       </Button>
-      <Link href="/dashboard" className="flex items-center gap-2 lg:hidden">
+      <Link
+        href="/dashboard"
+        className="flex min-w-0 items-center gap-2 lg:hidden"
+      >
         <span className="relative flex items-center justify-center">
           <span
             aria-hidden="true"
@@ -425,17 +431,20 @@ export function TopBar({ onMenu }: { onMenu: () => void }) {
             aria-hidden="true"
             className="absolute h-10 w-10 rounded-full bg-amber-300/25 blur-[10px]"
           />
-          <img
+          <Image
             src="/logo-pinjamin.png"
             alt="Pinjamin"
+            width={28}
+            height={28}
             className="relative h-7 w-auto object-contain"
-            style={{ background: "transparent" }}
           />
         </span>
-        <span className="font-extrabold tracking-tight text-white">
+        <span className="font-extrabold tracking-tight text-white truncate">
           Pinjamin
         </span>
-        <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#CBA12C] text-[#1a365d] font-bold">
+        {/* Badge disembunyikan di layar <640px: bersama switcher mode dan
+            avatar, header jadi pecah dua baris di ponsel 375px. */}
+        <span className="hidden sm:inline text-[10px] px-1.5 py-0.5 rounded bg-[#CBA12C] text-[#1a365d] font-bold whitespace-nowrap">
           GARUDA FOOD
         </span>
       </Link>
@@ -448,7 +457,7 @@ export function TopBar({ onMenu }: { onMenu: () => void }) {
           Sistem aktif
         </span>
       </div>
-      <div className="ml-auto flex items-center gap-2">
+      <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
         {/* Switcher Mode Admin: Pinjamin (aset) vs Ticketing (helpdesk) */}
         <div className="flex items-center rounded-xl border border-[#243a5e] bg-[#142a4a] p-0.5">
           <button
@@ -456,7 +465,7 @@ export function TopBar({ onMenu }: { onMenu: () => void }) {
             onClick={() => switchMode("assets")}
             title="Mode Admin Pinjamin"
             className={cn(
-              "flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-all",
+              "flex items-center gap-1.5 rounded-lg px-2 sm:px-2.5 py-1.5 text-xs font-semibold transition-all",
               mode === "assets"
                 ? "bg-[#CBA12C] text-[#1a365d] shadow"
                 : "text-slate-400 hover:text-white"
@@ -470,7 +479,7 @@ export function TopBar({ onMenu }: { onMenu: () => void }) {
             onClick={() => switchMode("tickets")}
             title="Mode Admin Ticketing"
             className={cn(
-              "flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-all",
+              "flex items-center gap-1.5 rounded-lg px-2 sm:px-2.5 py-1.5 text-xs font-semibold transition-all",
               mode === "tickets"
                 ? "bg-[#CBA12C] text-[#1a365d] shadow"
                 : "text-slate-400 hover:text-white"
@@ -517,7 +526,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <div className="flex-1 min-w-0 flex flex-col">
           <TopBar onMenu={() => setOpen(true)} />
           <main className="flex-1 bg-[#0f1d33]">
-            <div className="mx-auto max-w-[1600px] p-4 sm:p-6 lg:p-8">
+            <div className="mx-auto max-w-[1600px] p-3 sm:p-5 lg:p-8">
               {children}
             </div>
           </main>

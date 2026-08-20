@@ -218,7 +218,7 @@ export default function LocationsPage() {
       <div className="max-w-3xl mx-auto space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold">{t("locations")}</h1>
+            <h1 className="text-xl sm:text-2xl font-bold">{t("locations")}</h1>
             <p className="text-sm text-muted-foreground">
               {parentLocs.length} lokasi parent • {regularLocs.length} lokasi
               biasa

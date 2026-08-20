@@ -4,6 +4,7 @@ import {
   attachSessionCookie,
   bootstrapAdminFromEnv,
   clientIp,
+  isAdminConfigured,
   loginLimiter,
   loginSchema,
   toPublicAdmin,
@@ -47,6 +48,21 @@ export async function POST(req: NextRequest) {
   const { username, password, remember } = parsed.data;
   const admin = await authenticateAdmin(username, password);
   if (!admin) {
+    // Di production tanpa tabel `admins` / ADMIN_PASSWORD_HASH / ADMIN_PASSWORD
+    // tidak ada kredensial sama sekali — beri pesan konfigurasi, bukan
+    // "password salah" yang menyesatkan.
+    if (!(await isAdminConfigured())) {
+      console.error(
+        "[auth] Tidak ada kredensial admin. Set SUPABASE_SERVICE_ROLE + baris tabel admins, atau ADMIN_PASSWORD_HASH / ADMIN_PASSWORD."
+      );
+      return NextResponse.json(
+        {
+          error:
+            "Akun admin belum dikonfigurasi di server. Hubungi administrator.",
+        },
+        { status: 503 }
+      );
+    }
     return NextResponse.json(
       { error: "Username atau password salah." },
       { status: 401 }

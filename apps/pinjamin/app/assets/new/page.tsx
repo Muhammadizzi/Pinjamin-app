@@ -96,7 +96,7 @@ export default function NewAssetPage() {
     <AppShell>
       <div className="max-w-3xl mx-auto space-y-6">
         <div>
-          <h1 className="text-2xl font-bold">Tambah Aset</h1>
+          <h1 className="text-xl sm:text-2xl font-bold">Tambah Aset</h1>
           <p className="text-sm text-muted-foreground">
             Isi detail aset baru. QR & Serial akan dibuat otomatis.
           </p>

@@ -28,7 +28,12 @@ import {
   signSession,
   verifySession,
 } from "./auth-edge";
-import { loginLimiter, ticketLimiter, clientIp } from "./rate-limit";
+import {
+  loginLimiter,
+  ticketLimiter,
+  trackLimiter,
+  clientIp,
+} from "./rate-limit";
 
 export {
   AUTH_COOKIE,
@@ -42,7 +47,7 @@ export {
   sessionCookieOptions,
   clearCookieOptions,
 } from "./auth-edge";
-export { loginLimiter, ticketLimiter, clientIp };
+export { loginLimiter, ticketLimiter, trackLimiter, clientIp };
 
 const DATA_DIR =
   process.env.PINJAMIN_DATA_DIR || path.join(process.cwd(), "data");
@@ -95,21 +100,87 @@ export const passwordSchema = z.object({
 });
 
 let profileCache: AdminProfile | null = null;
+let profileCachedAt = 0;
+
+/**
+ * Umur cache profil admin.
+ *
+ * Cache ini per-proses. Di host multi-instance (Vercel) instance yang tidak
+ * memproses "ganti password" akan menyimpan token_version lama selamanya, dan
+ * menolak cookie baru dengan tv yang sudah naik — user seperti ter-logout
+ * acak tergantung instance mana yang melayani. TTL pendek membuat semua
+ * instance menyusul dalam hitungan detik.
+ */
+const PROFILE_CACHE_TTL_MS = 30_000;
+
+function cachedProfile(): AdminProfile | null {
+  if (!profileCache) return null;
+  if (Date.now() - profileCachedAt > PROFILE_CACHE_TTL_MS) return null;
+  return profileCache;
+}
+
+function setProfileCache(p: AdminProfile) {
+  profileCache = p;
+  profileCachedAt = Date.now();
+  return p;
+}
 
 function envUsername() {
   return (process.env.ADMIN_USERNAME || "adminsystem").trim();
 }
 
-function defaultProfile(): AdminProfile {
-  const envHash = process.env.ADMIN_PASSWORD_HASH?.trim();
+const isProduction = () => process.env.NODE_ENV === "production";
+
+/** Hash dari ADMIN_PASSWORD (plaintext env) — dihitung sekali, di-cache. */
+let envPlainHashCache: string | null = null;
+
+function baseProfile(hash: string): AdminProfile {
   return {
     id: DEFAULT_ADMIN_ID,
     username: envUsername(),
     fullName: process.env.ADMIN_NAME?.trim() || "Administrator",
     avatar: "",
-    hash: envHash || DEFAULT_PASSWORD_HASH,
+    hash,
     tokenVersion: 1,
   };
+}
+
+/**
+ * Kredensial fallback ketika tabel `admins` dan data/admin.json tidak ada.
+ *
+ * Urutan: ADMIN_PASSWORD_HASH → ADMIN_PASSWORD (di-hash saat runtime) →
+ * demo `admin123` HANYA di luar production. Di production tanpa salah satu
+ * env di atas hasilnya null: login ditolak, bukan jatuh ke sandi demo yang
+ * hash-nya ada di source code publik.
+ */
+async function fallbackProfile(): Promise<AdminProfile | null> {
+  const envHash = process.env.ADMIN_PASSWORD_HASH?.trim();
+  if (envHash) return baseProfile(envHash);
+
+  const plain = process.env.ADMIN_PASSWORD?.trim();
+  if (plain && plain.length >= 8) {
+    if (!envPlainHashCache) envPlainHashCache = await hashPassword(plain);
+    return baseProfile(envPlainHashCache);
+  }
+
+  if (isProduction()) return null;
+  return baseProfile(DEFAULT_PASSWORD_HASH);
+}
+
+/** Profil "terkunci": bentuk lengkap tapi hash kosong → tidak pernah cocok. */
+function lockedProfile(): AdminProfile {
+  return baseProfile("");
+}
+
+/**
+ * Apakah ada sumber kredensial admin yang bisa dipakai login?
+ * Dipakai route login untuk memberi pesan konfigurasi yang jelas alih-alih
+ * "username atau password salah" yang menyesatkan.
+ */
+export async function isAdminConfigured(): Promise<boolean> {
+  if (await loadFirstFromSupabase()) return true;
+  if (await loadFromFile()) return true;
+  return !!(await fallbackProfile());
 }
 
 function normalizeProfile(raw: unknown): AdminProfile | null {
@@ -197,12 +268,11 @@ async function loadFromSupabaseByUsername(
 ): Promise<AdminProfile | null> {
   const supa = getSupabaseAdmin();
   if (!supa) return null;
+  // `%` dan `_` adalah wildcard LIKE — di-escape supaya username "%" tidak
+  // cocok dengan baris admin mana pun.
+  const pattern = username.replace(/[\\%_]/g, (m) => `\\${m}`);
   return selectAdmin((columns) =>
-    supa
-      .from("admins")
-      .select(columns)
-      .ilike("username", username)
-      .maybeSingle()
+    supa.from("admins").select(columns).ilike("username", pattern).maybeSingle()
   );
 }
 
@@ -245,23 +315,17 @@ async function saveToSupabase(profile: AdminProfile) {
 }
 
 export async function getAdminProfile(): Promise<AdminProfile> {
-  if (profileCache) return profileCache;
+  const cached = cachedProfile();
+  if (cached) return cached;
   const fromDb = await loadFirstFromSupabase();
-  if (fromDb) {
-    profileCache = fromDb;
-    return fromDb;
-  }
+  if (fromDb) return setProfileCache(fromDb);
   const fromFile = await loadFromFile();
-  if (fromFile) {
-    profileCache = fromFile;
-    return fromFile;
-  }
-  profileCache = defaultProfile();
-  return profileCache;
+  if (fromFile) return setProfileCache(fromFile);
+  return setProfileCache((await fallbackProfile()) || lockedProfile());
 }
 
 async function persistProfile(next: AdminProfile): Promise<AdminProfile> {
-  profileCache = next;
+  setProfileCache(next);
   await Promise.all([
     saveToFile(next).catch((e) =>
       console.warn("[auth] gagal tulis admin.json:", (e as Error).message)
@@ -293,23 +357,23 @@ export async function authenticateAdmin(
   password: string
 ): Promise<AdminProfile | null> {
   const fromDb = await loadFromSupabaseByUsername(username);
-  const fileOrDefault = fromDb
+  const fileOrFallback = fromDb
     ? null
-    : (await loadFromFile()) || defaultProfile();
+    : (await loadFromFile()) || (await fallbackProfile());
   const candidate =
     fromDb ||
-    (fileOrDefault &&
-    fileOrDefault.username.toLowerCase() === username.toLowerCase()
-      ? fileOrDefault
+    (fileOrFallback &&
+    fileOrFallback.username.toLowerCase() === username.toLowerCase()
+      ? fileOrFallback
       : null);
 
+  // Selalu jalankan bcrypt (walau user tidak ada) agar waktu respons tidak
+  // membocorkan username mana yang valid.
   const hash = candidate?.hash || DUMMY_HASH;
   const ok = await verifyPassword(password, hash);
-  if (!ok || !candidate) return null;
+  if (!ok || !candidate?.hash) return null;
 
-  // Env ADMIN_PASSWORD (plaintext) hanya untuk bootstrap pertama kali.
-  // Jika hash default masih dipakai dan env password di-set, terima env itu juga.
-  profileCache = candidate;
+  setProfileCache(candidate);
   return candidate;
 }
 
@@ -325,8 +389,7 @@ export async function bootstrapAdminFromEnv(): Promise<void> {
   if (existingFile || existingDb) return;
   const hash = await hashPassword(plain);
   await persistProfile({
-    ...defaultProfile(),
-    hash,
+    ...baseProfile(hash),
     username: envUsername(),
   });
 }

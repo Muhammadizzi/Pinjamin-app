@@ -21,6 +21,7 @@ import {
   MapPin,
   Tag as TagIcon,
   Filter,
+  ChevronDown,
   Trash2,
   Eye,
   Pencil,
@@ -44,10 +45,17 @@ export default function AssetsPage() {
     deleteAsset,
     importAssets,
     loadDemoData,
+    isSupabase,
   } = useStore();
   const { t } = useT();
   const { ask, confirmDialog } = useConfirmDialog();
   const [importOpen, setImportOpen] = useState(false);
+  /**
+   * Panel filter (kategori/lokasi/tag/per-halaman) makan ~280px tinggi di
+   * ponsel — daftar aset baru terlihat setelah scroll panjang. Di layar kecil
+   * panel ditutup dulu; mulai sm ia selalu terbuka seperti sebelumnya.
+   */
+  const [filterOpen, setFilterOpen] = useState(false);
   const [notice, setNotice] = useState<{
     kind: "success" | "error";
     msg: string;
@@ -137,26 +145,30 @@ export default function AssetsPage() {
               {filtered.length} aset • {assets.length} total
             </p>
           </div>
-          <div className="flex gap-2">
-            {/* Tombol Import: pakai Button outline agar identik dengan Export
-                (label lama mewarisi teks putih di atas bg putih → terlihat blank) */}
+          {/* Di ponsel: 3 tombol dibagi rata satu baris, label Import
+              dipendekkan agar muat tanpa membungkus. */}
+          <div className="grid grid-cols-3 gap-2 sm:flex sm:gap-2">
             <Button
               variant="outline"
               onClick={() => setImportOpen(true)}
-              className="rounded-xl"
+              className="rounded-xl px-2 sm:px-6"
             >
-              <Upload className="h-4 w-4" /> Import Excel
+              <Upload className="h-4 w-4" />
+              <span className="sm:hidden">Import</span>
+              <span className="hidden sm:inline">Import Excel</span>
             </Button>
             <Button
               variant="outline"
               onClick={exportCSV}
-              className="rounded-xl"
+              className="rounded-xl px-2 sm:px-6"
             >
               <Download className="h-4 w-4" /> Export
             </Button>
-            <Link href="/assets/new">
-              <Button className="rounded-xl">
-                <Plus className="h-4 w-4" /> New Asset
+            <Link href="/assets/new" className="contents sm:block">
+              <Button className="rounded-xl w-full px-2 sm:w-auto sm:px-6">
+                <Plus className="h-4 w-4" />
+                <span className="sm:hidden">Baru</span>
+                <span className="hidden sm:inline">New Asset</span>
               </Button>
             </Link>
           </div>
@@ -192,7 +204,7 @@ export default function AssetsPage() {
         <Card className="border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
           <CardContent className="p-0">
             {/* Bar atas: Search + Status + Sort + View */}
-            <div className="p-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/20">
+            <div className="p-3 sm:p-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/20">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
                 <div className="relative flex-1">
                   <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -206,15 +218,15 @@ export default function AssetsPage() {
                     className="pl-10 h-11 rounded-xl bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 focus:border-[#1a365d] focus:ring-2 focus:ring-[#1a365d]/10"
                   />
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <div className="relative">
+                <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center sm:shrink-0">
+                  <div className="relative min-w-0">
                     <Select
                       value={status}
                       onChange={(e) => {
                         setStatus(e.target.value);
                         setPage(1);
                       }}
-                      className="w-[150px] h-11 rounded-xl bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 pr-8"
+                      className="w-full sm:w-[150px] h-11 rounded-xl bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 pr-8"
                     >
                       <option value="ALL">All Status</option>
                       <option value="AVAILABLE">AVAILABLE</option>
@@ -226,7 +238,7 @@ export default function AssetsPage() {
                   <Select
                     value={sort}
                     onChange={(e) => setSort(e.target.value)}
-                    className="w-[150px] h-11 rounded-xl bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700"
+                    className="w-full sm:w-[150px] h-11 rounded-xl bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700"
                   >
                     <option value="newest">Date created</option>
                     <option value="name">Name A-Z</option>
@@ -263,10 +275,22 @@ export default function AssetsPage() {
             </div>
 
             {/* Bar bawah: Filter kategori/lokasi/tag/perpage + chips */}
-            <div className="p-4 space-y-3">
+            <div className="p-3 sm:p-4 space-y-3">
               <div className="flex items-center gap-2 text-xs font-semibold tracking-widest text-slate-500 dark:text-slate-400 uppercase">
-                <Filter className="h-3.5 w-3.5" />
-                Filter
+                <button
+                  type="button"
+                  onClick={() => setFilterOpen((v) => !v)}
+                  aria-expanded={filterOpen}
+                  className="flex items-center gap-2 uppercase tracking-widest sm:pointer-events-none"
+                >
+                  <Filter className="h-3.5 w-3.5" />
+                  Filter
+                  <ChevronDown
+                    className={`h-3.5 w-3.5 transition-transform sm:hidden ${
+                      filterOpen ? "rotate-180" : ""
+                    }`}
+                  />
+                </button>
                 {(cat !== "ALL" || loc !== "ALL" || tag !== "ALL") && (
                   <span className="ml-1 bg-[#1a365d] text-white text-[10px] px-2 py-0.5 rounded-full">
                     {
@@ -299,7 +323,11 @@ export default function AssetsPage() {
                 )}
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              <div
+                className={`grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 sm:grid ${
+                  filterOpen ? "grid" : "hidden"
+                }`}
+              >
                 <div className="space-y-1.5">
                   <label className="text-xs font-medium text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
                     <TagIcon className="h-3 w-3 text-slate-400" />
@@ -462,18 +490,22 @@ export default function AssetsPage() {
                 <Button variant="outline" onClick={() => setImportOpen(true)}>
                   <Upload className="h-4 w-4" /> Impor Excel
                 </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    loadDemoData();
-                    setNotice({
-                      kind: "success",
-                      msg: "Data contoh Garudafood dimuat (aset, lokasi pabrik, peminjaman, audit).",
-                    });
-                  }}
-                >
-                  Muat data demo
-                </Button>
+                {/* Mode Supabase: data contoh dimuat lewat SQL seed, bukan
+                    dari sini — loadDemoData tidak menulis ke database. */}
+                {!isSupabase && (
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      loadDemoData();
+                      setNotice({
+                        kind: "success",
+                        msg: "Data contoh Garudafood dimuat (aset, lokasi pabrik, peminjaman, audit).",
+                      });
+                    }}
+                  >
+                    Muat data demo
+                  </Button>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -577,38 +609,40 @@ export default function AssetsPage() {
             {/* Mobile cards */}
             <div className="grid grid-cols-1 gap-3 md:hidden">
               {paged.map((a) => (
+                /* Kartu ponsel dipadatkan: kategori & lokasi jadi satu baris
+                   meta (dulu dua kotak setinggi ~52px), tombol Edit jadi ikon.
+                   Satu kartu ~150px, dari sebelumnya ~250px. */
                 <Card key={a.id} className="overflow-hidden">
-                  <CardContent className="p-4 space-y-3">
-                    <div className="flex items-start gap-3">
+                  <CardContent className="p-3 space-y-2">
+                    <div className="flex items-start gap-2.5">
                       <Link
                         href={`/assets/${a.id}`}
                         aria-label={`Lihat ${a.name}`}
                       >
-                        <AssetImage src={a.mainImage} alt={a.name} size="md" />
+                        <AssetImage src={a.mainImage} alt={a.name} size="sm" />
                       </Link>
                       <div className="flex-1 min-w-0">
-                        <div className="font-semibold truncate">{a.name}</div>
-                        <div className="text-xs text-muted-foreground truncate">
+                        <div className="font-semibold text-sm leading-snug line-clamp-2">
+                          {a.name}
+                        </div>
+                        <div className="text-[11px] text-muted-foreground truncate mt-0.5">
                           {a.qrCode} • {formatDate(a.createdAt)}
                         </div>
                       </div>
                       <StatusBadge status={a.status} />
                     </div>
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                      <div className="rounded-lg bg-slate-50 dark:bg-slate-800 p-2">
-                        <div className="text-muted-foreground">Kategori</div>
-                        <div className="font-medium">
-                          {categories.find((c) => c.id === a.categoryId)
-                            ?.name || "-"}
-                        </div>
-                      </div>
-                      <div className="rounded-lg bg-slate-50 dark:bg-slate-800 p-2">
-                        <div className="text-muted-foreground">Lokasi</div>
-                        <div className="font-medium truncate">
-                          {locations.find((l) => l.id === a.locationId)?.name ||
-                            "-"}
-                        </div>
-                      </div>
+                    <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                      <TagIcon className="h-3 w-3 shrink-0" />
+                      <span className="truncate">
+                        {categories.find((c) => c.id === a.categoryId)?.name ||
+                          "-"}
+                      </span>
+                      <span className="opacity-40">•</span>
+                      <MapPin className="h-3 w-3 shrink-0" />
+                      <span className="truncate">
+                        {locations.find((l) => l.id === a.locationId)?.name ||
+                          "-"}
+                      </span>
                     </div>
                     <div className="flex gap-2">
                       <Link href={`/assets/${a.id}`} className="flex-1">
@@ -620,8 +654,12 @@ export default function AssetsPage() {
                           <Eye className="h-4 w-4" /> Detail
                         </Button>
                       </Link>
-                      <Link href={`/assets/${a.id}/edit`} className="flex-1">
-                        <Button className="w-full rounded-xl" size="sm">
+                      <Link
+                        href={`/assets/${a.id}/edit`}
+                        aria-label={`Edit ${a.name}`}
+                      >
+                        <Button className="rounded-xl px-4" size="sm">
+                          <Pencil className="h-4 w-4" />
                           Edit
                         </Button>
                       </Link>

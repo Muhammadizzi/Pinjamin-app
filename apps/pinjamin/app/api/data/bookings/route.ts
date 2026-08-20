@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
-import { fromDbRow, isUuid } from "@/lib/resource-config";
+import { clientIdRow, fromDbRow, isUuid } from "@/lib/resource-config";
 
 type BookingAssetRow = { asset_id: string };
 type ExistingBooking = {
@@ -85,8 +85,13 @@ export async function POST(req: NextRequest) {
     .from("bookings")
     .select("id, name, from_date, to_date, status, booking_assets(asset_id)")
     .not("status", "in", "(CANCELLED,COMPLETE)");
-  if (exErr)
-    return NextResponse.json({ error: exErr.message }, { status: 500 });
+  if (exErr) {
+    console.error("[bookings POST] conflict check", exErr.message);
+    return NextResponse.json(
+      { error: "Gagal memeriksa bentrok booking." },
+      { status: 500 }
+    );
+  }
 
   for (const ex of (existing as ExistingBooking[] | null) || []) {
     const exFrom = new Date(ex.from_date);
@@ -116,6 +121,7 @@ export async function POST(req: NextRequest) {
   const { data: booking, error } = await supa
     .from("bookings")
     .insert({
+      ...clientIdRow(body),
       name,
       description,
       status: resolvedStatus,
@@ -126,8 +132,13 @@ export async function POST(req: NextRequest) {
     })
     .select()
     .single();
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error("[bookings POST]", error.message);
+    return NextResponse.json(
+      { error: "Gagal menyimpan booking." },
+      { status: 500 }
+    );
+  }
 
   const { error: baErr } = await supa.from("booking_assets").insert(
     cleanAssetIds.map((assetId) => ({
