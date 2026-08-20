@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorized } from "@/lib/auth";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
+import { BUCKET, buildObjectPath, isUploadKind } from "@/lib/storage";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -57,13 +58,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const objectPath = `pinjamin/${Date.now()}-${Math.random()
-      .toString(36)
-      .slice(2, 10)}.${ext}`;
+    // Jenis unggahan menentukan folder. Nilai asing ditolak diam-diam ke
+    // "aset" supaya path tidak bisa dikarang dari sisi client.
+    const kindRaw = form.get("kind");
+    const kind = isUploadKind(kindRaw) ? kindRaw : "aset";
+    const objectPath = buildObjectPath(kind, ext);
 
     const arrayBuffer = await file.arrayBuffer();
     const { error } = await supa.storage
-      .from("assets")
+      .from(BUCKET)
       .upload(objectPath, arrayBuffer, {
         contentType: file.type,
         cacheControl: "3600",
@@ -78,7 +81,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { data } = supa.storage.from("assets").getPublicUrl(objectPath);
+    const { data } = supa.storage.from(BUCKET).getPublicUrl(objectPath);
     return NextResponse.json({ url: data.publicUrl, path: objectPath });
   } catch (e) {
     console.error("[upload] exception:", e);

@@ -52,9 +52,17 @@ export function isSupabaseConfigured(): boolean {
   return !!getSupabase();
 }
 
+/**
+ * Jenis unggahan — menentukan folder di dalam bucket `assets`.
+ * Harus sama dengan UPLOAD_KINDS di lib/storage.ts (file itu server-only,
+ * jadi tidak bisa diimpor dari komponen client).
+ */
+export type UploadKind = "aset" | "lokasi" | "kit" | "avatar";
+
 // Upload helper - tries Supabase Storage, falls back to base64 data URL
 export async function uploadImage(
-  file: File
+  file: File,
+  kind: UploadKind = "aset"
 ): Promise<{ url: string; via: "supabase" | "base64" }> {
   const supa = getSupabase();
   if (supa) {
@@ -62,9 +70,10 @@ export async function uploadImage(
     try {
       const bucket = "assets";
       const ext = file.name.split(".").pop() || "jpg";
-      const path = `pinjamin/${Date.now()}-${Math.random()
+      const bulan = new Date().toISOString().slice(0, 7); // YYYY-MM
+      const path = `${kind}/${bulan}/${Date.now()}-${Math.random()
         .toString(36)
-        .slice(2, 8)}.${ext}`;
+        .slice(2, 10)}.${ext}`;
       const { error } = await supa.storage.from(bucket).upload(path, file, {
         cacheControl: "3600",
         upsert: false,
@@ -90,6 +99,7 @@ export async function uploadImage(
     try {
       const fd = new FormData();
       fd.append("file", file);
+      fd.append("kind", kind);
       const res = await fetch("/api/upload", { method: "POST", body: fd });
       if (res.ok) {
         const j = await res.json();

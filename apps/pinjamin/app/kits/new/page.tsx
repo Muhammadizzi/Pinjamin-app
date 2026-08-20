@@ -140,6 +140,7 @@ export default function NewKitPage() {
               </div>
 
               <ImageUpload
+                kind="kit"
                 value={form.image}
                 onChange={(url) => setForm({ ...form, image: url })}
                 label="Gambar Kit"

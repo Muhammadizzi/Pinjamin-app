@@ -16,6 +16,7 @@ import {
   uploadImage,
   isSupabaseConfigured,
   isBase64Image,
+  type UploadKind,
 } from "@/lib/supabase";
 import { AssetImage } from "@/components/ui/asset-image";
 
@@ -24,6 +25,11 @@ type Props = {
   onChange: (url: string) => void;
   label?: string;
   uploadOnly?: boolean;
+  /**
+   * Menentukan folder tujuan di bucket `assets` (aset/lokasi/kit/avatar).
+   * Tanpa ini semua foto menumpuk di satu folder tanpa identitas.
+   */
+  kind?: UploadKind;
 };
 
 /**
@@ -36,6 +42,7 @@ export function ImageUpload({
   onChange,
   label = "Foto Aset",
   uploadOnly = false,
+  kind = "aset",
 }: Props) {
   const [dragOver, setDragOver] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -61,7 +68,7 @@ export function ImageUpload({
     }
     setUploading(true);
     try {
-      const { url } = await uploadImage(file);
+      const { url } = await uploadImage(file, kind);
       onChange(url);
       // animate success
       try {

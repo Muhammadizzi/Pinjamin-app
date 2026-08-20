@@ -24,11 +24,21 @@ export const SIMPLE_RESOURCE_TABLE: Record<SimpleResourceKey, string> = {
 export const SIMPLE_RESOURCE_FIELDS: Record<SimpleResourceKey, string[]> = {
   categories: ["name", "description", "color"],
   tags: ["name"],
-  locations: ["name", "description", "address", "parent_id"],
+  locations: ["name", "description", "address", "parent_id", "image"],
   customFields: ["name", "type", "required", "options"],
   assetModels: ["name", "brand", "model_no", "category_id"],
   custodians: ["name", "nik", "department", "email", "phone"],
-  kits: ["name", "description", "status"],
+  kits: ["name", "description", "status", "image"],
+};
+
+/**
+ * Kolom yang menyimpan URL gambar per tabel. Dipakai saat menghapus record
+ * supaya objek di Supabase Storage ikut dibersihkan, bukan jadi file yatim.
+ */
+export const IMAGE_COLUMN: Record<string, string> = {
+  assets: "main_image",
+  locations: "image",
+  kits: "image",
 };
 
 export const ASSET_FIELDS = [

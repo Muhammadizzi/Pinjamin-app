@@ -57,8 +57,9 @@ Jalankan SQL berikut berurutan di **SQL Editor** (folder `supabase/`):
 | 2      | `02-storage.sql`        | Bucket `assets` untuk foto               |
 | 3      | `05-auth-hardening.sql` | Kolom `token_version` di `admins`        |
 | 4      | `06-tickets.sql`        | Tabel `tickets` (helpdesk) + RLS         |
-| 5      | `03-seed.sql`           | _opsional_ — data contoh                 |
-| 6      | `04-enable-rls.sql`     | **paling akhir**, setelah app ter-deploy |
+| 5      | `07-image-columns.sql`  | Kolom `image` untuk `locations` & `kits` |
+| 6      | `03-seed.sql`           | _opsional_ — data contoh                 |
+| 7      | `04-enable-rls.sql`     | **paling akhir**, setelah app ter-deploy |
 
 Lalu buat baris admin (ganti hash-nya):
 
@@ -104,9 +105,35 @@ Selengkapnya di `.env.example`.
 
 1. Login, ganti password lewat **Pengaturan Akun**.
 2. Jalankan `04-enable-rls.sql` — mengunci semua tabel dari anon key.
-3. Storage → Configuration → CORS: tambahkan domain Vercel.
-4. Cek header keamanan sudah aktif: `curl -I https://<domain>/login`
+3. Cek header keamanan sudah aktif: `curl -I https://<domain>/login`
    (harus ada `Content-Security-Policy` dan `Strict-Transport-Security`).
+
+> CORS Storage **tidak** perlu diatur: unggah lewat `/api/upload` (server →
+> Supabase, tidak kena CORS) dan foto ditampilkan lewat URL publik di tag
+> `<img>` biasa.
+
+## Penyimpanan foto
+
+Semua unggahan masuk ke bucket `assets`, dipisah per jenis lewat prefix folder:
+
+```
+assets/
+├── aset/2026-08/{waktu}-{acak}.jpg      <- foto aset
+├── lokasi/2026-08/...                    <- foto lokasi
+├── kit/2026-08/...                       <- foto kit
+└── avatar/2026-08/...                    <- foto profil admin
+```
+
+Saat aset, lokasi, atau kit dihapus, objek storage-nya ikut dihapus
+(`lib/storage.ts`). Penghapusan file bersifat best-effort: kalau gagal, hanya
+dicatat di log dan penghapusan record tetap diteruskan.
+
+> Bucket ini `public read` supaya foto aset tampil tanpa signed URL — termasuk
+> folder `avatar/`. Kalau foto profil admin perlu privat, pindahkan folder itu
+> ke bucket terpisah tanpa policy publik.
+
+File yang diunggah sebelum penataan ini ada di `pinjamin/` dan tetap bisa
+diakses; URL-nya sudah tersimpan di database.
 
 ## Catatan keamanan
 

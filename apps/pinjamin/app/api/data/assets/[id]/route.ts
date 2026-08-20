@@ -8,6 +8,7 @@ import {
   isUuid,
 } from "@/lib/resource-config";
 import { customValueRows } from "@/lib/asset-relations";
+import { removeByPublicUrl } from "@/lib/storage";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -123,6 +124,14 @@ export async function DELETE(
       { status: 503 }
     );
 
+  // Ambil URL foto SEBELUM baris dihapus — sesudahnya jejaknya hilang dan
+  // file di storage tidak akan pernah bisa ditemukan lagi (jadi file yatim).
+  const { data: sebelum } = await supa
+    .from("assets")
+    .select("main_image")
+    .eq("id", id)
+    .maybeSingle();
+
   const { error } = await supa.from("assets").delete().eq("id", id);
   if (error) {
     console.error("[assets DELETE]", error.message);
@@ -131,5 +140,9 @@ export async function DELETE(
       { status: 500 }
     );
   }
+
+  // Best-effort: kegagalan hapus file tidak membatalkan penghapusan aset.
+  await removeByPublicUrl([sebelum?.main_image as string | undefined]);
+
   return NextResponse.json({ ok: true });
 }

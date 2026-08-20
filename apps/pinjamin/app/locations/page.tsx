@@ -333,6 +333,7 @@ export default function LocationsPage() {
                 )}
 
                 <ImageUpload
+                  kind="lokasi"
                   value={form.image}
                   onChange={(url) => setForm({ ...form, image: url })}
                   label="Foto Tempat"

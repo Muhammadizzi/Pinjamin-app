@@ -74,7 +74,7 @@ export default function AccountSettingsPage() {
     }
     setUploading(true);
     try {
-      const res = await uploadImage(file);
+      const res = await uploadImage(file, "avatar");
       setAvatar(res.url);
       setProfileMsg({
         ok: true,
