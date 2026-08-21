@@ -249,91 +249,108 @@ export default function LandingPage() {
 
       <main className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6">
         {/* Hero — menjelaskan halaman ini sebelum menampilkan form. */}
-        <section className="pt-12 sm:pt-16 pb-10 text-center max-w-3xl mx-auto">
-          <div className="inline-flex items-center gap-2 rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1 text-xs font-semibold text-amber-200">
-            <Sparkles className="h-3.5 w-3.5" />
-            Sistem Integrasi Guna Aset &amp; Pelayanan
+        <section className="pt-8 sm:pt-16 pb-8 sm:pb-10 text-center max-w-3xl mx-auto">
+          {/* Tagline. Memakai rounded-2xl (bukan rounded-full) supaya tetap
+              rapi kalau teksnya membungkus jadi 2 baris di layar sempit. */}
+          <div className="inline-flex items-center gap-2 rounded-2xl border border-amber-400/30 bg-amber-400/10 px-3 py-1.5 text-[11px] sm:text-xs font-semibold text-amber-200 leading-snug text-left">
+            <Sparkles className="h-3.5 w-3.5 shrink-0" />
+            Pusat Kendali Aset dan Layanan Terpadu Garudafood
           </div>
-          <h1 className="mt-5 text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight leading-[1.1]">
+          <h1 className="mt-4 sm:mt-5 text-[26px] sm:text-4xl lg:text-5xl font-extrabold tracking-tight leading-[1.15] sm:leading-[1.1]">
             Butuh bantuan soal aset?
             <span className="block text-[#CBA12C]">
               Kirim tiket, kami urus.
             </span>
           </h1>
-          <p className="mt-4 text-sm sm:text-base text-slate-300/90 leading-relaxed">
+          <p className="mt-3 sm:mt-4 text-[13px] sm:text-base text-slate-300/90 leading-relaxed">
             Portal helpdesk Garuda Food untuk kendala aset, IT, dan fasilitas.
             Laporkan tanpa akun, dapatkan nomor tiket, lalu pantau statusnya
             kapan saja.
           </p>
-          <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
-            <a href="#buat-tiket">
-              <Button className="h-11 rounded-xl px-5 font-bold">
-                Buat tiket sekarang
+          {/* Di ponsel dua CTA dibagi rata satu baris; sebelumnya membungkus
+              jadi dua baris karena lebar gabungannya melebihi layar 375px. */}
+          <div className="mt-6 sm:mt-7 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center sm:justify-center sm:gap-3">
+            <a href="#buat-tiket" className="block w-full sm:w-auto">
+              <Button className="h-11 w-full rounded-xl px-3 sm:px-5 font-bold">
+                <span className="sm:hidden">Buat tiket</span>
+                <span className="hidden sm:inline">Buat tiket sekarang</span>
                 <ArrowRight className="h-4 w-4" />
               </Button>
             </a>
-            <a href="#lacak">
-              <Button variant="outline" className="h-11 rounded-xl px-5">
+            <a href="#lacak" className="block w-full sm:w-auto">
+              <Button
+                variant="outline"
+                className="h-11 w-full rounded-xl px-3 sm:px-5"
+              >
                 <Search className="h-4 w-4" />
-                Lacak tiket saya
+                <span className="sm:hidden">Lacak</span>
+                <span className="hidden sm:inline">Lacak tiket saya</span>
               </Button>
             </a>
           </div>
-          <p className="mt-4 inline-flex items-center gap-1.5 text-xs text-slate-400">
-            <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
+          <p className="mt-4 inline-flex items-start sm:items-center gap-1.5 text-[11px] sm:text-xs text-slate-400 text-left sm:text-center">
+            <ShieldCheck className="h-3.5 w-3.5 shrink-0 mt-0.5 sm:mt-0 text-emerald-400" />
             Tanpa akun • Data hanya dipakai untuk menindaklanjuti tiket
           </p>
         </section>
 
-        {/* Alur 3 langkah */}
-        <section className="pb-12">
-          <div className="grid gap-3 sm:grid-cols-3">
-            {steps.map((s, i) => (
-              <div
-                key={s.title}
-                className="rounded-2xl border border-[#243a5e] bg-[#12263f]/50 p-5"
-              >
-                <div className="flex items-center gap-3">
-                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-400/10 border border-amber-400/25">
+        {/* Alur 3 langkah — SATU kartu dengan tiga kolom bersebelahan.
+            Sebelumnya tiga kartu terpisah yang di ponsel menumpuk vertikal
+            (~270px) dan mendorong form tiket jauh ke bawah layar. */}
+        <section className="pb-8 sm:pb-12">
+          <div className="rounded-2xl border border-[#243a5e] bg-[#12263f]/50 p-4 sm:p-6">
+            <div className="grid grid-cols-3 divide-x divide-[#243a5e]">
+              {steps.map((s, i) => (
+                <div
+                  key={s.title}
+                  className="flex flex-col items-center px-1.5 text-center sm:px-4"
+                >
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-amber-400/25 bg-amber-400/10 sm:h-10 sm:w-10">
                     <s.icon
-                      className="h-4.5 w-4.5 text-amber-300"
+                      className="h-4 w-4 text-amber-300 sm:h-5 sm:w-5"
                       strokeWidth={1.75}
                     />
                   </span>
-                  <span className="text-[11px] font-bold tracking-widest text-slate-500">
+                  <span className="mt-2 text-[9px] font-bold tracking-widest text-slate-500 sm:text-[11px]">
                     LANGKAH {i + 1}
                   </span>
+                  <div className="mt-1 text-xs font-semibold leading-snug sm:text-sm">
+                    {s.title}
+                  </div>
+                  {/* Kalimat penjelas disembunyikan di ponsel: kolom selebar
+                      ~100px membuatnya pecah jadi 5 baris dan malah berantakan. */}
+                  <p className="mt-1.5 hidden text-xs leading-relaxed text-slate-400 sm:block">
+                    {s.desc}
+                  </p>
                 </div>
-                <div className="mt-3 font-semibold">{s.title}</div>
-                <p className="mt-1 text-xs text-slate-400 leading-relaxed">
-                  {s.desc}
-                </p>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </section>
 
         {/* Grid utama: kiri = platform + lacak, kanan = form tiket.
             Di mobile form didahulukan (order-first) karena aksi utamanya. */}
-        <section className="pb-14 flex flex-col lg:grid lg:grid-cols-2 gap-6 items-start">
-          <div className="space-y-6 w-full order-last lg:order-none lg:sticky lg:top-6">
+        <section className="pb-10 sm:pb-14 flex flex-col lg:grid lg:grid-cols-2 gap-4 sm:gap-6 items-start">
+          <div className="space-y-4 sm:space-y-6 w-full order-last lg:order-none lg:sticky lg:top-6">
             {/* Satu platform: manajemen aset + Ticketing */}
-            <div className="rounded-2xl border border-[#243a5e] bg-[#12263f]/50 p-5 space-y-3">
+            <div className="rounded-2xl border border-[#243a5e] bg-[#12263f]/50 p-4 sm:p-5 space-y-2.5 sm:space-y-3">
               <div className="text-xs font-semibold tracking-widest uppercase text-slate-400">
                 Satu platform — SIGAP
               </div>
-              <p className="text-xs text-slate-400 leading-relaxed">
+              {/* Kalimat penjelas disembunyikan di ponsel — chip fitur di
+                  bawahnya sudah menyampaikan hal yang sama secara ringkas. */}
+              <p className="hidden sm:block text-xs text-slate-400 leading-relaxed">
                 Tiket Anda masuk ke sistem yang sama dengan katalog aset dan
                 peminjaman, jadi tim bisa langsung menautkannya ke aset terkait.
               </p>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-1.5 sm:gap-2">
                 {sigapFeatures.map((f) => (
                   <span
                     key={f.label}
-                    className="inline-flex items-center gap-2 rounded-xl border border-[#243a5e] bg-[#0f1d33] px-3 py-2 text-xs font-medium text-slate-200"
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-[#243a5e] bg-[#0f1d33] px-2.5 py-1.5 text-[11px] font-medium text-slate-200 sm:gap-2 sm:px-3 sm:py-2 sm:text-xs"
                   >
                     <f.icon
-                      className="h-4 w-4 text-amber-300"
+                      className="h-3.5 w-3.5 text-amber-300 sm:h-4 sm:w-4"
                       strokeWidth={1.75}
                     />
                     {f.label}
@@ -370,7 +387,7 @@ export default function LandingPage() {
                   </div>
                 )}
                 {trackResult && (
-                  <div className="rounded-2xl border border-[#243a5e] bg-[#0f1d33] p-4 space-y-2">
+                  <div className="rounded-2xl border border-[#243a5e] bg-[#0f1d33] p-3.5 sm:p-4 space-y-2">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-mono font-bold text-amber-300">
                         {trackResult.number}
@@ -403,14 +420,16 @@ export default function LandingPage() {
 
             {/* Catatan privasi — akurat sesuai payload /api/tickets/track:
                 hanya nomor, subjek, kategori, status, dan waktu yang publik. */}
-            <div className="rounded-2xl border border-[#243a5e] bg-[#12263f]/50 p-5 flex gap-3">
+            <div className="rounded-2xl border border-[#243a5e] bg-[#12263f]/50 p-4 sm:p-5 flex gap-2.5 sm:gap-3">
               <ShieldCheck
                 className="h-5 w-5 text-emerald-400 shrink-0 mt-0.5"
                 strokeWidth={1.75}
               />
               <div className="space-y-1">
-                <div className="text-sm font-semibold">Privasi pelapor</div>
-                <p className="text-xs text-slate-400 leading-relaxed">
+                <div className="text-[13px] sm:text-sm font-semibold">
+                  Privasi pelapor
+                </div>
+                <p className="text-[11px] sm:text-xs text-slate-400 leading-relaxed">
                   Halaman lacak hanya menampilkan nomor, subjek, kategori,
                   status, dan waktu update. Email, nomor WhatsApp, dan catatan
                   internal tim tidak pernah ditampilkan ke publik.
@@ -420,7 +439,10 @@ export default function LandingPage() {
           </div>
 
           {/* Form tiket */}
-          <Card className="shadow-2xl border-[#243a5e]" id="buat-tiket">
+          {/* w-full wajib: section memakai items-start, sehingga di mode
+              flex-column (ponsel) anak tanpa w-full menyusut mengikuti
+              lebar konten — kartu ini sempat hanya 224px dari 343px. */}
+          <Card className="w-full shadow-2xl border-[#243a5e]" id="buat-tiket">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
                 <LifeBuoy className="h-5 w-5 text-amber-300" />
@@ -429,7 +451,7 @@ export default function LandingPage() {
             </CardHeader>
             <CardContent>
               {createdNumber ? (
-                <div className="text-center space-y-4 py-6">
+                <div className="text-center space-y-4 py-4 sm:py-6">
                   <CheckCircle2
                     className="h-14 w-14 text-emerald-400 mx-auto"
                     strokeWidth={1.5}
@@ -442,8 +464,8 @@ export default function LandingPage() {
                       Simpan nomor ini untuk melacak status tiket Anda:
                     </p>
                   </div>
-                  <div className="inline-flex items-center gap-2 rounded-2xl border border-amber-400/40 bg-amber-400/10 px-5 py-3">
-                    <span className="font-mono text-2xl font-extrabold text-amber-300 tracking-wide">
+                  <div className="inline-flex max-w-full items-center gap-2 rounded-2xl border border-amber-400/40 bg-amber-400/10 px-4 py-2.5 sm:px-5 sm:py-3">
+                    <span className="font-mono text-xl sm:text-2xl font-extrabold text-amber-300 tracking-wide">
                       {createdNumber}
                     </span>
                     <button
@@ -458,11 +480,11 @@ export default function LandingPage() {
                       )}
                     </button>
                   </div>
-                  <div className="flex items-center justify-center gap-2 pt-1">
+                  <div className="grid grid-cols-2 gap-2 pt-1 sm:flex sm:items-center sm:justify-center">
                     <Button
                       variant="outline"
                       size="sm"
-                      className="rounded-xl"
+                      className="w-full rounded-xl sm:w-auto"
                       onClick={() => {
                         setCreatedNumber("");
                         setForm({
@@ -477,15 +499,18 @@ export default function LandingPage() {
                     >
                       Buat Tiket Lain
                     </Button>
-                    <a href="#lacak">
-                      <Button size="sm" className="rounded-xl">
+                    <a href="#lacak" className="block">
+                      <Button size="sm" className="w-full rounded-xl sm:w-auto">
                         Lacak Sekarang
                       </Button>
                     </a>
                   </div>
                 </div>
               ) : (
-                <form onSubmit={submitTicket} className="space-y-4">
+                <form
+                  onSubmit={submitTicket}
+                  className="space-y-3.5 sm:space-y-4"
+                >
                   <div className="space-y-1.5">
                     <Label>Nama Lengkap</Label>
                     <Input
@@ -495,10 +520,11 @@ export default function LandingPage() {
                       }
                       placeholder="Nama Anda"
                       className="h-11 rounded-xl"
+                      autoComplete="name"
                       required
                     />
                   </div>
-                  <div className="grid sm:grid-cols-2 gap-4">
+                  <div className="grid gap-3.5 sm:grid-cols-2 sm:gap-4">
                     <div className="space-y-1.5">
                       <Label>Email</Label>
                       <Input
@@ -509,6 +535,8 @@ export default function LandingPage() {
                         }
                         placeholder="nama@garudafood.co.id"
                         className="h-11 rounded-xl"
+                        autoComplete="email"
+                        inputMode="email"
                         required
                       />
                     </div>
@@ -521,6 +549,8 @@ export default function LandingPage() {
                         }
                         placeholder="08xxxxxxxxxx"
                         className="h-11 rounded-xl"
+                        autoComplete="tel"
+                        inputMode="tel"
                         required
                       />
                     </div>
@@ -532,6 +562,7 @@ export default function LandingPage() {
                       onChange={(e) =>
                         setForm({ ...form, category: e.target.value })
                       }
+                      className="h-11 rounded-xl"
                     >
                       {CATEGORIES.map((c) => (
                         <option key={c} value={c}>
@@ -559,9 +590,9 @@ export default function LandingPage() {
                       onChange={(e) =>
                         setForm({ ...form, message: e.target.value })
                       }
-                      placeholder="Jelaskan kendala atau permintaan bantuan Anda secara detail..."
+                      placeholder="Jelaskan kendala atau permintaan bantuan Anda..."
                       rows={4}
-                      className="rounded-xl"
+                      className="rounded-xl min-h-[92px] sm:min-h-[112px]"
                       required
                     />
                   </div>
