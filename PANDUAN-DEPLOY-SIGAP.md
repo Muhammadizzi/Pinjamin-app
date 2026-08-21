@@ -1,8 +1,8 @@
 # Panduan Deploy SIGAP ke Vercel
 
 > **SIGAP — Sistem Integrasi Guna Aset & Pelayanan** (Garudafood)
-> Diperbarui: 21 Agustus 2026 · commit `ffd1895`
-> **Production:** https://pinjamin-app.vercel.app
+> Diperbarui: 21 Agustus 2026 · commit `93b7828`
+> **Production:** https://sigapgf.vercel.app
 
 ---
 
@@ -13,7 +13,7 @@ Aplikasi **sudah live**. Setelah `git push` ke `main` barusan, Vercel otomatis m
 | Komponen | Status |
 | --- | --- |
 | Repo GitHub | `Muhammadizzi/Pinjamin-app`, branch `main` |
-| Vercel | Project `pinjamin-app-pinjamin`, domain `pinjamin-app.vercel.app` |
+| Vercel | Project `pinjamin-app-pinjamin`, domain `sigapgf.vercel.app` |
 | Deploy | Push ke `main` = deploy production otomatis (region `sin1`) |
 | Supabase | Project `asset-management` (`nryxcs…`), region ap-northeast-2 |
 | Migrasi DB | Seluruhnya sudah dijalankan ✅ |
@@ -80,15 +80,16 @@ Sisanya diatur oleh `apps/pinjamin/vercel.json` yang ikut ter-commit:
 
 ---
 
-## 4. Ingin mengganti nama project jadi "sigap"?
+## 4. Domain
 
-Opsional, murni kosmetik. Yang berubah hanya nama di dashboard dan domain bawaan.
+Domain production: **https://sigapgf.vercel.app**
 
-**Langkah:** Vercel → project → **Settings** → **General** → **Project Name** → ubah jadi `sigap` → Save.
+> Domain lama `pinjamin-app.vercel.app` **sudah tidak berlaku** (menjawab
+> `DEPLOYMENT_NOT_FOUND`). Kalau URL itu terlanjur dibagikan ke Garudafood
+> atau tercantum di laporan KP, perbarui ke alamat di atas.
 
-> ⚠️ **Domain bawaan ikut berubah.** `pinjamin-xxx.vercel.app` akan berhenti bekerja dan diganti `sigap-xxx.vercel.app`. Kalau URL lama sudah terlanjur dibagikan ke Garudafood atau tercantum di laporan KP, perbarui dulu di sana — atau lewati langkah ini.
-
-Alternatif yang lebih aman: biarkan nama project apa adanya, lalu tambahkan **domain kustom** di Settings → Domains. Domain lama tetap hidup.
+Nama project di dashboard tetap `pinjamin-app-pinjamin` — itu hanya label
+internal dan tidak memengaruhi domain.
 
 ---
 
@@ -214,7 +215,72 @@ values ('adminsystem', '<hash dari perintah di atas>', 'Administrator');
 
 ---
 
-## 8. Bila terjadi masalah
+## 8. Lanjut mengerjakan di chat/sesi lain
+
+**Auto-deploy tidak terhubung ke chat mana pun.** Yang tersambung adalah
+GitHub ↔ Vercel. Jadi Anda bebas pindah chat, ganti editor, bahkan mengedit
+langsung lewat github.com — begitu commit masuk ke `main`, Vercel jalan
+sendiri. Tidak ada yang perlu disetel ulang.
+
+Identitas git juga sudah tersimpan permanen di `.git/config` repo ini, jadi
+email penulis commit otomatis benar di sesi mana pun **di laptop ini**.
+
+### Bekal untuk chat baru
+
+Salin blok di bawah ke awal percakapan baru supaya asisten langsung paham
+konteksnya dan tidak merusak hal yang sudah jalan:
+
+```
+Project: SIGAP — Sistem Integrasi Guna Aset & Pelayanan (Garudafood).
+Monorepo; aplikasinya ada di apps/pinjamin (Next.js 16 App Router +
+TypeScript + Tailwind v4 + Supabase). Production:
+https://sigapgf.vercel.app
+
+Alur deploy: push ke main -> Vercel build & deploy otomatis.
+Root Directory di Vercel = apps/pinjamin.
+
+ATURAN PENTING:
+1. Pesan commit WAJIB Conventional Commits (commitlint aktif lewat
+   lefthook). Contoh: feat(pinjamin): ...  /  fix(pinjamin): ...
+   Pesan seperti "update" akan ditolak.
+2. JANGAN mengganti nama: folder apps/pinjamin, paket @pinjamin/web,
+   cookie pinjamin_session, localStorage pinjamin_data_v3_gf, env
+   PINJAMIN_DATA_DIR, prefix QR "PIN-". Semuanya identifier teknis yang
+   terhubung ke deployment/data yang sudah berjalan — bukan merek.
+   Merek yang tampil ke pengguna sudah SIGAP.
+3. Data production ada di Supabase (project asset-management). Semua
+   akses lewat app/api/** memakai SUPABASE_SERVICE_ROLE di server; browser
+   tidak pernah menyentuh database langsung. RLS aktif.
+4. Menambah env di Vercel -> WAJIB Redeploy, deployment lama tidak
+   membacanya.
+5. Menambah tabel/kolom -> jalankan SQL manual di Supabase SQL Editor
+   (lihat apps/pinjamin/supabase/*.sql), tidak ada migration runner.
+6. Ganti berkas di public/ tapi tampilan tidak berubah -> hapus cache:
+   rm -rf apps/pinjamin/.next/cache
+
+Dev lokal: pnpm pinjamin:dev (port 5003). File .env.local sudah ada.
+```
+
+### Alur kerja singkat di sesi baru
+
+```bash
+git pull                     # ambil perubahan terbaru
+pnpm pinjamin:dev            # cek di localhost:5003
+# ...edit kode...
+git add -A
+git commit -m "feat(pinjamin): deskripsi perubahan"
+git push                     # Vercel deploy otomatis
+```
+
+Lalu buka https://sigapgf.vercel.app setelah ±1–3 menit.
+
+Kalau tampilan belum berubah, cek dulu status deployment di dashboard
+Vercel — terutama apakah statusnya **Blocked** (lihat [bagian 4a](#4a--identitas-git-harus-cocok-dengan-akun-github)), bukan langsung
+menyimpulkan kodenya salah.
+
+---
+
+## 9. Bila terjadi masalah
 
 | Gejala | Penyebab paling sering |
 | --- | --- |
