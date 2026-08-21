@@ -1,4 +1,4 @@
-# Pinjamin — Smart Asset Lending
+# SIGAP — Sistem Integrasi Guna Aset & Pelayanan
 
 Aplikasi web admin-only (Garuda Food) untuk katalog aset, peminjaman, audit, laporan, dan helpdesk.
 

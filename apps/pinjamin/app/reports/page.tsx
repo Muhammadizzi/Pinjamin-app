@@ -107,7 +107,7 @@ export default function ReportsPage() {
     doc.rect(0, 0, 210, 22, "F");
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(14);
-    doc.text("Pinjamin — Garuda Food", 10, 10);
+    doc.text("SIGAP — Garudafood", 10, 10);
     doc.setFontSize(10);
     doc.text(t("pdfReportTitle"), 10, 16);
     doc.setTextColor(0, 0, 0);

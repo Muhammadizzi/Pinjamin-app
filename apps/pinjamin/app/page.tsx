@@ -164,7 +164,7 @@ export default function LandingPage() {
     return () => clearTimeout(t);
   }, [trackNumber, runTrack]);
 
-  const pinjaminFeatures = [
+  const sigapFeatures = [
     { icon: Package, label: "Manajemen Aset" },
     { icon: QrCode, label: "QR Scanner" },
     { icon: CalendarRange, label: "Peminjaman" },
@@ -211,8 +211,8 @@ export default function LandingPage() {
                 aria-hidden="true"
               />
               <Image
-                src="/logo-pinjamin.png"
-                alt="Pinjamin"
+                src="/sigap-logo.png"
+                alt="SIGAP"
                 width={40}
                 height={40}
                 priority
@@ -221,7 +221,7 @@ export default function LandingPage() {
             </div>
             <div>
               <div className="font-extrabold leading-none tracking-tight">
-                Pinjamin
+                SIGAP
               </div>
               <div className="text-[10px] text-[#fbd38d] font-medium tracking-widest uppercase whitespace-nowrap">
                 Garuda Food
@@ -252,7 +252,7 @@ export default function LandingPage() {
         <section className="pt-12 sm:pt-16 pb-10 text-center max-w-3xl mx-auto">
           <div className="inline-flex items-center gap-2 rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1 text-xs font-semibold text-amber-200">
             <Sparkles className="h-3.5 w-3.5" />
-            Smart Asset Lending &amp; Helpdesk
+            Sistem Integrasi Guna Aset &amp; Pelayanan
           </div>
           <h1 className="mt-5 text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight leading-[1.1]">
             Butuh bantuan soal aset?
@@ -317,17 +317,17 @@ export default function LandingPage() {
             Di mobile form didahulukan (order-first) karena aksi utamanya. */}
         <section className="pb-14 flex flex-col lg:grid lg:grid-cols-2 gap-6 items-start">
           <div className="space-y-6 w-full order-last lg:order-none lg:sticky lg:top-6">
-            {/* Satu platform: Pinjamin + Ticketing */}
+            {/* Satu platform: manajemen aset + Ticketing */}
             <div className="rounded-2xl border border-[#243a5e] bg-[#12263f]/50 p-5 space-y-3">
               <div className="text-xs font-semibold tracking-widest uppercase text-slate-400">
-                Satu platform — Pinjamin
+                Satu platform — SIGAP
               </div>
               <p className="text-xs text-slate-400 leading-relaxed">
                 Tiket Anda masuk ke sistem yang sama dengan katalog aset dan
                 peminjaman, jadi tim bisa langsung menautkannya ke aset terkait.
               </p>
               <div className="flex flex-wrap gap-2">
-                {pinjaminFeatures.map((f) => (
+                {sigapFeatures.map((f) => (
                   <span
                     key={f.label}
                     className="inline-flex items-center gap-2 rounded-xl border border-[#243a5e] bg-[#0f1d33] px-3 py-2 text-xs font-medium text-slate-200"
@@ -601,7 +601,7 @@ export default function LandingPage() {
           >
             ©
           </Link>{" "}
-          2026 Pinjamin — Smart Asset Lending &amp; Helpdesk • Garuda Food
+          2026 SIGAP — Sistem Integrasi Guna Aset &amp; Pelayanan • Garudafood
         </div>
       </footer>
     </div>

@@ -1,4 +1,4 @@
-# Supabase untuk Pinjamin
+# Supabase untuk SIGAP
 
 > **Penting (security):** sejak migration `04-enable-rls.sql`, RLS aktif di
 > semua tabel dan browser tidak lagi mengakses tabel data langsung lewat
@@ -18,7 +18,7 @@
 > `app/api/data/**` sudah ter-deploy (kalau RLS dinyalakan duluan tanpa route
 > ini, app kehilangan akses).
 
-Pinjamin support **2 mode** agar tetap jalan tanpa setup:
+SIGAP support **2 mode** agar tetap jalan tanpa setup:
 
 - **Offline (dev/VPS):** tanpa env, data di `data/*.json` + `localStorage`,
   upload disimpan sebagai `base64`. **Tidak boleh dipakai di Vercel** —
@@ -84,7 +84,7 @@ cp ../../.env.example .env.local
 ## 3. Skema database
 
 Skema lengkap ada di file SQL folder ini — dijalankan manual lewat SQL Editor
-Supabase (tidak ada migration runner untuk Pinjamin; `pnpm db:*` di root
+Supabase (tidak ada migration runner untuk SIGAP; `pnpm db:*` di root
 milik app `@shelf/webapp`, bukan app ini).
 
 Begitu `SUPABASE_SERVICE_ROLE` di-set, app otomatis beralih ke Postgres:

@@ -4,7 +4,7 @@ import path from "node:path";
 import { requireAuth, unauthorized } from "@/lib/auth";
 
 /**
- * Shared server-side store (lintas-browser) untuk data Pinjamin.
+ * Shared server-side store (lintas-browser) untuk data SIGAP.
  *
  * Kenapa ini ada: sebelumnya AppData disimpan di localStorage tiap browser,
  * sehingga data yang dibuat di Safari TIDAK terlihat di Chrome (dan

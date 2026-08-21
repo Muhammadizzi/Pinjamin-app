@@ -37,7 +37,7 @@ interface AdminProfileInfo {
 }
 
 /**
- * Mode admin: "assets" (Pinjamin) atau "tickets" (Helpdesk).
+ * Mode admin: "assets" (manajemen aset) atau "tickets" (Helpdesk).
  * Disimpan di localStorage + disiarkan lewat event `pinjamin:mode` supaya
  * TopBar & Sidebar selalu sinkron. Rute /tickets otomatis memaksa mode
  * tickets agar tampilan konsisten walau masuk lewat URL langsung.
@@ -181,8 +181,8 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
             className="absolute -inset-2.5 rounded-full bg-amber-300/25 blur-[12px]"
           />
           <Image
-            src="/logo-pinjamin.png"
-            alt="Pinjamin"
+            src="/sigap-logo.png"
+            alt="SIGAP"
             width={44}
             height={44}
             priority
@@ -191,7 +191,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
         </div>
         <div>
           <div className="font-extrabold text-white leading-none tracking-tight">
-            Pinjamin
+            SIGAP
           </div>
           <div className="text-[11px] text-[#fbd38d] font-medium tracking-widest uppercase">
             Garuda Food
@@ -431,15 +431,15 @@ export function TopBar({ onMenu }: { onMenu: () => void }) {
             className="absolute h-10 w-10 rounded-full bg-amber-300/25 blur-[10px]"
           />
           <Image
-            src="/logo-pinjamin.png"
-            alt="Pinjamin"
+            src="/sigap-logo.png"
+            alt="SIGAP"
             width={28}
             height={28}
             className="relative h-7 w-auto object-contain"
           />
         </span>
         <span className="font-extrabold tracking-tight text-white truncate">
-          Pinjamin
+          SIGAP
         </span>
         {/* Badge disembunyikan di layar <640px: bersama switcher mode dan
             avatar, header jadi pecah dua baris di ponsel 375px. */}
@@ -448,7 +448,7 @@ export function TopBar({ onMenu }: { onMenu: () => void }) {
         </span>
       </Link>
       <div className="hidden lg:flex items-center gap-2 text-sm">
-        <span className="text-[#CBA12C] font-bold tracking-wide">Pinjamin</span>
+        <span className="text-[#CBA12C] font-bold tracking-wide">SIGAP</span>
         <span className="text-white/20">/</span>
         <span className="text-white/60 font-medium">Garuda Food</span>
         <span className="ml-3 hidden xl:inline-flex items-center gap-2 text-xs text-white/40">
@@ -457,7 +457,7 @@ export function TopBar({ onMenu }: { onMenu: () => void }) {
         </span>
       </div>
       <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
-        {/* Switcher Mode Admin: Pinjamin (aset) vs Ticketing (helpdesk) */}
+        {/* Switcher Mode Admin: Aset vs Ticketing (helpdesk) */}
         <div className="flex items-center rounded-xl border border-[#243a5e] bg-[#142a4a] p-0.5">
           <button
             type="button"
@@ -471,7 +471,7 @@ export function TopBar({ onMenu }: { onMenu: () => void }) {
             )}
           >
             <Package className="h-4 w-4" strokeWidth={1.75} />
-            <span className="hidden md:inline">Pinjamin</span>
+            <span className="hidden md:inline">Aset</span>
           </button>
           <button
             type="button"

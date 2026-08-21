@@ -160,8 +160,8 @@ function LoginForm() {
                 className="absolute h-20 w-20 rounded-full bg-amber-300/25 blur-[14px]"
               />
               <Image
-                src="/logo-pinjamin.png"
-                alt="Pinjamin"
+                src="/sigap-logo.png"
+                alt="SIGAP"
                 width={56}
                 height={56}
                 priority
@@ -278,7 +278,7 @@ function LoginForm() {
           </form>
 
           <div className="mt-6 text-center text-xs text-slate-400 dark:text-slate-500">
-            © 2026 Garuda Food • Pinjamin
+            © 2026 Garudafood • SIGAP
           </div>
         </div>
       </div>

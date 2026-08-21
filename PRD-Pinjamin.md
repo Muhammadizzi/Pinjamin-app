@@ -1,4 +1,9 @@
 # Product Requirements Document (PRD)
+
+> **Catatan (Agu 2026):** Produk ini berganti nama menjadi **SIGAP —
+> Sistem Integrasi Guna Aset & Pelayanan**. Dokumen ini sengaja
+> dipertahankan memakai nama lama "Pinjamin" sebagai rekaman historis
+> keputusan awal; tidak ada perubahan lingkup atau fitur.
 # Pinjamin — Smart Asset Lending (Garuda Food)
 
 | | |

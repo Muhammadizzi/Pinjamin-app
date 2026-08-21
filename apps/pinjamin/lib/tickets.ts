@@ -34,7 +34,7 @@ export interface Ticket {
   /** Catatan internal admin — TIDAK pernah dikirim ke endpoint publik. */
   adminNote: string;
   /**
-   * Tautan opsional ke aset Pinjamin (Asset.id di store client). Disimpan
+   * Tautan opsional ke aset SIGAP (Asset.id di store client). Disimpan
    * sebagai id mentah; keberadaan aset divalidasi di sisi client (server
    * tiket tidak mengenal store aset). null/undefined = tidak tertaut.
    */

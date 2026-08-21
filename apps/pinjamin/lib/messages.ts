@@ -44,7 +44,7 @@ export const messages = {
     "Scan an asset QR for quick check-out/return without opening the menu.",
   ],
   systemActive: ["Sistem aktif", "System online"],
-  modeAdminAssets: ["Mode Admin Pinjamin", "Pinjamin Admin Mode"],
+  modeAdminAssets: ["Mode Admin Aset", "Asset Admin Mode"],
   modeAdminTickets: ["Mode Admin Ticketing", "Ticketing Admin Mode"],
 
   // ---------- Umum ----------
@@ -142,7 +142,7 @@ export const messages = {
 
   // ---------- Login ----------
   welcome: ["Selamat Datang", "Welcome"],
-  loginToPinjamin: ["Masuk ke Pinjamin", "Sign in to Pinjamin"],
+  loginToPinjamin: ["Masuk ke SIGAP", "Sign in to SIGAP"],
   username: ["Username", "Username"],
   password: ["Password", "Password"],
   login: ["Masuk", "Sign In"],
@@ -332,10 +332,7 @@ export const messages = {
   unlinkAsset: ["Lepas tautan aset", "Unlink asset"],
   unlink: ["Lepas", "Unlink"],
   linkAsset: ["Tautkan", "Link"],
-  noAssetsInPinjamin: [
-    "Belum ada aset di Pinjamin",
-    "No assets in Pinjamin yet",
-  ],
+  noAssetsInPinjamin: ["Belum ada aset di SIGAP", "No assets in SIGAP yet"],
   pickReportedAsset: [
     "— Pilih aset yang dilaporkan —",
     "— Choose the reported asset —",
@@ -895,8 +892,8 @@ export const messages = {
 
   // ---------- Laporan ----------
   reportsSub: [
-    "Laporan & ekspor — tema Pinjamin Garuda Food",
-    "Reports & exports — Pinjamin Garuda Food theme",
+    "Laporan & ekspor — SIGAP Garudafood",
+    "Reports & exports — SIGAP Garudafood",
   ],
   reportHistoryTitle: ["Riwayat Peminjaman", "Booking History"],
   reportHistorySub: [
@@ -932,8 +929,8 @@ export const messages = {
   pdfTotalAssets: ["Total Aset: {count}", "Total assets: {count}"],
   pdfCategoryLine: ["{name}: {count} aset", "{name}: {count} assets"],
   pdfPrintedAt: [
-    "Dicetak: {date} • Pinjamin v1.1",
-    "Printed: {date} • Pinjamin v1.1",
+    "Dicetak: {date} • SIGAP v1.1",
+    "Printed: {date} • SIGAP v1.1",
   ],
   colBooking: ["Booking", "Booking"],
   colFrom: ["Pinjam", "From"],

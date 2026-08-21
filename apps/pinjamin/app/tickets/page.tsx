@@ -49,7 +49,7 @@ interface Ticket {
   message: string;
   status: TicketStatus;
   adminNote: string;
-  /** Tautan opsional ke aset Pinjamin (lihat lib/tickets.ts). */
+  /** Tautan opsional ke aset SIGAP (lihat lib/tickets.ts). */
   assetId?: string | null;
   createdAt: string;
   updatedAt: string;

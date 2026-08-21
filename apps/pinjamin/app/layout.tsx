@@ -5,9 +5,9 @@ import { I18nProvider } from "@/lib/i18n";
 import { AuthProvider } from "@/lib/auth-client";
 
 export const metadata: Metadata = {
-  title: "Pinjamin — Smart Asset Lending | Garuda Food",
+  title: "SIGAP — Sistem Integrasi Guna Aset & Pelayanan | Garudafood",
   description:
-    "Sistem peminjaman aset Garuda Food — kelola aset, kit, booking, audit, dan laporan dengan QR. Single dark theme, bilingual ID/EN.",
+    "SIGAP — Sistem Integrasi Guna Aset & Pelayanan Garudafood. Kelola aset, kit, booking, audit, laporan, dan helpdesk dengan QR Code.",
   manifest: "/site.webmanifest",
   icons: {
     // ?v=3 → cache-buster: Safari menyimpan cache favicon sangat agresif;

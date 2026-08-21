@@ -10,7 +10,7 @@ function iso(days: number, hour = 10) {
 /**
  * Tiket helpdesk contoh — karyawan & isu khas operasional Garudafood.
  * Beberapa taut ke aset demo (gf-ast-*) supaya panel Ticketing langsung
- * nyambung ke modul Pinjamin.
+ * nyambung ke modul aset SIGAP.
  */
 export function buildDemoTickets(): Ticket[] {
   return [
@@ -55,7 +55,7 @@ export function buildDemoTickets(): Ticket[] {
       category: "Aset & IT",
       subject: "Packing machine Line 1 error sealer temperature",
       message:
-        "VFFS Gery Saluut Line 1 Pati alarm suhu sealer. Produksi tertahan sejak shift 1. Engineering sudah lihat, mohon tiket resmi + status aset di Pinjamin.",
+        "VFFS Gery Saluut Line 1 Pati alarm suhu sealer. Produksi tertahan sejak shift 1. Engineering sudah lihat, mohon tiket resmi + status aset di SIGAP.",
       status: "IN_PROGRESS",
       adminNote:
         "Aset PIN-PCK011 sudah MAINTENANCE. Teknisi vendor datang sore.",
