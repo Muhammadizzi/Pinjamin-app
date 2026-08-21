@@ -51,15 +51,16 @@ simbol © di footer, atau `/login`.
 
 Jalankan SQL berikut berurutan di **SQL Editor** (folder `supabase/`):
 
-| Urutan | File                    | Isi                                      |
-| ------ | ----------------------- | ---------------------------------------- |
-| 1      | `01-schema.sql`         | Semua tabel inti                         |
-| 2      | `02-storage.sql`        | Bucket `assets` untuk foto               |
-| 3      | `05-auth-hardening.sql` | Kolom `token_version` di `admins`        |
-| 4      | `06-tickets.sql`        | Tabel `tickets` (helpdesk) + RLS         |
-| 5      | `07-image-columns.sql`  | Kolom `image` untuk `locations` & `kits` |
-| 6      | `03-seed.sql`           | _opsional_ — data contoh                 |
-| 7      | `04-enable-rls.sql`     | **paling akhir**, setelah app ter-deploy |
+| Urutan | File                     | Isi                                                                                      |
+| ------ | ------------------------ | ---------------------------------------------------------------------------------------- |
+| 1      | `01-schema.sql`          | Semua tabel inti                                                                         |
+| 2      | `02-storage.sql`         | Bucket `assets` untuk foto                                                               |
+| 3      | `05-auth-hardening.sql`  | Kolom `token_version` di `admins`                                                        |
+| 4      | `06-tickets.sql`         | Tabel `tickets` (helpdesk) + RLS                                                         |
+| 5      | `07-image-columns.sql`   | Kolom `image` untuk `locations` & `kits`                                                 |
+| 6      | `08-missing-columns.sql` | `tags.color`, `locations.is_parent`, `custom_fields.category_ids`, kategori & lokasi kit |
+| 7      | `03-seed.sql`            | _opsional_ — data contoh                                                                 |
+| 8      | `04-enable-rls.sql`      | **paling akhir**, setelah app ter-deploy                                                 |
 
 Lalu buat baris admin (ganti hash-nya):
 

@@ -29,7 +29,7 @@ export default function KitDetailPage() {
   const id = params.id as string;
   const router = useRouter();
   const { kits, assets, categories, locations, deleteKit } = useStore();
-  const { t } = useT();
+  const { t, assetStatus } = useT();
   const { ask, confirmDialog } = useConfirmDialog();
   const [downloadingQr, setDownloadingQr] = useState(false);
   const [printingQr, setPrintingQr] = useState(false);
@@ -44,7 +44,7 @@ export default function KitDetailPage() {
       });
     } catch (e) {
       console.error(e);
-      alert("Gagal menyiapkan print QR. Coba lagi.");
+      alert(t("qrPrintFailed"));
     } finally {
       setPrintingQr(false);
     }
@@ -53,7 +53,7 @@ export default function KitDetailPage() {
   if (!kit)
     return (
       <AppShell>
-        <div className="p-8 text-center">Kit tidak ditemukan</div>
+        <div className="p-8 text-center">{t("kitNotFound")}</div>
       </AppShell>
     );
   const cat = categories.find((c) => c.id === kit.categoryId);
@@ -69,7 +69,7 @@ export default function KitDetailPage() {
       });
     } catch (e) {
       console.error(e);
-      alert("Gagal membuat PNG QR. Coba lagi.");
+      alert(t("qrPngFailed"));
     } finally {
       setDownloadingQr(false);
     }
@@ -82,7 +82,7 @@ export default function KitDetailPage() {
           href="/kits"
           className="inline-flex items-center gap-2 text-sm font-medium text-[#1a365d] dark:text-amber-200 hover:underline"
         >
-          <ArrowLeft className="h-4 w-4" /> Kembali ke Daftar Kit
+          <ArrowLeft className="h-4 w-4" /> {t("backToKits")}
         </Link>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -94,18 +94,18 @@ export default function KitDetailPage() {
                   <div className="relative shrink-0 mx-auto sm:mx-0">
                     <AssetImage src={kit.image} alt={kit.name} size="xxl" />
                     <Badge className="absolute -top-2.5 -right-2.5 shadow">
-                      {kit.status}
+                      {assetStatus(kit.status)}
                     </Badge>
                   </div>
                   <div className="flex-1 min-w-0 space-y-2 text-center sm:text-left">
                     <h1 className="text-xl font-bold truncate">{kit.name}</h1>
                     <p className="text-sm text-muted-foreground line-clamp-3">
-                      {kit.description || "Tanpa deskripsi"}
+                      {kit.description || t("noDescription")}
                     </p>
                     <div className="flex flex-wrap gap-1.5 pt-1 justify-center sm:justify-start">
                       <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-xs font-medium">
                         <Boxes className="h-3 w-3" />
-                        {kit.assetIds.length} aset
+                        {t("assetCountLabel", { count: kit.assetIds.length })}
                       </span>
                       {cat && (
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-xs font-medium">
@@ -133,13 +133,13 @@ export default function KitDetailPage() {
             <Card>
               <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2">
-                  Anggota ({kit.assetIds.length})
+                  {t("kitMembers", { count: kit.assetIds.length })}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
                 {kit.assetIds.length === 0 ? (
                   <div className="text-sm text-muted-foreground border rounded-xl p-4 text-center">
-                    Kit ini belum ada anggota aset.
+                    {t("kitNoMembers")}
                   </div>
                 ) : (
                   kit.assetIds.map((aid: string) => {
@@ -156,7 +156,7 @@ export default function KitDetailPage() {
                             {a.name}
                           </div>
                           <div className="text-xs text-muted-foreground truncate">
-                            {a.status} • {a.qrCode}
+                            {assetStatus(a.status)} • {a.qrCode}
                           </div>
                         </div>
                       </Link>
@@ -191,7 +191,7 @@ export default function KitDetailPage() {
                     {kit.qrCode}
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    Scan untuk aksi cepat
+                    {t("scanForQuickAction")}
                   </div>
                 </div>
                 <div className="flex gap-2 w-full">
@@ -202,7 +202,7 @@ export default function KitDetailPage() {
                     onClick={downloadQr}
                   >
                     <Download className="h-3.5 w-3.5" />
-                    {downloadingQr ? "Membuat..." : "Download"}
+                    {downloadingQr ? t("generating") : t("download")}
                   </Button>
                   <Button
                     variant="outline"
@@ -211,7 +211,7 @@ export default function KitDetailPage() {
                     onClick={printQr}
                   >
                     <Printer className="h-3.5 w-3.5" />
-                    {printingQr ? "Menyiapkan..." : "Print"}
+                    {printingQr ? t("preparing") : t("print")}
                   </Button>
                 </div>
               </CardContent>
@@ -221,7 +221,7 @@ export default function KitDetailPage() {
               <CardContent className="p-4 flex flex-col gap-2">
                 <Link href="/bookings/new">
                   <Button variant="outline" className="w-full rounded-xl">
-                    <Pencil className="h-4 w-4" /> Booking Kit Ini
+                    <Pencil className="h-4 w-4" /> {t("bookThisKit")}
                   </Button>
                 </Link>
                 <Button
@@ -229,11 +229,12 @@ export default function KitDetailPage() {
                   className="w-full rounded-xl"
                   onClick={() =>
                     ask({
-                      title: "Hapus kit?",
-                      description: `"${kit.name}" beserta seluruh isinya (${
-                        kit.assetIds?.length ?? 0
-                      } aset) akan dihapus permanen.`,
-                      confirmLabel: "Ya, Hapus",
+                      title: t("confirmDeleteKit"),
+                      description: t("confirmDeleteKitBody", {
+                        name: kit.name,
+                        count: kit.assetIds?.length ?? 0,
+                      }),
+                      confirmLabel: t("yesDelete"),
                       action: () => {
                         deleteKit(kit.id);
                         router.push("/kits");
@@ -241,7 +242,7 @@ export default function KitDetailPage() {
                     })
                   }
                 >
-                  <Trash2 className="h-4 w-4" /> Hapus Kit
+                  <Trash2 className="h-4 w-4" /> {t("deleteKitLabel")}
                 </Button>
               </CardContent>
             </Card>

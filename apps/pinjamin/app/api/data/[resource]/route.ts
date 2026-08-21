@@ -7,6 +7,7 @@ import {
   pickAllowed,
   clientIdRow,
   isQrCode,
+  isUuid,
   fromDbRow,
   type SimpleResourceKey,
 } from "@/lib/resource-config";
@@ -70,5 +71,29 @@ export async function POST(
       { status: 500 }
     );
   }
-  return NextResponse.json({ data: fromDbRow(data) });
+
+  // Isi kit (kit_assets) — tanpa ini kit tersimpan kosong dan daftar asetnya
+  // hilang begitu halaman dimuat ulang di mode Supabase.
+  let assetIds: string[] = [];
+  if (resource === "kits") {
+    const raw = (body as Record<string, unknown>).assetIds;
+    assetIds = Array.isArray(raw) ? raw.filter(isUuid) : [];
+    if (assetIds.length) {
+      const { error: kaErr } = await supa
+        .from("kit_assets")
+        .insert(
+          assetIds.map((assetId) => ({ kit_id: data.id, asset_id: assetId }))
+        );
+      if (kaErr)
+        console.warn(
+          "[data POST kits] kit_assets insert failed:",
+          kaErr.message
+        );
+    }
+  }
+
+  return NextResponse.json({
+    data:
+      resource === "kits" ? { ...fromDbRow(data), assetIds } : fromDbRow(data),
+  });
 }

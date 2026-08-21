@@ -16,7 +16,7 @@ import { useT } from "@/lib/i18n";
 export default function NewBookingPage() {
   const router = useRouter();
   const { assets, kits, custodians, addBooking } = useStore();
-  const { t } = useT();
+  const { t, assetStatus } = useT();
   const { ask, confirmDialog } = useConfirmDialog();
   const [form, setForm] = useState({
     name: "",
@@ -46,16 +46,16 @@ export default function NewBookingPage() {
     e.preventDefault();
     setErr("");
     if (!form.name || !form.custodianId || !form.fromDate || !form.toDate)
-      return setErr("Lengkapi field wajib (*)");
+      return setErr(t("fillRequiredFields"));
     if (form.assetIds.length === 0 && form.kitIds.length === 0)
-      return setErr("Pilih minimal 1 aset atau kit");
+      return setErr(t("pickAtLeastOne"));
     if (new Date(form.fromDate) > new Date(form.toDate))
-      return setErr("Tanggal kembali harus setelah tanggal pinjam");
+      return setErr(t("returnAfterStart"));
     const totalUnits = form.assetIds.length + form.kitIds.length;
     ask({
-      title: `Buat peminjaman "${form.name}"?`,
-      description: `${totalUnits} unit akan dipesan. Sistem menolak otomatis jika jadwalnya bentrok.`,
-      confirmLabel: "Ya, Buat",
+      title: t("confirmCreateBooking", { name: form.name }),
+      description: t("confirmCreateBookingBody", { count: totalUnits }),
+      confirmLabel: t("yesCreate"),
       variant: "primary",
       action: () => {
         const res = addBooking({
@@ -67,7 +67,7 @@ export default function NewBookingPage() {
           assetIds: form.assetIds,
           kitIds: form.kitIds,
         });
-        if (!res.ok) setErr(res.error || "Gagal");
+        if (!res.ok) setErr(res.error || t("genericFailed"));
         else router.push("/bookings");
       },
     });
@@ -77,39 +77,37 @@ export default function NewBookingPage() {
     <AppShell>
       <div className="max-w-3xl mx-auto space-y-6">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold">Booking Baru</h1>
-          <p className="text-sm text-muted-foreground">
-            Pilih aset/kit + peminjam + tanggal. Sistem cegah bentrok otomatis.
-          </p>
+          <h1 className="text-xl sm:text-2xl font-bold">{t("newBooking")}</h1>
+          <p className="text-sm text-muted-foreground">{t("newBookingSub")}</p>
         </div>
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Form Peminjaman</CardTitle>
+            <CardTitle className="text-base">{t("bookingForm")}</CardTitle>
           </CardHeader>
           <CardContent>
             <form onSubmit={submit} className="space-y-5">
               <div className="space-y-2">
-                <Label>Nama Booking *</Label>
+                <Label>{t("bookingName")} *</Label>
                 <Input
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  placeholder="Peminjaman Proyektor Marketing"
+                  placeholder={t("bookingNamePlaceholder")}
                   className="h-11 rounded-xl"
                   required
                 />
               </div>
               <div className="space-y-2">
-                <Label>Deskripsi</Label>
+                <Label>{t("description")}</Label>
                 <Textarea
                   value={form.description}
                   onChange={(e) =>
                     setForm({ ...form, description: e.target.value })
                   }
-                  placeholder="Keperluan..."
+                  placeholder={t("purposePlaceholder")}
                 />
               </div>
               <div className="space-y-2">
-                <Label>Peminjam (Custodian) *</Label>
+                <Label>{t("custodianRequired")} *</Label>
                 <Select
                   value={form.custodianId}
                   onChange={(e) =>
@@ -117,7 +115,7 @@ export default function NewBookingPage() {
                   }
                   required
                 >
-                  <option value="">— Pilih Peminjam —</option>
+                  <option value="">{t("selectCustodian")}</option>
                   {custodians.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.name} — {c.department}
@@ -127,7 +125,7 @@ export default function NewBookingPage() {
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Tgl Pinjam *</Label>
+                  <Label>{t("fromDate")} *</Label>
                   <Input
                     type="date"
                     value={form.fromDate}
@@ -139,7 +137,7 @@ export default function NewBookingPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Tgl Kembali *</Label>
+                  <Label>{t("toDate")} *</Label>
                   <Input
                     type="date"
                     value={form.toDate}
@@ -152,7 +150,7 @@ export default function NewBookingPage() {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label>Pilih Aset</Label>
+                <Label>{t("pickAssets")}</Label>
                 <div className="border rounded-xl p-3 max-h-48 overflow-auto grid grid-cols-1 gap-1">
                   {assets
                     .filter((a) => a.status !== "RETIRED")
@@ -173,14 +171,14 @@ export default function NewBookingPage() {
                           }
                           className="text-[10px]"
                         >
-                          {a.status}
+                          {assetStatus(a.status)}
                         </Badge>
                       </label>
                     ))}
                 </div>
               </div>
               <div className="space-y-2">
-                <Label>Pilih Kit (opsional)</Label>
+                <Label>{t("pickKits")}</Label>
                 <div className="border rounded-xl p-3 max-h-32 overflow-auto grid grid-cols-1 gap-1">
                   {kits.map((k) => (
                     <label
@@ -194,13 +192,13 @@ export default function NewBookingPage() {
                       />
                       <span className="flex-1 truncate">{k.name}</span>
                       <span className="text-xs text-muted-foreground">
-                        {k.assetIds.length} aset
+                        {t("assetCountLabel", { count: k.assetIds.length })}
                       </span>
                     </label>
                   ))}
                   {kits.length === 0 && (
                     <span className="text-xs text-muted-foreground">
-                      Belum ada kit
+                      {t("noKitsShort")}
                     </span>
                   )}
                 </div>
@@ -217,10 +215,10 @@ export default function NewBookingPage() {
                   className="flex-1 rounded-xl"
                   onClick={() => router.back()}
                 >
-                  Batal
+                  {t("cancel")}
                 </Button>
                 <Button type="submit" className="flex-1 rounded-xl">
-                  Simpan Booking
+                  {t("saveBooking")}
                 </Button>
               </div>
             </form>

@@ -13,7 +13,8 @@
 >
 > Urutan jalankan SQL: `01-schema.sql` → `02-storage.sql` → `03-seed.sql`
 > (opsional) → `05-auth-hardening.sql` (token_version) → `06-tickets.sql`
-> (helpdesk) → `07-image-columns.sql` → `04-enable-rls.sql` **paling akhir**, setelah app dengan
+> (helpdesk) → `07-image-columns.sql` → `08-missing-columns.sql` →
+> `04-enable-rls.sql` **paling akhir**, setelah app dengan
 > `app/api/data/**` sudah ter-deploy (kalau RLS dinyalakan duluan tanpa route
 > ini, app kehilangan akses).
 

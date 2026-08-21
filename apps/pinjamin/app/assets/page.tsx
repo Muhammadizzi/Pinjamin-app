@@ -11,7 +11,6 @@ import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useStore } from "@/lib/store";
 import type { Asset } from "@/lib/types";
 import { useT } from "@/lib/i18n";
-import { formatDate } from "@/lib/utils";
 import {
   Search,
   Plus,
@@ -47,7 +46,7 @@ export default function AssetsPage() {
     loadDemoData,
     isSupabase,
   } = useStore();
-  const { t } = useT();
+  const { t, formatDate, assetStatus } = useT();
   const { ask, confirmDialog } = useConfirmDialog();
   const [importOpen, setImportOpen] = useState(false);
   /**
@@ -95,31 +94,33 @@ export default function AssetsPage() {
 
   const confirmDeleteAsset = (a: Asset) =>
     ask({
-      title: "Hapus aset?",
-      description: `"${a.name}" (${a.qrCode}) akan dihapus permanen dan tidak bisa dikembalikan.`,
-      confirmLabel: "Ya, Hapus",
+      title: t("confirmDeleteAsset"),
+      description: t("confirmDeleteAssetBody", { name: a.name, qr: a.qrCode }),
+      confirmLabel: t("yesDelete"),
       action: () => deleteAsset(a.id),
     });
 
   const exportCSV = () => {
     if (filtered.length === 0) {
-      setNotice({
-        kind: "error",
-        msg: "Tidak ada aset untuk diekspor — filter saat ini kosong.",
-      });
+      setNotice({ kind: "error", msg: t("exportEmpty") });
       return;
     }
+    // Judul kolom ikut bahasa aktif. Aman untuk diimpor balik: pendeteksi
+    // header di lib/import-file.ts mengenali istilah ID maupun EN.
     const rows = filtered.map((a) => ({
-      Nama: a.name,
-      Status: a.status,
-      Kategori: categories.find((c) => c.id === a.categoryId)?.name ?? "",
-      Lokasi: locations.find((l) => l.id === a.locationId)?.name ?? "",
-      "Kode QR": a.qrCode,
-      Nilai: a.value ?? "",
-      "No. Seri": a.serialNumber ?? "",
-      Deskripsi: a.description ?? "",
-      Peminjam: custodians.find((c) => c.id === a.custodianId)?.name ?? "",
-      Tag: a.tagIds
+      [t("colName")]: a.name,
+      [t("colStatus")]: a.status,
+      [t("colCategory")]:
+        categories.find((c) => c.id === a.categoryId)?.name ?? "",
+      [t("colLocation")]:
+        locations.find((l) => l.id === a.locationId)?.name ?? "",
+      [t("colQr")]: a.qrCode,
+      [t("colValue")]: a.value ?? "",
+      [t("colSerial")]: a.serialNumber ?? "",
+      [t("colDescription")]: a.description ?? "",
+      [t("colCustodian")]:
+        custodians.find((c) => c.id === a.custodianId)?.name ?? "",
+      [t("colTags")]: a.tagIds
         .map((id) => tags.find((tg) => tg.id === id)?.name)
         .filter(Boolean)
         .join(", "),
@@ -127,11 +128,11 @@ export default function AssetsPage() {
     const stamp = new Date().toISOString().slice(0, 10);
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Aset");
+    XLSX.utils.book_append_sheet(wb, ws, t("sheetAssets"));
     XLSX.writeFile(wb, `pinjamin-aset-${stamp}.xlsx`);
     setNotice({
       kind: "success",
-      msg: `${rows.length} aset diekspor ke Excel (.xlsx).`,
+      msg: t("exportDone", { count: rows.length }),
     });
   };
 
@@ -142,7 +143,10 @@ export default function AssetsPage() {
           <div>
             <h1 className="text-xl sm:text-2xl font-bold">{t("assets")}</h1>
             <p className="text-sm text-muted-foreground">
-              {filtered.length} aset • {assets.length} total
+              {t("assetsCountSummary", {
+                filtered: filtered.length,
+                total: assets.length,
+              })}
             </p>
           </div>
           {/* Di ponsel: 3 tombol dibagi rata satu baris, label Import
@@ -154,21 +158,21 @@ export default function AssetsPage() {
               className="rounded-xl px-2 sm:px-6"
             >
               <Upload className="h-4 w-4" />
-              <span className="sm:hidden">Import</span>
-              <span className="hidden sm:inline">Import Excel</span>
+              <span className="sm:hidden">{t("importShort")}</span>
+              <span className="hidden sm:inline">{t("importExcel")}</span>
             </Button>
             <Button
               variant="outline"
               onClick={exportCSV}
               className="rounded-xl px-2 sm:px-6"
             >
-              <Download className="h-4 w-4" /> Export
+              <Download className="h-4 w-4" /> {t("exportLabel")}
             </Button>
             <Link href="/assets/new" className="contents sm:block">
               <Button className="rounded-xl w-full px-2 sm:w-auto sm:px-6">
                 <Plus className="h-4 w-4" />
-                <span className="sm:hidden">Baru</span>
-                <span className="hidden sm:inline">New Asset</span>
+                <span className="sm:hidden">{t("newShort")}</span>
+                <span className="hidden sm:inline">{t("newAsset")}</span>
               </Button>
             </Link>
           </div>
@@ -192,7 +196,7 @@ export default function AssetsPage() {
             <span className="flex-1">{notice.msg}</span>
             <button
               onClick={() => setNotice(null)}
-              aria-label="Tutup notifikasi"
+              aria-label={t("closeNotification")}
               className="shrink-0 opacity-70 hover:opacity-100 transition-opacity"
             >
               <X className="h-4 w-4" />
@@ -209,7 +213,7 @@ export default function AssetsPage() {
                 <div className="relative flex-1">
                   <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                   <Input
-                    placeholder="Search assets, QR, serial..."
+                    placeholder={t("searchAssets")}
                     value={q}
                     onChange={(e) => {
                       setQ(e.target.value);
@@ -228,11 +232,17 @@ export default function AssetsPage() {
                       }}
                       className="w-full sm:w-[150px] h-11 rounded-xl bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 pr-8"
                     >
-                      <option value="ALL">All Status</option>
-                      <option value="AVAILABLE">AVAILABLE</option>
-                      <option value="CHECKED_OUT">CHECKED_OUT</option>
-                      <option value="MAINTENANCE">MAINTENANCE</option>
-                      <option value="RETIRED">RETIRED</option>
+                      <option value="ALL">{t("allStatus")}</option>
+                      <option value="AVAILABLE">
+                        {assetStatus("AVAILABLE")}
+                      </option>
+                      <option value="CHECKED_OUT">
+                        {assetStatus("CHECKED_OUT")}
+                      </option>
+                      <option value="MAINTENANCE">
+                        {assetStatus("MAINTENANCE")}
+                      </option>
+                      <option value="RETIRED">{assetStatus("RETIRED")}</option>
                     </Select>
                   </div>
                   <Select
@@ -240,9 +250,9 @@ export default function AssetsPage() {
                     onChange={(e) => setSort(e.target.value)}
                     className="w-full sm:w-[150px] h-11 rounded-xl bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700"
                   >
-                    <option value="newest">Date created</option>
-                    <option value="name">Name A-Z</option>
-                    <option value="value">Value</option>
+                    <option value="newest">{t("sortDateCreated")}</option>
+                    <option value="name">{t("sortNameAz")}</option>
+                    <option value="value">{t("sortValue")}</option>
                   </Select>
                   <div className="hidden sm:flex rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden bg-white dark:bg-slate-900 p-1 gap-1">
                     <button
@@ -252,10 +262,10 @@ export default function AssetsPage() {
                           ? "bg-[#1a365d] text-white shadow"
                           : "text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
                       }`}
-                      title="List view"
+                      title={t("listView")}
                     >
                       <List className="h-4 w-4" />
-                      <span className="hidden lg:inline">List</span>
+                      <span className="hidden lg:inline">{t("listLabel")}</span>
                     </button>
                     <button
                       onClick={() => setView("card")}
@@ -264,10 +274,10 @@ export default function AssetsPage() {
                           ? "bg-[#1a365d] text-white shadow"
                           : "text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
                       }`}
-                      title="Grid view"
+                      title={t("gridView")}
                     >
                       <LayoutGrid className="h-4 w-4" />
-                      <span className="hidden lg:inline">Grid</span>
+                      <span className="hidden lg:inline">{t("gridLabel")}</span>
                     </button>
                   </div>
                 </div>
@@ -284,7 +294,7 @@ export default function AssetsPage() {
                   className="flex items-center gap-2 uppercase tracking-widest sm:pointer-events-none"
                 >
                   <Filter className="h-3.5 w-3.5" />
-                  Filter
+                  {t("filter")}
                   <ChevronDown
                     className={`h-3.5 w-3.5 transition-transform sm:hidden ${
                       filterOpen ? "rotate-180" : ""
@@ -293,12 +303,13 @@ export default function AssetsPage() {
                 </button>
                 {(cat !== "ALL" || loc !== "ALL" || tag !== "ALL") && (
                   <span className="ml-1 bg-[#1a365d] text-white text-[10px] px-2 py-0.5 rounded-full">
-                    {
-                      [cat !== "ALL", loc !== "ALL", tag !== "ALL"].filter(
-                        Boolean
-                      ).length
-                    }{" "}
-                    aktif
+                    {t("filtersActive", {
+                      count: [
+                        cat !== "ALL",
+                        loc !== "ALL",
+                        tag !== "ALL",
+                      ].filter(Boolean).length,
+                    })}
                   </span>
                 )}
                 {(cat !== "ALL" ||
@@ -318,7 +329,7 @@ export default function AssetsPage() {
                     className="ml-auto text-xs normal-case tracking-normal font-medium text-[#1a365d] dark:text-amber-300 hover:underline flex items-center gap-1"
                   >
                     <Trash2 className="h-3 w-3" />
-                    Hapus filter
+                    {t("clearFilters")}
                   </button>
                 )}
               </div>
@@ -331,7 +342,7 @@ export default function AssetsPage() {
                 <div className="space-y-1.5">
                   <label className="text-xs font-medium text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
                     <TagIcon className="h-3 w-3 text-slate-400" />
-                    Category
+                    {t("category")}
                   </label>
                   <Select
                     value={cat}
@@ -341,7 +352,7 @@ export default function AssetsPage() {
                     }}
                     className="h-11 rounded-xl bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700"
                   >
-                    <option value="ALL">All Categories</option>
+                    <option value="ALL">{t("allCategories")}</option>
                     {categories.map((c) => (
                       <option key={c.id} value={c.id}>
                         {c.name}
@@ -353,7 +364,7 @@ export default function AssetsPage() {
                 <div className="space-y-1.5">
                   <label className="text-xs font-medium text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
                     <MapPin className="h-3 w-3 text-slate-400" />
-                    Location
+                    {t("location")}
                   </label>
                   <Select
                     value={loc}
@@ -363,7 +374,7 @@ export default function AssetsPage() {
                     }}
                     className="h-11 rounded-xl bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700"
                   >
-                    <option value="ALL">All Locations</option>
+                    <option value="ALL">{t("allLocations")}</option>
                     {locations.map((l) => (
                       <option key={l.id} value={l.id}>
                         {l.name}
@@ -375,7 +386,7 @@ export default function AssetsPage() {
                 <div className="space-y-1.5">
                   <label className="text-xs font-medium text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
                     <TagIcon className="h-3 w-3 text-slate-400" />
-                    Tag
+                    {t("tagLabel")}
                   </label>
                   <Select
                     value={tag}
@@ -385,10 +396,10 @@ export default function AssetsPage() {
                     }}
                     className="h-11 rounded-xl bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700"
                   >
-                    <option value="ALL">All Tags</option>
-                    {tags.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.name}
+                    <option value="ALL">{t("allTags")}</option>
+                    {tags.map((tg) => (
+                      <option key={tg.id} value={tg.id}>
+                        {tg.name}
                       </option>
                     ))}
                   </Select>
@@ -396,7 +407,7 @@ export default function AssetsPage() {
 
                 <div className="space-y-1.5">
                   <label className="text-xs font-medium text-slate-600 dark:text-slate-300">
-                    Per halaman
+                    {t("perPage")}
                   </label>
                   <Select
                     value={String(perPage)}
@@ -406,9 +417,15 @@ export default function AssetsPage() {
                     }}
                     className="h-11 rounded-xl bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700"
                   >
-                    <option value="8">8 / page</option>
-                    <option value="20">20 / page</option>
-                    <option value="50">50 / page</option>
+                    <option value="8">
+                      {t("perPageOption", { count: 8 })}
+                    </option>
+                    <option value="20">
+                      {t("perPageOption", { count: 20 })}
+                    </option>
+                    <option value="50">
+                      {t("perPageOption", { count: 50 })}
+                    </option>
                   </Select>
                 </div>
               </div>
@@ -421,7 +438,7 @@ export default function AssetsPage() {
                 <div className="flex flex-wrap gap-2 pt-1">
                   {status !== "ALL" && (
                     <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#1a365d] text-white text-xs font-medium">
-                      Status: {status}
+                      {t("status")}: {assetStatus(status)}
                       <button
                         onClick={() => setStatus("ALL")}
                         className="hover:bg-white/20 rounded-full p-0.5"
@@ -454,7 +471,7 @@ export default function AssetsPage() {
                   )}
                   {tag !== "ALL" && (
                     <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-200 border border-emerald-200 dark:border-emerald-800 text-xs font-medium">
-                      {tags.find((t) => t.id === tag)?.name}
+                      {tags.find((tg) => tg.id === tag)?.name}
                       <button
                         onClick={() => setTag("ALL")}
                         className="hover:bg-black/10 rounded-full p-0.5"
@@ -477,18 +494,17 @@ export default function AssetsPage() {
                 <PackageIcon />
               </div>
               <div>
-                <div className="font-semibold">Belum ada aset</div>
+                <div className="font-semibold">{t("noAssetsYet")}</div>
                 <div className="text-sm text-muted-foreground">
-                  Buat manual, impor Excel apa adanya, atau muat data contoh
-                  Garudafood.
+                  {t("noAssetsHint")}
                 </div>
               </div>
               <div className="flex flex-wrap justify-center gap-2">
                 <Link href="/assets/new">
-                  <Button>Buat aset pertama</Button>
+                  <Button>{t("createFirstAsset")}</Button>
                 </Link>
                 <Button variant="outline" onClick={() => setImportOpen(true)}>
-                  <Upload className="h-4 w-4" /> Impor Excel
+                  <Upload className="h-4 w-4" /> {t("importExcel")}
                 </Button>
                 {/* Mode Supabase: data contoh dimuat lewat SQL seed, bukan
                     dari sini — loadDemoData tidak menulis ke database. */}
@@ -499,11 +515,11 @@ export default function AssetsPage() {
                       loadDemoData();
                       setNotice({
                         kind: "success",
-                        msg: "Data contoh Garudafood dimuat (aset, lokasi pabrik, peminjaman, audit).",
+                        msg: t("demoDataLoaded"),
                       });
                     }}
                   >
-                    Muat data demo
+                    {t("loadDemoData")}
                   </Button>
                 )}
               </div>
@@ -516,13 +532,13 @@ export default function AssetsPage() {
               <table className="w-full text-sm">
                 <thead className="bg-slate-50 dark:bg-slate-800 text-left text-xs uppercase tracking-widest text-muted-foreground">
                   <tr>
-                    <th className="px-4 py-3 w-14">Foto</th>
-                    <th className="px-4 py-3">Nama</th>
-                    <th className="px-4 py-3">Kategori</th>
-                    <th className="px-4 py-3">Status</th>
-                    <th className="px-4 py-3">Lokasi</th>
-                    <th className="px-4 py-3">Custodian</th>
-                    <th className="px-4 py-3 text-right">Aksi</th>
+                    <th className="px-4 py-3 w-14">{t("photo")}</th>
+                    <th className="px-4 py-3">{t("name")}</th>
+                    <th className="px-4 py-3">{t("category")}</th>
+                    <th className="px-4 py-3">{t("status")}</th>
+                    <th className="px-4 py-3">{t("location")}</th>
+                    <th className="px-4 py-3">{t("custodian")}</th>
+                    <th className="px-4 py-3 text-right">{t("actions")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -543,7 +559,7 @@ export default function AssetsPage() {
                         <td className="px-4 py-3">
                           <Link
                             href={`/assets/${a.id}`}
-                            aria-label={`Lihat ${a.name}`}
+                            aria-label={t("viewItem", { name: a.name })}
                           >
                             <AssetImage
                               src={a.mainImage}
@@ -561,7 +577,10 @@ export default function AssetsPage() {
                         </td>
                         <td className="px-4 py-3">{catName}</td>
                         <td className="px-4 py-3">
-                          <StatusBadge status={a.status} />
+                          <StatusBadge
+                            status={a.status}
+                            label={assetStatus(a.status)}
+                          />
                         </td>
                         <td className="px-4 py-3">
                           <span className="flex items-center gap-1">
@@ -617,7 +636,7 @@ export default function AssetsPage() {
                     <div className="flex items-start gap-2.5">
                       <Link
                         href={`/assets/${a.id}`}
-                        aria-label={`Lihat ${a.name}`}
+                        aria-label={t("viewItem", { name: a.name })}
                       >
                         <AssetImage src={a.mainImage} alt={a.name} size="sm" />
                       </Link>
@@ -629,7 +648,10 @@ export default function AssetsPage() {
                           {a.qrCode} • {formatDate(a.createdAt)}
                         </div>
                       </div>
-                      <StatusBadge status={a.status} />
+                      <StatusBadge
+                        status={a.status}
+                        label={assetStatus(a.status)}
+                      />
                     </div>
                     <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
                       <TagIcon className="h-3 w-3 shrink-0" />
@@ -651,16 +673,16 @@ export default function AssetsPage() {
                           className="w-full rounded-xl"
                           size="sm"
                         >
-                          <Eye className="h-4 w-4" /> Detail
+                          <Eye className="h-4 w-4" /> {t("detail")}
                         </Button>
                       </Link>
                       <Link
                         href={`/assets/${a.id}/edit`}
-                        aria-label={`Edit ${a.name}`}
+                        aria-label={t("editItem", { name: a.name })}
                       >
                         <Button className="rounded-xl px-4" size="sm">
                           <Pencil className="h-4 w-4" />
-                          Edit
+                          {t("edit")}
                         </Button>
                       </Link>
                     </div>
@@ -689,7 +711,10 @@ export default function AssetsPage() {
                 </div>
                 <CardContent className="p-4 space-y-2">
                   <div className="font-semibold line-clamp-1">{a.name}</div>
-                  <StatusBadge status={a.status} />
+                  <StatusBadge
+                    status={a.status}
+                    label={assetStatus(a.status)}
+                  />
                   <div className="text-xs text-muted-foreground line-clamp-2">
                     {a.description}
                   </div>
@@ -700,7 +725,7 @@ export default function AssetsPage() {
                         size="sm"
                         className="w-full rounded-xl"
                       >
-                        Detail
+                        {t("detail")}
                       </Button>
                     </Link>
                     <Button
@@ -720,7 +745,11 @@ export default function AssetsPage() {
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-2xl border bg-white dark:bg-slate-900 p-4">
           <div className="text-sm text-muted-foreground">
-            Hal {page} dari {totalPages} • {filtered.length} hasil
+            {t("paginationInfo", {
+              page,
+              total: totalPages,
+              count: filtered.length,
+            })}
           </div>
           <div className="flex items-center gap-2">
             <Button
@@ -729,7 +758,7 @@ export default function AssetsPage() {
               disabled={page <= 1}
               onClick={() => setPage((p) => p - 1)}
             >
-              Prev
+              {t("prev")}
             </Button>
             <span className="text-sm px-2">
               {page} / {totalPages}
@@ -740,7 +769,7 @@ export default function AssetsPage() {
               disabled={page >= totalPages}
               onClick={() => setPage((p) => p + 1)}
             >
-              Next
+              {t("next")}
             </Button>
           </div>
         </div>
@@ -756,8 +785,8 @@ export default function AssetsPage() {
             kind: r.imported > 0 ? "success" : "error",
             msg:
               r.imported > 0
-                ? `${r.imported} aset diimpor dari spreadsheet.`
-                : "Tidak ada baris yang masuk (mungkin semua duplikat).",
+                ? t("importDone", { count: r.imported })
+                : t("importNone"),
           });
           return r;
         }}
@@ -766,14 +795,14 @@ export default function AssetsPage() {
   );
 }
 
-function StatusBadge({ status }: { status: string }) {
+function StatusBadge({ status, label }: { status: string; label: string }) {
   const map: Record<string, string> = {
     AVAILABLE: "success",
     CHECKED_OUT: "info",
     MAINTENANCE: "warning",
     RETIRED: "secondary",
   };
-  return <Badge variant={(map[status] as any) || "secondary"}>{status}</Badge>;
+  return <Badge variant={(map[status] as any) || "secondary"}>{label}</Badge>;
 }
 function PackageIcon() {
   return (

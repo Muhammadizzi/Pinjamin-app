@@ -146,7 +146,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
 
   const navItems =
     mode === "tickets"
-      ? [{ href: "/tickets", label: "Tiket Bantuan", icon: LifeBuoy }]
+      ? [{ href: "/tickets", label: t("helpdeskTickets"), icon: LifeBuoy }]
       : [
           { href: "/dashboard", label: t("home"), icon: LayoutDashboard },
           { href: "/assets", label: t("assets"), icon: Package },
@@ -206,14 +206,14 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
       <div className="flex-1 overflow-y-auto px-3 py-4 space-y-6">
         <div className="space-y-1">
           <div className="px-3 py-2 text-[11px] font-semibold tracking-widest text-slate-400 uppercase">
-            {mode === "tickets" ? "Helpdesk" : t("assetManagement")}
+            {mode === "tickets" ? t("helpdesk") : t("assetManagement")}
           </div>
           {navItems.map((item) => {
             const isActive =
               item.href === "/dashboard"
                 ? pathname === "/dashboard"
                 : pathname.startsWith(item.href);
-            if (item.label === t("bookings")) {
+            if (item.href === "/bookings") {
               return (
                 <div key={item.href}>
                   <button
@@ -258,7 +258,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
                             : "text-slate-400 hover:text-white"
                         )}
                       >
-                        {t("bookings")} Calendar
+                        {t("bookingsCalendar")}
                       </Link>
                       <Link
                         href="/bookings/new"
@@ -321,20 +321,19 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           {mode === "tickets" ? (
             <>
               <div className="text-xs font-semibold text-amber-200 mb-1">
-                🎧 Helpdesk
+                🎧 {t("helpdesk")}
               </div>
               <div className="text-xs text-slate-300 leading-relaxed">
-                Tiket masuk dari landing page tanpa login. Ubah statusnya agar
-                user bisa melacak lewat nomor tiket.
+                {t("sidebarHelpdeskHint")}
               </div>
             </>
           ) : (
             <>
               <div className="text-xs font-semibold text-amber-200 mb-1">
-                💡 Tips
+                💡 {t("tips")}
               </div>
               <div className="text-xs text-slate-300 leading-relaxed">
-                Scan QR aset untuk aksi cepat pinjam/kembali tanpa buka menu.
+                {t("sidebarScanHint")}
               </div>
             </>
           )}
@@ -454,7 +453,7 @@ export function TopBar({ onMenu }: { onMenu: () => void }) {
         <span className="text-white/60 font-medium">Garuda Food</span>
         <span className="ml-3 hidden xl:inline-flex items-center gap-2 text-xs text-white/40">
           <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-          Sistem aktif
+          {t("systemActive")}
         </span>
       </div>
       <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
@@ -463,7 +462,7 @@ export function TopBar({ onMenu }: { onMenu: () => void }) {
           <button
             type="button"
             onClick={() => switchMode("assets")}
-            title="Mode Admin Pinjamin"
+            title={t("modeAdminAssets")}
             className={cn(
               "flex items-center gap-1.5 rounded-lg px-2 sm:px-2.5 py-1.5 text-xs font-semibold transition-all",
               mode === "assets"
@@ -477,7 +476,7 @@ export function TopBar({ onMenu }: { onMenu: () => void }) {
           <button
             type="button"
             onClick={() => switchMode("tickets")}
-            title="Mode Admin Ticketing"
+            title={t("modeAdminTickets")}
             className={cn(
               "flex items-center gap-1.5 rounded-lg px-2 sm:px-2.5 py-1.5 text-xs font-semibold transition-all",
               mode === "tickets"

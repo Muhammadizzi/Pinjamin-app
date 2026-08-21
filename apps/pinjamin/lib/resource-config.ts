@@ -23,12 +23,26 @@ export const SIMPLE_RESOURCE_TABLE: Record<SimpleResourceKey, string> = {
 
 export const SIMPLE_RESOURCE_FIELDS: Record<SimpleResourceKey, string[]> = {
   categories: ["name", "description", "color"],
-  tags: ["name"],
-  locations: ["name", "description", "address", "parent_id", "image"],
-  customFields: ["name", "type", "required", "options"],
+  tags: ["name", "color"],
+  locations: [
+    "name",
+    "description",
+    "address",
+    "parent_id",
+    "is_parent",
+    "image",
+  ],
+  customFields: ["name", "type", "required", "options", "category_ids"],
   assetModels: ["name", "brand", "model_no", "category_id"],
   custodians: ["name", "nik", "department", "email", "phone"],
-  kits: ["name", "description", "status", "image"],
+  kits: [
+    "name",
+    "description",
+    "status",
+    "image",
+    "category_id",
+    "location_id",
+  ],
 };
 
 /**

@@ -37,13 +37,15 @@ const QR_READER_ID = "pinjamin-qr-reader";
 
 export default function ScannerPage() {
   const { assets, kits, updateAsset } = useStore();
-  const { t } = useT();
+  const { t, assetStatus } = useT();
   const [mode, setMode] = useState<"scan" | "manual">("scan");
   const [manual, setManual] = useState("");
   const [result, setResult] = useState<any>(null);
   const [status, setStatus] = useState("");
   const [isSecure, setIsSecure] = useState(true);
   const [fileScanning, setFileScanning] = useState(false);
+  /** true bila kamera gagal / tidak didukung — dipakai untuk gaya & placeholder. */
+  const [cameraError, setCameraError] = useState(false);
   /**
    * Container yang anak-anaknya dimiliki effect (html5-qrcode), BUKAN React.
    * React hanya merender pembungkus kosong ini; overlay placeholder dipindah
@@ -95,10 +97,10 @@ export default function ScannerPage() {
     }
     if (found) {
       setResult(found);
-      setStatus(`Ditemukan ${found.type}: ${found.data.name}`);
+      setStatus(t("scanFoundIt", { type: found.type, name: found.data.name }));
     } else {
       setResult(null);
-      setStatus(`Tidak ditemukan: ${raw}`);
+      setStatus(t("scanNotFound", { code: raw }));
     }
   };
   handleCodeRef.current = handleCode;
@@ -109,11 +111,11 @@ export default function ScannerPage() {
       const secure = window.isSecureContext;
       setIsSecure(secure);
       if (!secure) {
-        setStatus(
-          "Kamera butuh HTTPS. Gunakan localhost atau upload gambar QR."
-        );
+        setCameraError(true);
+        setStatus(t("cameraNeedsHttps"));
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -160,20 +162,18 @@ export default function ScannerPage() {
           } catch {}
           return;
         }
-        setStatus("Kamera aktif — arahkan ke QR");
+        setCameraError(false);
+        setStatus(t("cameraActive"));
       } catch (e: any) {
         if (cancelled) return;
+        setCameraError(true);
         const msg = e?.message || String(e);
         if (msg.includes("NotAllowedError") || msg.includes("Permission")) {
-          setStatus(
-            "Izin kamera ditolak. Aktifkan izin di browser atau gunakan Input Manual."
-          );
+          setStatus(t("cameraDenied"));
         } else if (!window.isSecureContext || msg.includes("not supported")) {
-          setStatus(
-            "Camera streaming not supported — butuh HTTPS. Gunakan Input Manual atau Upload Gambar."
-          );
+          setStatus(t("cameraUnsupported"));
         } else {
-          setStatus("Gagal akses kamera: " + msg + " — gunakan Input Manual.");
+          setStatus(t("cameraFailed", { msg }));
         }
       }
     })();
@@ -211,7 +211,7 @@ export default function ScannerPage() {
     const file = e.target.files?.[0];
     if (!file) return;
     setFileScanning(true);
-    setStatus("Memproses gambar...");
+    setStatus(t("processingImage"));
     // Temporary off-DOM host khusus scanFile — dibuat & dihapus imperatif,
     // tidak beririsan dengan tree React.
     const tempId = "pinjamin-qr-reader-file";
@@ -228,12 +228,9 @@ export default function ScannerPage() {
         tmp.clear();
       } catch {}
       handleCode(decoded);
-      setStatus(`QR dari file: ${decoded}`);
+      setStatus(t("qrFromFile", { code: decoded }));
     } catch (err: any) {
-      setStatus(
-        "Gagal baca QR dari gambar. Pastikan foto QR jelas & tidak blur, " +
-          "atau crop hanya bagian QR-nya lalu coba lagi."
-      );
+      setStatus(t("qrFileFailed"));
       console.warn(err);
     } finally {
       // Selalu bersihkan host temporer (sebelumnya bocor saat error).
@@ -245,10 +242,12 @@ export default function ScannerPage() {
     }
   };
 
-  const isCameraError =
-    status.includes("not supported") ||
-    status.includes("HTTPS") ||
-    status.includes("not supported by the browser");
+  /**
+   * Status kamera bermasalah? Sebelumnya dideteksi dari isi teks status —
+   * rapuh, dan langsung rusak begitu teksnya diterjemahkan. Sekarang pakai
+   * penanda boolean tersendiri.
+   */
+  const isCameraError = cameraError;
 
   return (
     <AppShell>
@@ -257,10 +256,7 @@ export default function ScannerPage() {
           <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight">
             {t("scanner")}
           </h1>
-          <p className="text-sm text-muted-foreground">
-            Scan cepat dengan kamera, upload gambar, atau input manual — semua
-            jalan
-          </p>
+          <p className="text-sm text-muted-foreground">{t("scannerHeadSub")}</p>
         </div>
 
         <div className="grid grid-cols-2 gap-2 p-1 rounded-2xl bg-slate-100 dark:bg-slate-800">
@@ -273,7 +269,7 @@ export default function ScannerPage() {
                 : ""
             }`}
           >
-            <Camera className="h-4 w-4" /> Scan Kamera
+            <Camera className="h-4 w-4" /> {t("scanCamera")}
           </Button>
           <Button
             variant={mode === "manual" ? "default" : "ghost"}
@@ -284,7 +280,7 @@ export default function ScannerPage() {
                 : ""
             }`}
           >
-            <Keyboard className="h-4 w-4" /> Input Manual
+            <Keyboard className="h-4 w-4" /> {t("inputManual")}
           </Button>
         </div>
 
@@ -293,22 +289,10 @@ export default function ScannerPage() {
             <ShieldAlert className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
             <div className="text-sm">
               <div className="font-semibold text-amber-900 dark:text-amber-200">
-                Mode tidak aman (Not Secure)
+                {t("insecureModeTitle")}
               </div>
               <div className="text-amber-800 dark:text-amber-300 text-xs leading-relaxed">
-                Browser blokir kamera di{" "}
-                <code className="bg-white dark:bg-slate-900 px-1 rounded">
-                  http://0.0.0.0:5003
-                </code>
-                . Buka via{" "}
-                <code className="bg-white dark:bg-slate-900 px-1 rounded">
-                  http://localhost:5003
-                </code>{" "}
-                atau{" "}
-                <code className="bg-white dark:bg-slate-900 px-1 rounded">
-                  https://…e2b.app
-                </code>{" "}
-                untuk kamera, atau pakai <b>Upload Gambar QR</b> di bawah.
+                {t("insecureModeBody")}
               </div>
             </div>
           </div>
@@ -320,7 +304,7 @@ export default function ScannerPage() {
               <div className="h-8 w-8 rounded-lg bg-[#123367] dark:bg-amber-400 text-white dark:text-[#0a2240] flex items-center justify-center">
                 <QrCode className="h-4 w-4" />
               </div>
-              Scanner
+              {t("scannerCardTitle")}
               <span className="ml-auto text-xs font-normal text-muted-foreground flex items-center gap-1">
                 <Sparkles className="h-3 w-3" /> anime.js glass
               </span>
@@ -351,10 +335,10 @@ export default function ScannerPage() {
                       <Camera className="h-8 w-8" />
                     </div>
                     <div className="text-sm font-medium">
-                      Kamera tidak tersedia di sini
+                      {t("cameraUnavailableHere")}
                     </div>
                     <div className="text-xs text-white/50">
-                      Upload gambar QR di bawah
+                      {t("uploadQrBelow")}
                     </div>
                   </div>
                 </div>
@@ -367,7 +351,7 @@ export default function ScannerPage() {
                       : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-muted-foreground"
                   }`}
                 >
-                  {status || "Menunggu kamera..."}
+                  {status || t("waitingForCamera")}
                 </div>
 
                 {/* File upload fallback */}
@@ -377,7 +361,7 @@ export default function ScannerPage() {
                   </div>
                   <div className="relative flex justify-center">
                     <span className="bg-white dark:bg-slate-900 px-3 text-xs text-muted-foreground">
-                      atau
+                      {t("or")}
                     </span>
                   </div>
                 </div>
@@ -399,10 +383,10 @@ export default function ScannerPage() {
                   </div>
                   <div className="text-center">
                     <div className="text-sm font-semibold">
-                      {fileScanning ? "Memproses..." : "Upload Gambar QR"}
+                      {fileScanning ? t("processingShort") : t("uploadQrImage")}
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      Pilih foto QR dari galeri — jalan tanpa kamera
+                      {t("pickQrFromGallery")}
                     </div>
                   </div>
                 </label>
@@ -411,7 +395,7 @@ export default function ScannerPage() {
               <div className="space-y-3">
                 <div className="relative">
                   <Input
-                    placeholder="Masukkan kode QR (mis. PIN-MBP001A)"
+                    placeholder={t("manualCodePlaceholder")}
                     value={manual}
                     onChange={(e) => setManual(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && handleCode(manual)}
@@ -423,12 +407,11 @@ export default function ScannerPage() {
                     className="absolute right-1 top-1 h-10 rounded-lg bg-[#123367] dark:bg-amber-400 dark:text-[#0a2240] text-white px-4"
                     size="sm"
                   >
-                    Cari
+                    {t("searchAction")}
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground text-center">
-                  Contoh: PIN-MBP001A, PIN-PRJ002B, KIT-001 • Tekan Enter untuk
-                  cari
+                  {t("manualExampleHint")}
                 </p>
 
                 <div className="relative">
@@ -437,7 +420,7 @@ export default function ScannerPage() {
                   </div>
                   <div className="relative flex justify-center">
                     <span className="bg-white dark:bg-slate-900 px-3 text-xs text-muted-foreground">
-                      atau
+                      {t("or")}
                     </span>
                   </div>
                 </div>
@@ -462,9 +445,11 @@ export default function ScannerPage() {
                     <Upload className="h-5 w-5" />
                   </div>
                   <div className="flex-1">
-                    <div className="text-sm font-medium">Upload Gambar QR</div>
+                    <div className="text-sm font-medium">
+                      {t("uploadQrImage")}
+                    </div>
                     <div className="text-xs text-muted-foreground">
-                      Foto QR dari kamera galeri
+                      {t("qrPhotoFromGallery")}
                     </div>
                   </div>
                   <input
@@ -481,7 +466,7 @@ export default function ScannerPage() {
                     className="rounded-lg pointer-events-none"
                     tabIndex={-1}
                   >
-                    Pilih File
+                    {t("pickFile")}
                   </Button>
                 </div>
               </div>
@@ -523,7 +508,7 @@ export default function ScannerPage() {
                             : "info"
                         }
                       >
-                        {result.data.status}
+                        {assetStatus(result.data.status)}
                       </Badge>
                     </div>
                   </div>
@@ -540,7 +525,7 @@ export default function ScannerPage() {
                       className="w-full rounded-xl bg-[#123367] hover:bg-[#1a3d6d] text-white"
                       size="sm"
                     >
-                      Lihat Detail
+                      {t("viewDetail")}
                     </Button>
                   </Link>
                   {result.type === "asset" && (
@@ -550,7 +535,7 @@ export default function ScannerPage() {
                         className="w-full rounded-xl"
                         size="sm"
                       >
-                        Pinjamkan
+                        {t("lendAction")}
                       </Button>
                     </Link>
                   )}
@@ -565,10 +550,10 @@ export default function ScannerPage() {
                             status: "AVAILABLE",
                             custodianId: null,
                           });
-                          setStatus("Aset ditandai kembali (AVAILABLE)");
+                          setStatus(t("markReturnedShort"));
                         }}
                       >
-                        <Check className="h-4 w-4" /> Kembalikan
+                        <Check className="h-4 w-4" /> {t("returnAction")}
                       </Button>
                     )}
                 </div>
@@ -583,9 +568,9 @@ export default function ScannerPage() {
               <div className="h-7 w-7 rounded-lg bg-slate-900 dark:bg-white text-white dark:text-slate-900 flex items-center justify-center">
                 <QrCode className="h-4 w-4" />
               </div>
-              Aset Terbaru
+              {t("recentAssets")}
               <span className="text-xs font-normal text-muted-foreground">
-                tap untuk simulasi
+                {t("tapToSimulate")}
               </span>
             </CardTitle>
           </CardHeader>

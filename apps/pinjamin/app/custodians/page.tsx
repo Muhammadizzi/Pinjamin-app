@@ -29,9 +29,9 @@ export default function CustodiansPage() {
     if (!form.name) return;
     ask({
       title: edit
-        ? `Simpan perubahan peminjam "${form.name}"?`
-        : `Tambah peminjam "${form.name}"?`,
-      confirmLabel: edit ? "Ya, Simpan" : "Ya, Tambah",
+        ? t("confirmEditCustodian", { name: form.name })
+        : t("confirmAddCustodian", { name: form.name }),
+      confirmLabel: edit ? t("yesSave") : t("yesAdd"),
       variant: "primary",
       action: () => {
         if (edit) {
@@ -61,7 +61,7 @@ export default function CustodiansPage() {
           <div>
             <h1 className="text-xl sm:text-2xl font-bold">{t("custodians")}</h1>
             <p className="text-sm text-muted-foreground">
-              Data peminjam dikelola admin (tanpa login)
+              {t("custodiansSub")}
             </p>
           </div>
           <Button
@@ -78,21 +78,21 @@ export default function CustodiansPage() {
             }}
             className="rounded-xl"
           >
-            <Plus className="h-4 w-4" /> Tambah
+            <Plus className="h-4 w-4" /> {t("add")}
           </Button>
         </div>
         {show && (
           <Card>
             <CardHeader>
               <CardTitle className="text-base">
-                {edit ? "Edit" : "Tambah"} Peminjam
+                {edit ? t("editCustodianTitle") : t("addCustodianTitle")}
               </CardTitle>
             </CardHeader>
             <CardContent>
               <form onSubmit={submit} className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2 sm:col-span-2">
-                    <Label>Nama *</Label>
+                    <Label>{t("name")} *</Label>
                     <Input
                       value={form.name}
                       onChange={(e) =>
@@ -104,7 +104,7 @@ export default function CustodiansPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>NIK</Label>
+                    <Label>{t("nik")}</Label>
                     <Input
                       value={form.nik}
                       onChange={(e) =>
@@ -115,7 +115,7 @@ export default function CustodiansPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Departemen</Label>
+                    <Label>{t("department")}</Label>
                     <Input
                       value={form.department}
                       onChange={(e) =>
@@ -126,7 +126,7 @@ export default function CustodiansPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Email</Label>
+                    <Label>{t("email")}</Label>
                     <Input
                       type="email"
                       value={form.email}
@@ -138,7 +138,7 @@ export default function CustodiansPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Phone</Label>
+                    <Label>{t("phone")}</Label>
                     <Input
                       value={form.phone}
                       onChange={(e) =>
@@ -150,7 +150,7 @@ export default function CustodiansPage() {
                   </div>
                 </div>
                 <Button type="submit" className="w-full rounded-xl">
-                  {edit ? "Update" : "Simpan"}
+                  {edit ? t("update") : t("save")}
                 </Button>
               </form>
             </CardContent>
@@ -187,9 +187,11 @@ export default function CustodiansPage() {
                     className="h-8 w-8 text-red-600"
                     onClick={() =>
                       ask({
-                        title: "Hapus peminjam?",
-                        description: `"${c.name}" akan dihapus permanen dari daftar peminjam.`,
-                        confirmLabel: "Ya, Hapus",
+                        title: t("confirmDeleteCustodian"),
+                        description: t("confirmDeleteCustodianBody", {
+                          name: c.name,
+                        }),
+                        confirmLabel: t("yesDelete"),
                         action: () => deleteCustodian(c.id),
                       })
                     }

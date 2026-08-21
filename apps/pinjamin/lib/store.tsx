@@ -27,6 +27,7 @@ import type {
 import { generateId, generateQRCode } from "./utils";
 import { isSupabaseConfigured } from "./supabase";
 import { getCachedAdminUsername } from "./auth-client";
+import { useT } from "./i18n";
 
 const STORAGE_KEY = "pinjamin_data_v3_gf";
 
@@ -271,6 +272,9 @@ async function supaUpdate(table: string, id: string, patch: any) {
   if (!resource || !isSupabaseConfigured()) return;
   try {
     const dbPatch = toDbRow(patch);
+    // Patch kosong (mis. hanya field yang di-undefined) tidak perlu bulak-balik
+    // ke server — dan server memang menolaknya dengan 400 "No valid fields".
+    if (Object.keys(dbPatch).length === 0) return;
     const res = await fetch(`/api/data/${resource}/${encodeURIComponent(id)}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -339,6 +343,9 @@ async function apiMutate(
   }
 }
 export function StoreProvider({ children }: { children: React.ReactNode }) {
+  // StoreProvider berada DI DALAM I18nProvider (app/layout.tsx), jadi pesan
+  // yang dikembalikan ke UI (mis. bentrok booking) ikut bahasa aktif.
+  const { t } = useT();
   const [data, setData] = useState<AppData>(seedData);
   const [isHydrated, setHydrated] = useState(false);
   const [isSupabase, setIsSupabase] = useState(false);
@@ -975,7 +982,23 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         qrCode: "KIT-" + generateQRCode().slice(4),
         createdAt: new Date().toISOString(),
       } as Kit;
-      if (isSupabaseConfigured()) supaInsert("kits", row);
+      // Lewat apiMutate (bukan supaInsert) supaya assetIds tetap camelCase —
+      // route /api/data/kits memakainya untuk mengisi tabel relasi kit_assets.
+      if (isSupabaseConfigured()) {
+        apiMutate("/api/data/kits", "POST", {
+          ...toDbRow({
+            id: row.id,
+            qrCode: row.qrCode,
+            name: row.name,
+            description: row.description,
+            status: row.status,
+            image: row.image,
+            categoryId: row.categoryId,
+            locationId: row.locationId,
+          }),
+          assetIds: row.assetIds || [],
+        });
+      }
       setData((d) => ({ ...d, kits: [row, ...d.kits] }));
     },
     deleteKit: (id) => {
@@ -997,7 +1020,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         if (intersectAssets) {
           return {
             ok: false,
-            error: `Bentrok dengan booking "${ex.name}" (${ex.id}) pada rentang tanggal yang sama.`,
+            error: t("bookingConflict", { name: ex.name, id: ex.id }),
           };
         }
       }

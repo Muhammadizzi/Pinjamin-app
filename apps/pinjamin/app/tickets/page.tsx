@@ -9,7 +9,7 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useStore } from "@/lib/store";
-import { formatDateTime } from "@/lib/utils";
+import { useT } from "@/lib/i18n";
 import {
   LifeBuoy,
   Search,
@@ -55,55 +55,47 @@ interface Ticket {
   updatedAt: string;
 }
 
-const ASSET_STATUS_LABEL: Record<string, string> = {
-  AVAILABLE: "Tersedia",
-  CHECKED_OUT: "Dipinjam",
-  MAINTENANCE: "Maintenance",
-  RETIRED: "Dipensiunkan",
-};
-
-const STATUS_META: Record<
-  TicketStatus,
-  { label: string; badge: string; dot: string }
-> = {
+/** Warna badge per status — labelnya datang dari kamus (lihat useT). */
+const STATUS_META: Record<TicketStatus, { badge: string; dot: string }> = {
   OPEN: {
-    label: "Open",
     badge: "bg-red-500/15 text-red-400 border-red-500/30",
     dot: "bg-red-400",
   },
   IN_PROGRESS: {
-    label: "Diproses",
     badge: "bg-amber-500/15 text-amber-300 border-amber-500/30",
     dot: "bg-amber-400",
   },
   RESOLVED: {
-    label: "Selesai",
     badge: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
     dot: "bg-emerald-400",
   },
   CLOSED: {
-    label: "Ditutup",
     badge: "bg-slate-500/15 text-slate-400 border-slate-500/30",
     dot: "bg-slate-400",
   },
 };
 
-const FILTERS: Array<{ key: TicketStatus | "ALL"; label: string }> = [
-  { key: "ALL", label: "Semua" },
-  { key: "OPEN", label: "Open" },
-  { key: "IN_PROGRESS", label: "Diproses" },
-  { key: "RESOLVED", label: "Selesai" },
-  { key: "CLOSED", label: "Ditutup" },
+const STATUS_ORDER: TicketStatus[] = [
+  "OPEN",
+  "IN_PROGRESS",
+  "RESOLVED",
+  "CLOSED",
 ];
 
-function StatusBadge({ status }: { status: TicketStatus }) {
+function StatusBadge({
+  status,
+  label,
+}: {
+  status: TicketStatus;
+  label: string;
+}) {
   const meta = STATUS_META[status];
   return (
     <span
       className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${meta.badge}`}
     >
       <span className={`h-1.5 w-1.5 rounded-full ${meta.dot}`} />
-      {meta.label}
+      {label}
     </span>
   );
 }
@@ -111,6 +103,7 @@ function StatusBadge({ status }: { status: TicketStatus }) {
 export default function TicketsPage() {
   const { ask, confirmDialog } = useConfirmDialog();
   const { assets, updateAsset, isHydrated } = useStore();
+  const { t, ticketStatus, assetStatus, formatDateTime } = useT();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -170,7 +163,7 @@ export default function TicketsPage() {
   // (mis. setelah poll saat modal baru ditutup).
   useEffect(() => {
     if (!selected) return;
-    const fresh = tickets.find((t) => t.id === selected.id);
+    const fresh = tickets.find((x) => x.id === selected.id);
     if (fresh && fresh !== selected) setSelected(fresh);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tickets]);
@@ -187,32 +180,40 @@ export default function TicketsPage() {
 
   const stats = useMemo(
     () => ({
-      open: tickets.filter((t) => t.status === "OPEN").length,
-      inProgress: tickets.filter((t) => t.status === "IN_PROGRESS").length,
-      resolved: tickets.filter((t) => t.status === "RESOLVED").length,
-      closed: tickets.filter((t) => t.status === "CLOSED").length,
+      open: tickets.filter((x) => x.status === "OPEN").length,
+      inProgress: tickets.filter((x) => x.status === "IN_PROGRESS").length,
+      resolved: tickets.filter((x) => x.status === "RESOLVED").length,
+      closed: tickets.filter((x) => x.status === "CLOSED").length,
     }),
     [tickets]
   );
 
+  const filters = useMemo<Array<{ key: TicketStatus | "ALL"; label: string }>>(
+    () => [
+      { key: "ALL", label: t("all") },
+      ...STATUS_ORDER.map((k) => ({ key: k, label: ticketStatus(k) })),
+    ],
+    [t, ticketStatus]
+  );
+
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return tickets.filter((t) => {
-      if (filter !== "ALL" && t.status !== filter) return false;
+    return tickets.filter((x) => {
+      if (filter !== "ALL" && x.status !== filter) return false;
       if (!q) return true;
       return (
-        t.number.toLowerCase().includes(q) ||
-        t.name.toLowerCase().includes(q) ||
-        t.subject.toLowerCase().includes(q) ||
-        t.email.toLowerCase().includes(q)
+        x.number.toLowerCase().includes(q) ||
+        x.name.toLowerCase().includes(q) ||
+        x.subject.toLowerCase().includes(q) ||
+        x.email.toLowerCase().includes(q)
       );
     });
   }, [tickets, filter, search]);
 
-  const openDetail = (t: Ticket) => {
-    setSelected(t);
-    setNote(t.adminNote);
-    setAssetPick(t.assetId || "");
+  const openDetail = (ticket: Ticket) => {
+    setSelected(ticket);
+    setNote(ticket.adminNote);
+    setAssetPick(ticket.assetId || "");
   };
 
   const linkedAsset = useMemo(
@@ -240,7 +241,7 @@ export default function TicketsPage() {
       assets.find((a) => a.id === nextAssetId)?.status === "AVAILABLE"
     ) {
       updateAsset(nextAssetId, { status: "MAINTENANCE" });
-      showNotice("ok", "Aset ditandai Maintenance ✓");
+      showNotice("ok", t("assetMarkedMaintenance"));
     }
   };
 
@@ -254,20 +255,20 @@ export default function TicketsPage() {
       });
       const j = await res.json().catch(() => ({}));
       if (!res.ok) {
-        showNotice("err", j.error || "Gagal menyimpan tiket.");
+        showNotice("err", j.error || t("ticketSaveFailed"));
         return;
       }
       const updated: Ticket = j.ticket;
-      setTickets((prev) => prev.map((t) => (t.id === id ? updated : t)));
+      setTickets((prev) => prev.map((x) => (x.id === id ? updated : x)));
       setSelected((prev) => (prev && prev.id === id ? updated : prev));
       if (patch.status) {
         // Sengaja TANPA toast — perubahan status sudah terlihat langsung
         // pada badge/pill status yang aktif.
       } else if (patch.assetId !== undefined) {
-        showNotice("ok", "Tautan aset disimpan ✓");
+        showNotice("ok", t("assetLinkSaved"));
       } else {
         // Simpan catatan → tutup modal, balik ke daftar tiket.
-        showNotice("ok", "Catatan tersimpan ✓");
+        showNotice("ok", t("noteSaved"));
         setSelected(null);
       }
     } finally {
@@ -275,20 +276,25 @@ export default function TicketsPage() {
     }
   };
 
-  const removeTicket = (t: Ticket) => {
+  const removeTicket = (ticket: Ticket) => {
     ask({
-      title: "Hapus Tiket",
-      description: `Hapus tiket ${t.number} (${t.subject})? Tindakan ini tidak bisa dibatalkan.`,
-      confirmLabel: "Hapus",
+      title: t("deleteTicket"),
+      description: t("confirmDeleteTicketBody", {
+        number: ticket.number,
+        subject: ticket.subject,
+      }),
+      confirmLabel: t("delete"),
       action: async () => {
-        const res = await fetch(`/api/tickets/${t.id}`, { method: "DELETE" });
+        const res = await fetch(`/api/tickets/${ticket.id}`, {
+          method: "DELETE",
+        });
         if (res.ok) {
-          setTickets((prev) => prev.filter((x) => x.id !== t.id));
+          setTickets((prev) => prev.filter((x) => x.id !== ticket.id));
           setSelected(null);
           // Toast merah — penanda tindakan destruktif, bukan hijau (sukses biasa).
-          showNotice("err", "Tiket dihapus ✓");
+          showNotice("err", t("ticketDeleted"));
         } else {
-          showNotice("err", "Gagal menghapus tiket.");
+          showNotice("err", t("ticketDeleteFailed"));
         }
       },
     });
@@ -311,28 +317,28 @@ export default function TicketsPage() {
   }> = [
     {
       key: "OPEN",
-      label: "Open",
+      label: ticketStatus("OPEN"),
       value: stats.open,
       icon: CircleDot,
       cls: "from-red-500/20 to-red-500/5 text-red-400",
     },
     {
       key: "IN_PROGRESS",
-      label: "Diproses",
+      label: ticketStatus("IN_PROGRESS"),
       value: stats.inProgress,
       icon: Clock,
       cls: "from-amber-500/20 to-amber-500/5 text-amber-300",
     },
     {
       key: "RESOLVED",
-      label: "Selesai",
+      label: ticketStatus("RESOLVED"),
       value: stats.resolved,
       icon: CheckCircle2,
       cls: "from-emerald-500/20 to-emerald-500/5 text-emerald-300",
     },
     {
       key: "CLOSED",
-      label: "Ditutup",
+      label: ticketStatus("CLOSED"),
       value: stats.closed,
       icon: Archive,
       cls: "from-slate-500/20 to-slate-500/5 text-slate-400",
@@ -346,13 +352,12 @@ export default function TicketsPage() {
           <div>
             <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white flex items-center gap-2">
               <LifeBuoy className="h-5 w-5 sm:h-6 sm:w-6 text-amber-300" />
-              Tiket Bantuan
+              {t("helpdeskTickets")}
             </h1>
             {/* Deskripsi panjang disembunyikan di ponsel — memakan 3 baris
                 sebelum konten yang sebenarnya dicari. */}
             <p className="hidden sm:block text-sm text-slate-400 mt-1">
-              Terima, lacak, dan selesaikan permintaan bantuan dari landing page
-              — user tidak perlu login.
+              {t("ticketsSub")}
             </p>
           </div>
           <div className="flex gap-2 w-full sm:w-auto">
@@ -366,7 +371,7 @@ export default function TicketsPage() {
               <RefreshCw
                 className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
               />
-              Muat Ulang
+              {t("reload")}
             </Button>
             <Button
               variant="outline"
@@ -375,10 +380,9 @@ export default function TicketsPage() {
               className="rounded-xl flex-1 sm:flex-none"
               onClick={() =>
                 ask({
-                  title: "Muat tiket contoh?",
-                  description:
-                    "Daftar tiket saat ini akan diganti 18 tiket dummy Garudafood (IT, pabrik, fasilitas). Beberapa tertaut ke aset demo.",
-                  confirmLabel: "Ya, muat demo",
+                  title: t("confirmLoadDemoTickets"),
+                  description: t("confirmLoadDemoTicketsBody"),
+                  confirmLabel: t("yesLoadDemo"),
                   variant: "primary",
                   action: async () => {
                     setRefreshing(true);
@@ -388,18 +392,15 @@ export default function TicketsPage() {
                       });
                       const j = await res.json().catch(() => ({}));
                       if (!res.ok) {
-                        showNotice(
-                          "err",
-                          j.error || "Gagal memuat tiket demo."
-                        );
+                        showNotice("err", j.error || t("demoTicketsFailed"));
                         return;
                       }
                       setTickets(j.tickets || []);
                       showNotice(
                         "ok",
-                        `${
-                          j.count ?? j.tickets?.length ?? 0
-                        } tiket contoh dimuat.`
+                        t("demoTicketsLoaded", {
+                          count: j.count ?? j.tickets?.length ?? 0,
+                        })
                       );
                     } finally {
                       setRefreshing(false);
@@ -408,7 +409,7 @@ export default function TicketsPage() {
                 })
               }
             >
-              <Inbox className="h-4 w-4" /> Muat data demo
+              <Inbox className="h-4 w-4" /> {t("loadDemoData")}
             </Button>
           </div>
         </div>
@@ -429,7 +430,7 @@ export default function TicketsPage() {
                     setFilter(active ? "ALL" : s.key);
                   }
                 }}
-                title={`Filter status ${s.label}`}
+                title={t("filterByStatus", { status: s.label })}
                 className={`bg-gradient-to-br ${
                   s.cls
                 } border-white/10 cursor-pointer transition-all hover:scale-[1.02] hover:border-white/25 ${
@@ -458,7 +459,7 @@ export default function TicketsPage() {
         {/* Filter + cari */}
         <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2">
           <div className="-mx-3 flex gap-2 overflow-x-auto px-3 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {FILTERS.map((f) => (
+            {filters.map((f) => (
               <button
                 key={f.key}
                 onClick={() => setFilter(f.key)}
@@ -477,7 +478,7 @@ export default function TicketsPage() {
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Cari nomor / nama / subjek..."
+              placeholder={t("searchTickets")}
               className="pl-9 h-10 rounded-xl bg-[#0f1d33]"
             />
           </div>
@@ -487,64 +488,68 @@ export default function TicketsPage() {
         {loading ? (
           <div className="py-16 text-center text-slate-400">
             <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
-            Memuat tiket...
+            {t("loadingTickets")}
           </div>
         ) : visible.length === 0 ? (
           <Card>
             <CardContent className="py-16 text-center text-slate-400">
               <Inbox className="h-10 w-10 mx-auto mb-3 opacity-50" />
-              <div className="font-medium text-white">Belum ada tiket</div>
+              <div className="font-medium text-white">{t("noTicketsYet")}</div>
               <div className="text-sm mt-1">
                 {filter === "ALL"
-                  ? "Tiket dari landing page akan muncul di sini, atau muat data contoh Garudafood."
-                  : `Tidak ada tiket berstatus ${FILTERS.find(
-                      (f) => f.key === filter
-                    )?.label}.`}
+                  ? t("noTicketsHintAll")
+                  : t("noTicketsHintFiltered", {
+                      status: ticketStatus(filter),
+                    })}
               </div>
             </CardContent>
           </Card>
         ) : (
           <div className="space-y-2">
-            {visible.map((t) => (
+            {visible.map((tk) => (
               <button
-                key={t.id}
-                onClick={() => openDetail(t)}
+                key={tk.id}
+                onClick={() => openDetail(tk)}
                 className="w-full text-left rounded-2xl border border-[#243a5e] bg-[#12263f]/60 hover:bg-[#12263f] hover:border-[#35507c] transition-all p-4"
               >
                 <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                   <span className="font-mono text-sm font-bold text-amber-300">
-                    {t.number}
+                    {tk.number}
                   </span>
-                  <StatusBadge status={t.status} />
-                  {t.adminNote && (
+                  <StatusBadge
+                    status={tk.status}
+                    label={ticketStatus(tk.status)}
+                  />
+                  {tk.adminNote && (
                     <span
-                      title="Ada catatan admin"
+                      title={t("hasAdminNote")}
                       className="inline-flex items-center gap-1 text-[11px] text-slate-500"
                     >
-                      <StickyNote className="h-3 w-3" /> catatan
+                      <StickyNote className="h-3 w-3" /> {t("noteShort")}
                     </span>
                   )}
-                  {t.assetId && (
+                  {tk.assetId && (
                     <span
-                      title="Tertaut ke aset"
+                      title={t("linkedToAsset")}
                       className="inline-flex items-center gap-1 text-[11px] text-slate-500"
                     >
                       <Package className="h-3 w-3" />
-                      {assets.find((a) => a.id === t.assetId)?.name ?? "aset"}
+                      {assets.find((a) => a.id === tk.assetId)?.name ??
+                        t("assetShort")}
                     </span>
                   )}
                   <span className="text-xs text-slate-500 ml-auto">
-                    {formatDateTime(t.createdAt)}
+                    {formatDateTime(tk.createdAt)}
                   </span>
                 </div>
                 <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
-                  <span className="font-semibold text-white">{t.subject}</span>
+                  <span className="font-semibold text-white">{tk.subject}</span>
                   <span className="text-xs text-slate-400">
-                    {t.name} • {t.category}
+                    {tk.name} • {tk.category}
                   </span>
                 </div>
                 <p className="mt-1 text-sm text-slate-400 line-clamp-1">
-                  {t.message}
+                  {tk.message}
                 </p>
               </button>
             ))}
@@ -569,7 +574,7 @@ export default function TicketsPage() {
                     </span>
                     <button
                       onClick={() => copyNumber(selected.number)}
-                      title="Salin nomor tiket"
+                      title={t("copyTicketNumber")}
                       className="rounded-lg p-1 hover:bg-white/10 transition-colors"
                     >
                       {copied ? (
@@ -578,7 +583,10 @@ export default function TicketsPage() {
                         <Copy className="h-3.5 w-3.5 text-slate-400" />
                       )}
                     </button>
-                    <StatusBadge status={selected.status} />
+                    <StatusBadge
+                      status={selected.status}
+                      label={ticketStatus(selected.status)}
+                    />
                   </div>
                   <h2 className="text-lg font-bold text-white mt-1 leading-snug">
                     {selected.subject}
@@ -611,11 +619,15 @@ export default function TicketsPage() {
                 </div>
                 <div className="flex items-center gap-2 text-slate-300">
                   <Calendar className="h-4 w-4 text-slate-500 shrink-0" />
-                  dibuat {formatDateTime(selected.createdAt)}
+                  {t("createdAt", {
+                    date: formatDateTime(selected.createdAt),
+                  })}
                 </div>
                 <div className="flex items-center gap-2 text-slate-300">
                   <CalendarClock className="h-4 w-4 text-slate-500 shrink-0" />
-                  update {formatDateTime(selected.updatedAt)}
+                  {t("updatedAt", {
+                    date: formatDateTime(selected.updatedAt),
+                  })}
                 </div>
               </div>
 
@@ -627,21 +639,18 @@ export default function TicketsPage() {
               <div className="space-y-2">
                 <div className="text-sm font-semibold text-white flex items-center gap-2">
                   <Link2 className="h-4 w-4 text-amber-300" />
-                  Aset Terkait
+                  {t("relatedAsset")}
                 </div>
                 {selected.assetId ? (
                   <div className="rounded-xl border border-[#243a5e] bg-[#0f1d33] p-3.5 flex flex-wrap items-center gap-3">
                     <Package className="h-5 w-5 text-amber-300 shrink-0" />
                     <div className="min-w-0 flex-1">
                       <div className="text-sm font-semibold text-white truncate">
-                        {linkedAsset
-                          ? linkedAsset.name
-                          : "(aset tidak ditemukan di store)"}
+                        {linkedAsset ? linkedAsset.name : t("assetNotInStore")}
                       </div>
                       {linkedAsset && (
                         <div className="text-xs text-slate-400">
-                          {ASSET_STATUS_LABEL[linkedAsset.status] ||
-                            linkedAsset.status}
+                          {assetStatus(linkedAsset.status)}
                           {linkedAsset.serialNumber
                             ? ` • SN ${linkedAsset.serialNumber}`
                             : ""}
@@ -652,7 +661,7 @@ export default function TicketsPage() {
                       <Link
                         href={`/assets/${linkedAsset.id}`}
                         target="_blank"
-                        title="Buka halaman aset"
+                        title={t("openAssetPage")}
                         className="rounded-lg p-1.5 hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
                       >
                         <ExternalLink className="h-4 w-4" />
@@ -663,10 +672,10 @@ export default function TicketsPage() {
                       size="sm"
                       disabled={saving}
                       onClick={() => saveAssetLink(null)}
-                      title="Lepas tautan aset"
+                      title={t("unlinkAsset")}
                       className="rounded-xl text-slate-400 hover:text-red-300"
                     >
-                      <Unlink className="h-4 w-4" /> Lepas
+                      <Unlink className="h-4 w-4" /> {t("unlink")}
                     </Button>
                   </div>
                 ) : (
@@ -679,12 +688,12 @@ export default function TicketsPage() {
                     >
                       <option value="">
                         {assets.length === 0
-                          ? "Belum ada aset di Pinjamin"
-                          : "— Pilih aset yang dilaporkan —"}
+                          ? t("noAssetsInPinjamin")
+                          : t("pickReportedAsset")}
                       </option>
                       {assets.map((a) => (
                         <option key={a.id} value={a.id}>
-                          {a.name} — {ASSET_STATUS_LABEL[a.status] || a.status}
+                          {a.name} — {assetStatus(a.status)}
                         </option>
                       ))}
                     </Select>
@@ -694,25 +703,23 @@ export default function TicketsPage() {
                       onClick={() => saveAssetLink(assetPick)}
                       className="rounded-xl shrink-0"
                     >
-                      <Link2 className="h-4 w-4" /> Tautkan
+                      <Link2 className="h-4 w-4" /> {t("linkAsset")}
                     </Button>
                   </div>
                 )}
                 {!selected.assetId && (
                   <p className="text-[11px] text-slate-500">
-                    Menautkan tiket ke aset berstatus Tersedia akan otomatis
-                    menandainya <b>Maintenance</b> — tidak bisa ikut dipinjam
-                    sampai diperbaiki.
+                    {t("linkAssetHint")}
                   </p>
                 )}
               </div>
 
               <div className="space-y-2">
                 <div className="text-sm font-semibold text-white">
-                  Ubah Status
+                  {t("changeStatus")}
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  {(Object.keys(STATUS_META) as TicketStatus[]).map((s) => (
+                  {STATUS_ORDER.map((s) => (
                     <button
                       key={s}
                       disabled={saving || selected.status === s}
@@ -723,7 +730,7 @@ export default function TicketsPage() {
                           : "text-slate-300 border-[#243a5e] hover:border-slate-500"
                       }`}
                     >
-                      {STATUS_META[s].label}
+                      {ticketStatus(s)}
                     </button>
                   ))}
                 </div>
@@ -731,16 +738,16 @@ export default function TicketsPage() {
 
               <div className="space-y-2">
                 <div className="text-sm font-semibold text-white">
-                  Catatan Admin{" "}
+                  {t("adminNote")}{" "}
                   <span className="text-xs font-normal text-slate-500">
-                    (internal, tidak tampil ke user)
+                    {t("adminNoteHint")}
                   </span>
                 </div>
                 <Textarea
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
                   rows={3}
-                  placeholder="Catatan tindak lanjut..."
+                  placeholder={t("adminNotePlaceholder")}
                   className="rounded-xl bg-[#0f1d33]"
                 />
               </div>
@@ -751,14 +758,14 @@ export default function TicketsPage() {
                   disabled={saving}
                   className="rounded-xl"
                 >
-                  {saving ? "Menyimpan..." : "Simpan Catatan"}
+                  {saving ? t("saving") : t("saveNote")}
                 </Button>
                 <Button
                   variant="ghost"
                   onClick={() => removeTicket(selected)}
                   className="rounded-xl text-red-400 hover:text-red-300 ml-auto"
                 >
-                  <Trash2 className="h-4 w-4" /> Hapus Tiket
+                  <Trash2 className="h-4 w-4" /> {t("deleteTicket")}
                 </Button>
               </div>
             </CardContent>

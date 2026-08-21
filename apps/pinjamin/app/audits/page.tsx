@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useStore } from "@/lib/store";
 import { useConfirmDialog } from "@/components/ui/confirm-dialog";
-import { useT } from "@/lib/i18n";
+import { useT, type MessageKey } from "@/lib/i18n";
 import Link from "next/link";
 import {
   Plus,
@@ -22,52 +22,65 @@ import {
   ArrowLeft,
   Search,
 } from "lucide-react";
-import { formatDate } from "@/lib/utils";
 
 type AuditMode = "assets" | "locations" | "kits";
 
+/**
+ * Metadata per mode audit. Teksnya disimpan sebagai KUNCI kamus (bukan string
+ * jadi) supaya ikut berubah saat bahasa diganti — konstanta ini dievaluasi
+ * sekali di level modul, di luar jangkauan hook.
+ */
 const MODE_META: Record<
   AuditMode,
   {
-    title: string;
-    desc: string;
-    button: string;
+    titleKey: MessageKey;
+    descKey: MessageKey;
+    buttonKey: MessageKey;
+    stepTitleKey: MessageKey;
+    defaultNameKey: MessageKey;
+    /** Kata benda untuk kalimat "Pilih X" / "Tidak ada X". */
+    nounKey: MessageKey;
     icon: any;
     iconCls: string;
-    stepTitle: string;
   }
 > = {
   assets: {
-    title: "Dari Daftar Aset (mode lanjutan)",
-    desc: "Pilih aset tertentu dari inventaris untuk dimasukkan ke audit. Cocok untuk pengecekan terarah terhadap item tertentu.",
-    button: "Pilih Aset",
+    titleKey: "auditModeAssetsTitle",
+    descKey: "auditModeAssetsDesc",
+    buttonKey: "auditModeAssetsBtn",
+    stepTitleKey: "auditModeAssetsStep",
+    defaultNameKey: "auditDefaultNameAssets",
+    nounKey: "assets",
     icon: Compass,
     iconCls:
       "bg-slate-100 text-[#1a365d] dark:bg-slate-800 dark:text-slate-200",
-    stepTitle: "Pilih Aset untuk Audit",
   },
   locations: {
-    title: "Dari Lokasi",
-    desc: "Audit aset di satu atau lebih lokasi. Ideal untuk pengecekan inventaris per ruangan atau per area.",
-    button: "Pilih Lokasi",
+    titleKey: "auditModeLocationsTitle",
+    descKey: "auditModeLocationsDesc",
+    buttonKey: "auditModeLocationsBtn",
+    stepTitleKey: "auditModeLocationsStep",
+    defaultNameKey: "auditDefaultNameLocations",
+    nounKey: "locations",
     icon: MapPin,
     iconCls: "bg-blue-100 text-blue-600 dark:bg-blue-950 dark:text-blue-300",
-    stepTitle: "Pilih Lokasi untuk Audit",
   },
   kits: {
-    title: "Dari Kit",
-    desc: "Audit aset di satu atau lebih kit. Cocok untuk memverifikasi kelengkapan isi kit.",
-    button: "Pilih Kit",
+    titleKey: "auditModeKitsTitle",
+    descKey: "auditModeKitsDesc",
+    buttonKey: "auditModeKitsBtn",
+    stepTitleKey: "auditModeKitsStep",
+    defaultNameKey: "auditDefaultNameKits",
+    nounKey: "kits",
     icon: Package,
     iconCls:
       "bg-emerald-100 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-300",
-    stepTitle: "Pilih Kit untuk Audit",
   },
 };
 
 export default function AuditsPage() {
   const { audits, assets, locations, kits, addAudit, deleteAudit } = useStore();
-  const { t } = useT();
+  const { t, lang, formatDate, assetStatus } = useT();
   const { ask, confirmDialog } = useConfirmDialog();
 
   const [open, setOpen] = useState(false);
@@ -92,13 +105,13 @@ export default function AuditsPage() {
   }, [open]);
 
   const defaultName = (m: AuditMode) =>
-    `Audit ${
-      m === "assets" ? "Aset" : m === "locations" ? "Lokasi" : "Kit"
-    } • ${new Date().toLocaleDateString("id-ID", {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-    })}`;
+    t(MODE_META[m].defaultNameKey, {
+      date: new Date().toLocaleDateString(lang === "id" ? "id-ID" : "en-US", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      }),
+    });
 
   const startCreate = (m: AuditMode) => {
     setMode(m);
@@ -169,7 +182,7 @@ export default function AuditsPage() {
           id: a.id,
           name: a.name,
           sub: a.qrCode,
-          right: a.status,
+          right: assetStatus(a.status),
         }));
     if (mode === "locations")
       return locations
@@ -178,7 +191,9 @@ export default function AuditsPage() {
           id: l.id,
           name: l.name,
           sub: undefined as string | undefined,
-          right: `${assetCountByLocation.get(l.id + "::total") ?? 0} aset`,
+          right: t("assetCountLabel", {
+            count: assetCountByLocation.get(l.id + "::total") ?? 0,
+          }),
         }));
     if (mode === "kits")
       return kits
@@ -187,10 +202,11 @@ export default function AuditsPage() {
           id: k.id,
           name: k.name,
           sub: k.qrCode,
-          right: `${k.assetIds.length} aset`,
+          right: t("assetCountLabel", { count: k.assetIds.length }),
         }));
     return [];
-  }, [mode, assets, locations, kits, q, assetCountByLocation]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, assets, locations, kits, q, assetCountByLocation, lang]);
 
   // Aset hasil resolusi dari pilihan
   const resolvedAssetIds = useMemo(() => {
@@ -212,13 +228,14 @@ export default function AuditsPage() {
   }, [mode, sel, assets, locations, kits]);
 
   const submit = () => {
-    if (!name.trim()) return alert("Nama sesi wajib diisi");
-    if (resolvedAssetIds.length === 0)
-      return alert("Pilihan ini tidak menghasilkan aset apa pun untuk diaudit");
+    if (!name.trim()) return alert(t("sessionNameRequired"));
+    if (resolvedAssetIds.length === 0) return alert(t("auditNoAssetsSelected"));
     ask({
-      title: `Buat audit "${name.trim()}"?`,
-      description: `${resolvedAssetIds.length} aset akan masuk sesi audit ini.`,
-      confirmLabel: "Ya, Buat",
+      title: t("confirmCreateAudit", { name: name.trim() }),
+      description: t("confirmCreateAuditBody", {
+        count: resolvedAssetIds.length,
+      }),
+      confirmLabel: t("yesCreate"),
       variant: "primary",
       action: () => {
         addAudit({
@@ -240,9 +257,7 @@ export default function AuditsPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-xl sm:text-2xl font-bold">{t("audits")}</h1>
-            <p className="text-sm text-muted-foreground">
-              Verifikasi keberadaan & kondisi aset
-            </p>
+            <p className="text-sm text-muted-foreground">{t("auditsSub")}</p>
           </div>
           <Button
             onClick={() => {
@@ -251,7 +266,7 @@ export default function AuditsPage() {
             }}
             className="rounded-xl"
           >
-            <Plus className="h-4 w-4" /> Sesi Baru
+            <Plus className="h-4 w-4" /> {t("newSession")}
           </Button>
         </div>
 
@@ -270,17 +285,22 @@ export default function AuditsPage() {
                   <div className="flex-1">
                     <div className="font-semibold">{a.name}</div>
                     <div className="text-xs text-muted-foreground">
-                      {formatDate(a.createdAt)} • {a.items.length} aset •{" "}
-                      <span className="text-emerald-600">{found} FOUND</span>{" "}
+                      {formatDate(a.createdAt)} •{" "}
+                      {t("assetCountLabel", { count: a.items.length })} •{" "}
+                      <span className="text-emerald-600">
+                        {t("auditFoundCount", { count: found })}
+                      </span>{" "}
                       {missing > 0 && (
                         <span className="text-red-600">
-                          • {missing} MISSING
+                          • {t("auditMissingCount", { count: missing })}
                         </span>
                       )}
                     </div>
                   </div>
                   <Badge variant={a.status === "OPEN" ? "warning" : "success"}>
-                    {a.status}
+                    {a.status === "OPEN"
+                      ? t("auditStatusOpen")
+                      : t("auditStatusCompleted")}
                   </Badge>
                   <Link href={`/audits/${a.id}`}>
                     <Button variant="outline" size="sm" className="rounded-xl">
@@ -292,9 +312,11 @@ export default function AuditsPage() {
                     size="icon"
                     onClick={() =>
                       ask({
-                        title: "Hapus audit?",
-                        description: `Audit "${a.name}" beserta hasilnya akan dihapus permanen.`,
-                        confirmLabel: "Ya, Hapus",
+                        title: t("confirmDeleteAudit"),
+                        description: t("confirmDeleteAuditBody", {
+                          name: a.name,
+                        }),
+                        confirmLabel: t("yesDelete"),
                         action: () => deleteAudit(a.id),
                       })
                     }
@@ -309,7 +331,7 @@ export default function AuditsPage() {
           {audits.length === 0 && (
             <Card className="border-dashed">
               <CardContent className="py-12 text-center text-muted-foreground">
-                Belum ada audit — klik &quot;Sesi Baru&quot; untuk membuat.
+                {t("noAuditsYet")}
               </CardContent>
             </Card>
           )}
@@ -332,7 +354,7 @@ export default function AuditsPage() {
                 {mode && (
                   <button
                     onClick={() => setMode(null)}
-                    aria-label="Kembali"
+                    aria-label={t("back")}
                     className="h-8 w-8 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center text-slate-500"
                   >
                     <ArrowLeft className="h-4 w-4" />
@@ -340,20 +362,20 @@ export default function AuditsPage() {
                 )}
                 <div>
                   <h2 className="text-lg font-bold">
-                    {mode ? MODE_META[mode].stepTitle : "Buat Audit Baru"}
+                    {mode
+                      ? t(MODE_META[mode].stepTitleKey)
+                      : t("newAuditTitle")}
                   </h2>
                   {!mode && (
                     <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
-                      Audit membantu memverifikasi inventaris dengan memeriksa
-                      bahwa aset berada di lokasi yang seharusnya. Pilih cara
-                      membuat audit:
+                      {t("newAuditIntro")}
                     </p>
                   )}
                 </div>
               </div>
               <button
                 onClick={closeModal}
-                aria-label="Tutup"
+                aria-label={t("close")}
                 className="h-8 w-8 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center text-slate-500 shrink-0"
               >
                 <X className="h-4 w-4" />
@@ -378,15 +400,15 @@ export default function AuditsPage() {
                           <Icon className="h-5 w-5" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="font-bold">{meta.title}</div>
+                          <div className="font-bold">{t(meta.titleKey)}</div>
                           <p className="text-sm text-muted-foreground mt-0.5 leading-relaxed">
-                            {meta.desc}
+                            {t(meta.descKey)}
                           </p>
                           <button
                             onClick={() => startCreate(m)}
                             className="mt-2.5 px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
                           >
-                            {meta.button}
+                            {t(meta.buttonKey)}
                           </button>
                         </div>
                       </div>
@@ -400,7 +422,7 @@ export default function AuditsPage() {
             {mode && (
               <div className="p-5 pt-2 space-y-4">
                 <div className="space-y-2">
-                  <Label>Nama Sesi *</Label>
+                  <Label>{t("sessionName")} *</Label>
                   <Input
                     value={name}
                     onChange={(e) => setName(e.target.value)}
@@ -411,15 +433,13 @@ export default function AuditsPage() {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <Label>
-                      {mode === "assets"
-                        ? "Aset"
-                        : mode === "locations"
-                        ? "Lokasi"
-                        : "Kit"}{" "}
-                      yang akan diaudit *
+                      {t("auditToBeAudited", {
+                        what: t(MODE_META[mode].nounKey),
+                      })}{" "}
+                      *
                     </Label>
                     <span className="text-xs text-muted-foreground">
-                      {sel.length} dipilih
+                      {t("selectedCount", { count: sel.length })}
                     </span>
                   </div>
                   <div className="relative">
@@ -427,20 +447,17 @@ export default function AuditsPage() {
                     <Input
                       value={q}
                       onChange={(e) => setQ(e.target.value)}
-                      placeholder="Cari..."
+                      placeholder={t("searchPlaceholder")}
                       className="pl-9 h-10 rounded-xl"
                     />
                   </div>
                   <div className="border rounded-xl p-2 max-h-56 overflow-auto space-y-1">
                     {candidates.length === 0 && (
                       <p className="text-sm text-muted-foreground text-center py-6">
-                        Tidak ada{" "}
-                        {mode === "assets"
-                          ? "aset"
-                          : mode === "locations"
-                          ? "lokasi"
-                          : "kit"}
-                        {q ? " yang cocok" : ""}.
+                        {t("noMatch", {
+                          what: t(MODE_META[mode].nounKey).toLowerCase(),
+                          suffix: q ? t("matchingSuffix") : "",
+                        })}
                       </p>
                     )}
                     {candidates.map((c) => (
@@ -474,12 +491,13 @@ export default function AuditsPage() {
                   </div>
                   {mode !== "assets" && (
                     <p className="text-xs text-muted-foreground">
-                      {resolvedAssetIds.length} aset akan masuk audit dari
-                      pilihan ini
-                      {mode === "locations" && sel.length > 0
-                        ? " (sub-lokasi ikut diaudit)"
-                        : ""}
-                      .
+                      {t("auditResolvedCount", {
+                        count: resolvedAssetIds.length,
+                        extra:
+                          mode === "locations" && sel.length > 0
+                            ? t("auditSublocationsIncluded")
+                            : "",
+                      })}
                     </p>
                   )}
                 </div>
@@ -490,7 +508,7 @@ export default function AuditsPage() {
                     className="flex-1 rounded-xl"
                     onClick={() => setMode(null)}
                   >
-                    Kembali
+                    {t("back")}
                   </Button>
                   <Button
                     type="button"
@@ -499,9 +517,11 @@ export default function AuditsPage() {
                     disabled={sel.length === 0}
                   >
                     {ModeIcon && <ModeIcon className="h-4 w-4" />}
-                    Buat Audit
+                    {t("createAudit")}
                     {resolvedAssetIds.length > 0
-                      ? ` (${resolvedAssetIds.length} aset)`
+                      ? t("createAuditCount", {
+                          count: resolvedAssetIds.length,
+                        })
                       : ""}
                   </Button>
                 </div>

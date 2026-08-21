@@ -26,7 +26,7 @@ function initials(p: Profile) {
 }
 
 export default function AccountSettingsPage() {
-  const { t } = useT();
+  const { t, serverError } = useT();
   const { user, loading: authLoading, setUser } = useAuth();
   const { loadDemoData, assets, isSupabase } = useStore();
   const { ask, confirmDialog } = useConfirmDialog();
@@ -65,23 +65,20 @@ export default function AccountSettingsPage() {
     if (!file) return;
     setProfileMsg(null);
     if (!file.type.startsWith("image/")) {
-      setProfileMsg({ ok: false, text: "Hanya file gambar (jpg, png, webp)." });
+      setProfileMsg({ ok: false, text: t("onlyImageFilesShort") });
       return;
     }
     if (file.size > 5 * 1024 * 1024) {
-      setProfileMsg({ ok: false, text: "Maksimal 5MB. Kompres dulu ya." });
+      setProfileMsg({ ok: false, text: t("maxFileSize") });
       return;
     }
     setUploading(true);
     try {
       const res = await uploadImage(file, "avatar");
       setAvatar(res.url);
-      setProfileMsg({
-        ok: true,
-        text: "Foto dipilih — jangan lupa klik Simpan Perubahan.",
-      });
+      setProfileMsg({ ok: true, text: t("photoPickedReminder") });
     } catch {
-      setProfileMsg({ ok: false, text: "Gagal memproses foto. Coba lagi." });
+      setProfileMsg({ ok: false, text: t("photoProcessFailed") });
     } finally {
       setUploading(false);
       if (fileRef.current) fileRef.current.value = "";
@@ -101,15 +98,15 @@ export default function AccountSettingsPage() {
       if (!res.ok) {
         setProfileMsg({
           ok: false,
-          text: j.error || "Gagal menyimpan profil.",
+          text: serverError(j, t("profileSaveFailed")),
         });
         return;
       }
       setProfile(j.profile);
       setUser(j.profile);
-      setProfileMsg({ ok: true, text: "Profil berhasil disimpan ✓" });
+      setProfileMsg({ ok: true, text: t("profileSaved") });
     } catch {
-      setProfileMsg({ ok: false, text: "Gagal menyimpan profil. Coba lagi." });
+      setProfileMsg({ ok: false, text: t("profileSaveFailedRetry") });
     } finally {
       setSaving(false);
     }
@@ -127,14 +124,11 @@ export default function AccountSettingsPage() {
   const resetPassword = async () => {
     setPwMsg(null);
     if (!curPw || !newPw || !confPw) {
-      setPwMsg({ ok: false, text: "Semua kolom password wajib diisi." });
+      setPwMsg({ ok: false, text: t("allPasswordFieldsRequired") });
       return;
     }
     if (newPw !== confPw) {
-      setPwMsg({
-        ok: false,
-        text: "Konfirmasi password baru tidak sama.",
-      });
+      setPwMsg({ ok: false, text: t("passwordMismatch") });
       return;
     }
     setResetting(true);
@@ -146,18 +140,15 @@ export default function AccountSettingsPage() {
       });
       const j = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setPwMsg({ ok: false, text: j.error || "Gagal mereset password." });
+        setPwMsg({ ok: false, text: serverError(j, t("passwordResetFailed")) });
         return;
       }
-      setPwMsg({
-        ok: true,
-        text: "Password berhasil direset — pakai password baru di login berikutnya ✓",
-      });
+      setPwMsg({ ok: true, text: t("passwordResetOk") });
       setCurPw("");
       setNewPw("");
       setConfPw("");
     } catch {
-      setPwMsg({ ok: false, text: "Gagal mereset password. Coba lagi." });
+      setPwMsg({ ok: false, text: t("passwordResetFailedRetry") });
     } finally {
       setResetting(false);
     }
@@ -172,7 +163,7 @@ export default function AccountSettingsPage() {
             {t("accountSetting")}
           </h1>
           <p className="text-sm text-slate-400 mt-1">
-            Kelola identitas &amp; keamanan akun administrator.
+            {t("accountSettingsSub")}
           </p>
         </div>
 
@@ -198,7 +189,7 @@ export default function AccountSettingsPage() {
               <div className="space-y-1.5">
                 <div className="text-sm font-medium">{t("profilePicture")}</div>
                 <div className="text-xs text-muted-foreground">
-                  JPG / PNG / WEBP, maks 5MB — otomatis dikompres.
+                  {t("avatarHint")}
                 </div>
                 <div className="flex items-center gap-2 pt-1">
                   <input
@@ -217,7 +208,7 @@ export default function AccountSettingsPage() {
                     className="rounded-lg"
                   >
                     <ImagePlus className="h-4 w-4" />
-                    {uploading ? "Mengupload..." : "Pilih Foto"}
+                    {uploading ? t("uploading") : t("pickPhoto")}
                   </Button>
                   {avatar && (
                     <Button
@@ -228,7 +219,7 @@ export default function AccountSettingsPage() {
                       onClick={() => setAvatar("")}
                       className="rounded-lg text-red-400 hover:text-red-300"
                     >
-                      <Trash2 className="h-4 w-4" /> Hapus
+                      <Trash2 className="h-4 w-4" /> {t("delete")}
                     </Button>
                   )}
                 </div>
@@ -255,8 +246,7 @@ export default function AccountSettingsPage() {
                 disabled={loading}
               />
               <p className="text-xs text-muted-foreground">
-                3–32 karakter: huruf, angka, titik, strip, underscore. Dipakai
-                saat login.
+                {t("usernameHint")}
               </p>
             </div>
 
@@ -277,7 +267,7 @@ export default function AccountSettingsPage() {
               className="rounded-xl"
             >
               <Check className="h-4 w-4" />
-              {saving ? "Menyimpan..." : "Simpan Perubahan"}
+              {saving ? t("saving") : t("saveChanges")}
             </Button>
           </CardContent>
         </Card>
@@ -286,16 +276,15 @@ export default function AccountSettingsPage() {
         <Card>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
-              <KeyRound className="h-4 w-4" /> Password
+              <KeyRound className="h-4 w-4" /> {t("password")}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Perbarui password di sini. Isi password saat ini untuk verifikasi,
-              lalu masukkan password barunya.
+              {t("passwordSectionHint")}
             </p>
             <div className="space-y-2">
-              <Label>Password Saat Ini</Label>
+              <Label>{t("currentPassword")}</Label>
               <Input
                 type="password"
                 value={curPw}
@@ -306,7 +295,7 @@ export default function AccountSettingsPage() {
             </div>
             <div className="grid sm:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Password Baru</Label>
+                <Label>{t("newPassword")}</Label>
                 <Input
                   type="password"
                   value={newPw}
@@ -316,7 +305,7 @@ export default function AccountSettingsPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label>Konfirmasi Password Baru</Label>
+                <Label>{t("confirmNewPassword")}</Label>
                 <Input
                   type="password"
                   value={confPw}
@@ -327,8 +316,7 @@ export default function AccountSettingsPage() {
               </div>
             </div>
             <p className="text-xs text-muted-foreground">
-              Minimal 8 karakter, harus berisi huruf dan angka. Sesi lain akan
-              keluar; sesi ini tetap aktif.
+              {t("passwordRulesHint")}
             </p>
             {pwMsg && (
               <div
@@ -348,7 +336,7 @@ export default function AccountSettingsPage() {
               className="rounded-xl"
             >
               <KeyRound className="h-4 w-4" />
-              {resetting ? "Memproses..." : "Reset Password"}
+              {resetting ? t("processing") : t("resetPassword")}
             </Button>
           </CardContent>
         </Card>
@@ -356,17 +344,15 @@ export default function AccountSettingsPage() {
         <Card>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
-              <Database className="h-4 w-4" /> Data contoh Garudafood
+              <Database className="h-4 w-4" /> {t("demoDataSection")}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <p className="text-sm text-muted-foreground">
-              Muat ulang dataset demo: 28 aset, pabrik Pati/Rembang, DC
-              Cikarang, peminjaman, kit, dan audit. Data aset yang ada akan
-              ditimpa.
+              {t("demoDataSectionHint")}
             </p>
             <p className="text-xs text-slate-500">
-              Saat ini ada {assets.length} aset di sistem.
+              {t("currentAssetCount", { count: assets.length })}
             </p>
             {isSupabase && (
               /* Mode Supabase: loadDemoData hanya mengubah state di browser
@@ -374,8 +360,7 @@ export default function AccountSettingsPage() {
                  begitu halaman dimuat ulang. Lebih jujur dimatikan daripada
                  menjanjikan sesuatu yang tidak terjadi. */
               <div className="text-xs rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-300 px-3 py-2">
-                Database Supabase aktif — data contoh dimuat lewat SQL (
-                <code>supabase/03-seed.sql</code>), bukan dari tombol ini.
+                {t("supabaseSeedNote")}
               </div>
             )}
             {demoMsg && (
@@ -396,32 +381,27 @@ export default function AccountSettingsPage() {
                 disabled={isSupabase}
                 onClick={() =>
                   ask({
-                    title: "Muat data aset contoh?",
-                    description:
-                      "Seluruh aset, booking, dan master data saat ini akan diganti dengan data dummy Garudafood.",
-                    confirmLabel: "Ya, muat demo aset",
+                    title: t("confirmLoadDemoAssets"),
+                    description: t("confirmLoadDemoAssetsBody"),
+                    confirmLabel: t("yesLoadDemoAssets"),
                     variant: "primary",
                     action: () => {
                       loadDemoData();
-                      setDemoMsg({
-                        ok: true,
-                        text: "Data aset contoh Garudafood berhasil dimuat.",
-                      });
+                      setDemoMsg({ ok: true, text: t("demoAssetsLoaded") });
                     },
                   })
                 }
               >
-                <Database className="h-4 w-4" /> Demo aset
+                <Database className="h-4 w-4" /> {t("demoAssetsBtn")}
               </Button>
               <Button
                 variant="outline"
                 className="rounded-xl"
                 onClick={() =>
                   ask({
-                    title: "Muat tiket contoh?",
-                    description:
-                      "Daftar tiket helpdesk akan diganti 18 tiket dummy (IT, pabrik, fasilitas).",
-                    confirmLabel: "Ya, muat demo tiket",
+                    title: t("confirmLoadDemoTickets"),
+                    description: t("confirmLoadDemoTicketsShortBody"),
+                    confirmLabel: t("yesLoadDemoTickets"),
                     variant: "primary",
                     action: async () => {
                       try {
@@ -432,27 +412,24 @@ export default function AccountSettingsPage() {
                         if (!res.ok) {
                           setDemoMsg({
                             ok: false,
-                            text: j.error || "Gagal memuat tiket demo.",
+                            text: j.error || t("demoTicketsFailed"),
                           });
                           return;
                         }
                         setDemoMsg({
                           ok: true,
-                          text: `${
-                            j.count ?? 0
-                          } tiket contoh Garudafood dimuat.`,
+                          text: t("demoTicketsLoadedSettings", {
+                            count: j.count ?? 0,
+                          }),
                         });
                       } catch {
-                        setDemoMsg({
-                          ok: false,
-                          text: "Tidak bisa terhubung ke server.",
-                        });
+                        setDemoMsg({ ok: false, text: t("serverUnreachable") });
                       }
                     },
                   })
                 }
               >
-                <Database className="h-4 w-4" /> Demo tiket
+                <Database className="h-4 w-4" /> {t("demoTicketsBtn")}
               </Button>
             </div>
           </CardContent>

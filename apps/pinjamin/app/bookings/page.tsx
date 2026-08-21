@@ -10,7 +10,6 @@ import { Badge } from "@/components/ui/badge";
 import { useStore } from "@/lib/store";
 import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useT } from "@/lib/i18n";
-import { formatDate } from "@/lib/utils";
 import {
   Plus,
   Search,
@@ -24,7 +23,7 @@ import {
 export default function BookingsPage() {
   const { bookings, custodians, assets, updateBookingStatus, deleteBooking } =
     useStore();
-  const { t } = useT();
+  const { t, formatDate, bookingStatus } = useT();
   const { ask, confirmDialog } = useConfirmDialog();
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("ALL");
@@ -42,18 +41,18 @@ export default function BookingsPage() {
           <div>
             <h1 className="text-xl sm:text-2xl font-bold">{t("bookings")}</h1>
             <p className="text-sm text-muted-foreground">
-              {filtered.length} booking • cegah bentrok otomatis
+              {t("bookingsSub", { count: filtered.length })}
             </p>
           </div>
           <div className="flex gap-2">
             <Link href="/bookings/calendar">
               <Button variant="outline" className="rounded-xl">
-                <CalendarRange className="h-4 w-4" /> Kalender
+                <CalendarRange className="h-4 w-4" /> {t("calendar")}
               </Button>
             </Link>
             <Link href="/bookings/new">
               <Button className="rounded-xl">
-                <Plus className="h-4 w-4" /> Booking Baru
+                <Plus className="h-4 w-4" /> {t("newBooking")}
               </Button>
             </Link>
           </div>
@@ -64,7 +63,7 @@ export default function BookingsPage() {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Cari booking..."
+                placeholder={t("searchBookings")}
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
                 className="pl-10 h-11 rounded-xl"
@@ -75,13 +74,13 @@ export default function BookingsPage() {
               onChange={(e) => setStatus(e.target.value)}
               className="w-full sm:w-48"
             >
-              <option value="ALL">Semua Status</option>
-              <option value="DRAFT">DRAFT</option>
-              <option value="RESERVED">RESERVED</option>
-              <option value="ONGOING">ONGOING</option>
-              <option value="OVERDUE">OVERDUE</option>
-              <option value="COMPLETE">COMPLETE</option>
-              <option value="CANCELLED">CANCELLED</option>
+              <option value="ALL">{t("allStatus")}</option>
+              <option value="DRAFT">{bookingStatus("DRAFT")}</option>
+              <option value="RESERVED">{bookingStatus("RESERVED")}</option>
+              <option value="ONGOING">{bookingStatus("ONGOING")}</option>
+              <option value="OVERDUE">{bookingStatus("OVERDUE")}</option>
+              <option value="COMPLETE">{bookingStatus("COMPLETE")}</option>
+              <option value="CANCELLED">{bookingStatus("CANCELLED")}</option>
             </Select>
           </CardContent>
         </Card>
@@ -89,7 +88,7 @@ export default function BookingsPage() {
         {filtered.length === 0 ? (
           <Card className="border-dashed">
             <CardContent className="py-12 text-center text-muted-foreground">
-              Belum ada booking
+              {t("noBookingsYet")}
             </CardContent>
           </Card>
         ) : (
@@ -104,7 +103,8 @@ export default function BookingsPage() {
                         <div className="font-semibold truncate">{b.name}</div>
                         <div className="text-xs text-muted-foreground truncate">
                           {cust?.name} • {formatDate(b.fromDate)} →{" "}
-                          {formatDate(b.toDate)} • {b.assetIds.length} aset
+                          {formatDate(b.toDate)} •{" "}
+                          {t("assetCountLabel", { count: b.assetIds.length })}
                         </div>
                         <div className="text-xs text-muted-foreground truncate hidden sm:block">
                           {b.description}
@@ -124,7 +124,7 @@ export default function BookingsPage() {
                         }
                         className="self-start sm:self-center"
                       >
-                        {b.status}
+                        {bookingStatus(b.status)}
                       </Badge>
                       <div className="flex gap-1 sm:flex-col lg:flex-row">
                         <Link href={`/bookings/${b.id}`}>
@@ -142,16 +142,18 @@ export default function BookingsPage() {
                             className="rounded-xl bg-emerald-600 hover:bg-emerald-700"
                             onClick={() =>
                               ask({
-                                title: "Kembalikan peminjaman?",
-                                description: `"${b.name}" akan ditandai selesai (COMPLETE) dan asetnya kembali tersedia.`,
-                                confirmLabel: "Ya, Kembalikan",
+                                title: t("confirmReturnBooking"),
+                                description: t("confirmReturnBookingBody", {
+                                  name: b.name,
+                                }),
+                                confirmLabel: t("yesReturn"),
                                 variant: "primary",
                                 action: () =>
                                   updateBookingStatus(b.id, "COMPLETE"),
                               })
                             }
                           >
-                            <Check className="h-4 w-4" /> Kembalikan
+                            <Check className="h-4 w-4" /> {t("returnAction")}
                           </Button>
                         )}
                         {b.status === "RESERVED" && (
@@ -160,16 +162,18 @@ export default function BookingsPage() {
                             className="rounded-xl"
                             onClick={() =>
                               ask({
-                                title: "Mulai peminjaman?",
-                                description: `"${b.name}" akan ditandai sedang berjalan (ONGOING) dan asetnya diserahkan.`,
-                                confirmLabel: "Ya, Mulai",
+                                title: t("confirmStartBooking"),
+                                description: t("confirmStartBookingBody", {
+                                  name: b.name,
+                                }),
+                                confirmLabel: t("yesStart"),
                                 variant: "primary",
                                 action: () =>
                                   updateBookingStatus(b.id, "ONGOING"),
                               })
                             }
                           >
-                            <Check className="h-4 w-4" /> Mulai
+                            <Check className="h-4 w-4" /> {t("startAction")}
                           </Button>
                         )}
                         {["DRAFT", "RESERVED"].includes(b.status) && (
@@ -178,9 +182,11 @@ export default function BookingsPage() {
                             size="sm"
                             onClick={() =>
                               ask({
-                                title: "Batalkan peminjaman?",
-                                description: `"${b.name}" akan dibatalkan dan reservasi asetnya dilepas.`,
-                                confirmLabel: "Ya, Batalkan",
+                                title: t("confirmCancelBooking"),
+                                description: t("confirmCancelBookingBody", {
+                                  name: b.name,
+                                }),
+                                confirmLabel: t("yesCancelBooking"),
                                 action: () =>
                                   updateBookingStatus(b.id, "CANCELLED"),
                               })
@@ -195,9 +201,11 @@ export default function BookingsPage() {
                           size="sm"
                           onClick={() =>
                             ask({
-                              title: "Hapus peminjaman?",
-                              description: `"${b.name}" akan dihapus permanen beserta riwayatnya.`,
-                              confirmLabel: "Ya, Hapus",
+                              title: t("confirmDeleteBooking"),
+                              description: t("confirmDeleteBookingBody", {
+                                name: b.name,
+                              }),
+                              confirmLabel: t("yesDelete"),
                               action: () => deleteBooking(b.id),
                             })
                           }

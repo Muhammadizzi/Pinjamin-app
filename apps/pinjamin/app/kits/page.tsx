@@ -12,16 +12,17 @@ import { AssetImage } from "@/components/ui/asset-image";
 
 export default function KitsPage() {
   const { kits, assets, categories, locations, deleteKit } = useStore();
-  const { t } = useT();
+  const { t, assetStatus } = useT();
   const { ask, confirmDialog } = useConfirmDialog();
 
   const confirmDeleteKit = (k: any) =>
     ask({
-      title: "Hapus kit?",
-      description: `"${k.name}" beserta seluruh isinya (${
-        k.assetIds?.length ?? 0
-      } aset) akan dihapus permanen.`,
-      confirmLabel: "Ya, Hapus",
+      title: t("confirmDeleteKit"),
+      description: t("confirmDeleteKitBody", {
+        name: k.name,
+        count: k.assetIds?.length ?? 0,
+      }),
+      confirmLabel: t("yesDelete"),
       action: () => deleteKit(k.id),
     });
 
@@ -37,12 +38,12 @@ export default function KitsPage() {
           <div>
             <h1 className="text-xl sm:text-2xl font-bold">{t("kits")}</h1>
             <p className="text-sm text-muted-foreground">
-              Bundel aset yang dipinjam sebagai paket • {kits.length} kit
+              {t("kitsSub", { count: kits.length })}
             </p>
           </div>
           <Link href="/kits/new">
             <Button className="rounded-xl bg-[#1a365d] hover:bg-[#243a5e] text-white shadow">
-              + Buat Kit
+              {t("createKit")}
             </Button>
           </Link>
         </div>
@@ -54,13 +55,13 @@ export default function KitsPage() {
                 <Boxes className="h-8 w-8 text-slate-400" />
               </div>
               <div>
-                <div className="font-semibold">Belum ada kit</div>
+                <div className="font-semibold">{t("noKitsYet")}</div>
                 <div className="text-sm text-muted-foreground">
-                  Kit adalah bundel aset yang dipinjam bersamaan
+                  {t("noKitsHint")}
                 </div>
               </div>
               <Link href="/kits/new">
-                <Button className="rounded-xl">Buat Kit Pertama</Button>
+                <Button className="rounded-xl">{t("createFirstKit")}</Button>
               </Link>
             </CardContent>
           </Card>
@@ -71,13 +72,13 @@ export default function KitsPage() {
               <table className="w-full text-sm">
                 <thead className="bg-slate-50 dark:bg-slate-800 text-left text-xs uppercase tracking-widest text-muted-foreground">
                   <tr>
-                    <th className="px-4 py-3 w-14">Foto</th>
-                    <th className="px-4 py-3">Nama</th>
-                    <th className="px-4 py-3">Kategori</th>
-                    <th className="px-4 py-3">Status</th>
-                    <th className="px-4 py-3">Lokasi</th>
-                    <th className="px-4 py-3">Isi Kit</th>
-                    <th className="px-4 py-3 text-right">Aksi</th>
+                    <th className="px-4 py-3 w-14">{t("photo")}</th>
+                    <th className="px-4 py-3">{t("name")}</th>
+                    <th className="px-4 py-3">{t("category")}</th>
+                    <th className="px-4 py-3">{t("status")}</th>
+                    <th className="px-4 py-3">{t("location")}</th>
+                    <th className="px-4 py-3">{t("kitContents")}</th>
+                    <th className="px-4 py-3 text-right">{t("actions")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -89,7 +90,7 @@ export default function KitsPage() {
                       <td className="px-4 py-3">
                         <Link
                           href={`/kits/${k.id}`}
-                          aria-label={`Lihat ${k.name}`}
+                          aria-label={t("viewItem", { name: k.name })}
                         >
                           <AssetImage
                             src={(k as any).image}
@@ -106,7 +107,10 @@ export default function KitsPage() {
                       </td>
                       <td className="px-4 py-3">{catName(k)}</td>
                       <td className="px-4 py-3">
-                        <StatusBadge status={(k as any).status} />
+                        <StatusBadge
+                          status={(k as any).status}
+                          label={assetStatus((k as any).status ?? "")}
+                        />
                       </td>
                       <td className="px-4 py-3">
                         <span className="flex items-center gap-1">
@@ -116,7 +120,7 @@ export default function KitsPage() {
                       </td>
                       <td className="px-4 py-3">
                         <Badge variant="secondary" className="text-xs">
-                          {k.assetIds.length} aset
+                          {t("assetCountLabel", { count: k.assetIds.length })}
                         </Badge>
                       </td>
                       <td className="px-4 py-3">
@@ -154,7 +158,7 @@ export default function KitsPage() {
                     <div className="flex items-start gap-3">
                       <Link
                         href={`/kits/${k.id}`}
-                        aria-label={`Lihat ${k.name}`}
+                        aria-label={t("viewItem", { name: k.name })}
                       >
                         <AssetImage
                           src={(k as any).image}
@@ -165,18 +169,26 @@ export default function KitsPage() {
                       <div className="flex-1 min-w-0">
                         <div className="font-semibold truncate">{k.name}</div>
                         <div className="text-xs text-muted-foreground truncate">
-                          {k.qrCode} • {k.assetIds.length} aset
+                          {k.qrCode} •{" "}
+                          {t("assetCountLabel", { count: k.assetIds.length })}
                         </div>
                       </div>
-                      <StatusBadge status={(k as any).status} />
+                      <StatusBadge
+                        status={(k as any).status}
+                        label={assetStatus((k as any).status ?? "")}
+                      />
                     </div>
                     <div className="grid grid-cols-2 gap-2 text-xs">
                       <div className="rounded-lg bg-slate-50 dark:bg-slate-800 p-2">
-                        <div className="text-muted-foreground">Kategori</div>
+                        <div className="text-muted-foreground">
+                          {t("category")}
+                        </div>
                         <div className="font-medium truncate">{catName(k)}</div>
                       </div>
                       <div className="rounded-lg bg-slate-50 dark:bg-slate-800 p-2">
-                        <div className="text-muted-foreground">Lokasi</div>
+                        <div className="text-muted-foreground">
+                          {t("location")}
+                        </div>
                         <div className="font-medium truncate">{locName(k)}</div>
                       </div>
                     </div>
@@ -187,7 +199,7 @@ export default function KitsPage() {
                           className="w-full rounded-xl"
                           size="sm"
                         >
-                          <Eye className="h-4 w-4" /> Detail
+                          <Eye className="h-4 w-4" /> {t("detail")}
                         </Button>
                       </Link>
                       <Button
@@ -212,7 +224,7 @@ export default function KitsPage() {
   );
 }
 
-function StatusBadge({ status }: { status?: string }) {
+function StatusBadge({ status, label }: { status?: string; label?: string }) {
   const map: Record<string, string> = {
     AVAILABLE: "success",
     CHECKED_OUT: "info",
@@ -221,7 +233,7 @@ function StatusBadge({ status }: { status?: string }) {
   };
   return (
     <Badge variant={(map[status || ""] as any) || "secondary"}>
-      {status || "-"}
+      {label || status || "-"}
     </Badge>
   );
 }

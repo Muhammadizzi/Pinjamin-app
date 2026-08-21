@@ -101,7 +101,7 @@ function LoginForm() {
         className="absolute top-4 left-4 sm:top-6 sm:left-6 z-10 inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/10 hover:bg-white/20 backdrop-blur-md px-3.5 py-2 text-sm font-medium text-white transition-colors"
       >
         <ArrowLeft className="h-4 w-4" />
-        Kembali ke Beranda
+        {t("backToHome")}
       </Link>
       {/* Warna dasar — terlihat sekejap sebelum foto termuat, dan jadi
           cadangan kalau file foto hilang. */}
@@ -227,7 +227,7 @@ function LoginForm() {
                   type="button"
                   onClick={() => setShow(!show)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 dark:hover:text-white p-1 min-h-11 min-w-11 flex items-center justify-center"
-                  aria-label={show ? "Sembunyikan password" : "Lihat password"}
+                  aria-label={show ? t("hidePassword") : t("showPassword")}
                 >
                   {show ? (
                     <EyeOff className="h-5 w-5" />
@@ -247,7 +247,11 @@ function LoginForm() {
               />
               {t("rememberMe")}
               <span className="text-xs text-slate-400">
-                ({remember ? "7 hari" : "12 jam"})
+                (
+                {remember
+                  ? t("rememberDurationLong")
+                  : t("rememberDurationShort")}
+                )
               </span>
             </label>
 

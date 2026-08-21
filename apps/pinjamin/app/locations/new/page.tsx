@@ -12,11 +12,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { ImageUpload } from "@/components/ui/image-upload";
 import { useStore } from "@/lib/store";
 import { useConfirmDialog } from "@/components/ui/confirm-dialog";
+import { useT } from "@/lib/i18n";
 import { ArrowLeft, MapPin, Plus, FolderTree } from "lucide-react";
 
 export default function NewLocationPage() {
   const router = useRouter();
   const { locations, addLocation } = useStore();
+  const { t } = useT();
   const { ask, confirmDialog } = useConfirmDialog();
   const [form, setForm] = useState({
     name: "",
@@ -41,13 +43,13 @@ export default function NewLocationPage() {
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name.trim()) return alert("Nama wajib diisi");
+    if (!form.name.trim()) return alert(t("nameRequired"));
     ask({
-      title: `Tambah lokasi "${form.name.trim()}"?`,
+      title: t("confirmAddLocation", { name: form.name.trim() }),
       description: form.isParent
-        ? "Akan terdaftar sebagai lokasi parent (bisa menaungi sub-lokasi)."
-        : "Lokasi baru akan tersedia untuk dipilih pada aset dan kit.",
-      confirmLabel: "Ya, Tambah",
+        ? t("confirmAddLocationParentBody")
+        : t("confirmAddLocationRegularBody"),
+      confirmLabel: t("yesAdd"),
       variant: "primary",
       action: () => {
         addLocation({
@@ -65,8 +67,8 @@ export default function NewLocationPage() {
   const handleCreateParent = () => {
     if (!parentName.trim()) return;
     ask({
-      title: `Tambah lokasi parent "${parentName.trim()}"?`,
-      confirmLabel: "Ya, Tambah",
+      title: t("confirmAddParentLocation", { name: parentName.trim() }),
+      confirmLabel: t("yesAdd"),
       variant: "primary",
       action: () => {
         const id = addLocation({
@@ -92,14 +94,15 @@ export default function NewLocationPage() {
           className="inline-flex items-center gap-2 text-sm font-medium text-[#1a365d] dark:text-amber-200 hover:underline"
         >
           <ArrowLeft className="h-4 w-4" strokeWidth={1.5} />
-          Kembali ke Daftar Lokasi
+          {t("backToLocations")}
         </Link>
 
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold">Tambah Lokasi Baru</h1>
+          <h1 className="text-xl sm:text-2xl font-bold">
+            {t("addLocationHeading")}
+          </h1>
           <p className="text-sm text-muted-foreground">
-            Pilih tipe: lokasi parent (gedung/area) atau lokasi biasa
-            (ruangan/titik yang bisa masuk parent).
+            {t("addLocationHeadingSub")}
           </p>
         </div>
 
@@ -109,14 +112,14 @@ export default function NewLocationPage() {
               <div className="h-8 w-8 rounded-lg bg-[#1a365d] text-white flex items-center justify-center">
                 <MapPin className="h-4 w-4" strokeWidth={1.5} />
               </div>
-              Form Lokasi Baru
+              {t("newLocationForm")}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <form onSubmit={submit} className="space-y-5">
               <div className="space-y-2">
                 <Label>
-                  Nama <span className="text-red-500">*</span>
+                  {t("name")} <span className="text-red-500">*</span>
                 </Label>
                 <Input
                   value={form.name}
@@ -129,7 +132,7 @@ export default function NewLocationPage() {
 
               {/* Tipe lokasi: Biasa vs Parent */}
               <div className="space-y-2">
-                <Label>Tipe Lokasi</Label>
+                <Label>{t("locationType")}</Label>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
@@ -143,10 +146,10 @@ export default function NewLocationPage() {
                     <MapPin className="h-4 w-4 shrink-0 text-[#1a365d] dark:text-slate-300" />
                     <span>
                       <span className="block text-sm font-semibold">
-                        Lokasi Biasa
+                        {t("regularLocation")}
                       </span>
                       <span className="block text-[11px] text-muted-foreground">
-                        Ruangan/titik — bisa masuk parent
+                        {t("regularLocationHint")}
                       </span>
                     </span>
                   </button>
@@ -164,10 +167,10 @@ export default function NewLocationPage() {
                     <FolderTree className="h-4 w-4 shrink-0 text-[#8a6d1d] dark:text-[#CBA12C]" />
                     <span>
                       <span className="block text-sm font-semibold">
-                        Lokasi Parent
+                        {t("parentLocation")}
                       </span>
                       <span className="block text-[11px] text-muted-foreground">
-                        Gedung/area — menaungi sub-lokasi
+                        {t("parentLocationHint")}
                       </span>
                     </span>
                   </button>
@@ -178,14 +181,14 @@ export default function NewLocationPage() {
               {!form.isParent && (
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <Label>Parent Lokasi</Label>
+                    <Label>{t("parentOf")}</Label>
                     <button
                       type="button"
                       onClick={() => setShowParentCreate(!showParentCreate)}
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#CBA12C] text-[#1a365d] text-xs font-bold hover:bg-amber-300 border border-[#CBA12C] shadow-sm transition-colors"
                     >
                       <Plus className="h-3 w-3" strokeWidth={1.5} />
-                      Buat Parent Baru
+                      {t("createNewParent")}
                     </button>
                   </div>
                   <Select
@@ -194,7 +197,7 @@ export default function NewLocationPage() {
                       setForm({ ...form, parentId: e.target.value })
                     }
                   >
-                    <option value="">— Tidak ada (mandiri) —</option>
+                    <option value="">{t("noParentStandalone")}</option>
                     {parentOptions.map((l) => (
                       <option key={l.id} value={l.id}>
                         {l.name}
@@ -203,14 +206,12 @@ export default function NewLocationPage() {
                   </Select>
                   {parentOptions.length === 0 && (
                     <p className="text-xs text-amber-700 dark:text-amber-300">
-                      Belum ada lokasi parent — buat lewat tombol &quot;Buat
-                      Parent Baru&quot; di atas, atau pilih tipe &quot;Lokasi
-                      Parent&quot;.
+                      {t("noParentYet")}
                     </p>
                   )}
                   {showParentCreate && (
                     <div className="rounded-xl border-2 border-[#CBA12C]/30 bg-amber-50 dark:bg-slate-800 p-3 space-y-2 animate-in fade-in">
-                      <Label className="text-xs">Nama Parent Baru *</Label>
+                      <Label className="text-xs">{t("newParentName")} *</Label>
                       <div className="flex gap-2">
                         <Input
                           value={parentName}
@@ -225,7 +226,7 @@ export default function NewLocationPage() {
                           onClick={handleCreateParent}
                           className="rounded-lg bg-[#1a365d] text-white h-9 px-4"
                         >
-                          Buat
+                          {t("createShort")}
                         </Button>
                         <Button
                           type="button"
@@ -234,17 +235,16 @@ export default function NewLocationPage() {
                           onClick={() => setShowParentCreate(false)}
                           className="h-9"
                         >
-                          Batal
+                          {t("cancel")}
                         </Button>
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        Parent langsung terpilih di dropdown setelah dibuat.
+                        {t("parentAutoSelected")}
                       </p>
                     </div>
                   )}
                   <p className="text-xs text-muted-foreground">
-                    Dropdown hanya menampilkan lokasi bertipe parent. Pilih
-                    parent jika lokasi ini anak dari gedung/area lain.
+                    {t("parentDropdownHintLong")}
                   </p>
                 </div>
               )}
@@ -253,18 +253,18 @@ export default function NewLocationPage() {
                 kind="lokasi"
                 value={form.image}
                 onChange={(url) => setForm({ ...form, image: url })}
-                label="Foto Tempat"
+                label={t("placePhoto")}
                 uploadOnly
               />
 
               <div className="space-y-2">
-                <Label>Deskripsi</Label>
+                <Label>{t("description")}</Label>
                 <Textarea
                   value={form.description}
                   onChange={(e) =>
                     setForm({ ...form, description: e.target.value })
                   }
-                  placeholder="Deskripsi lokasi, kapasitas, fasilitas..."
+                  placeholder={t("locationDescriptionPlaceholder")}
                   rows={3}
                 />
               </div>
@@ -276,14 +276,14 @@ export default function NewLocationPage() {
                     variant="outline"
                     className="w-full rounded-xl"
                   >
-                    Batal
+                    {t("cancel")}
                   </Button>
                 </Link>
                 <Button
                   type="submit"
                   className="flex-1 rounded-xl bg-[#1a365d] hover:bg-[#243a5e] text-white h-11 font-semibold"
                 >
-                  Simpan Lokasi
+                  {t("saveLocation")}
                 </Button>
               </div>
             </form>

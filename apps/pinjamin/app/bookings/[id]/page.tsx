@@ -11,7 +11,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { useStore } from "@/lib/store";
 import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useT } from "@/lib/i18n";
-import { formatDate, formatDateTime } from "@/lib/utils";
 import { useState } from "react";
 import { ArrowLeft, Check, X, Trash2 } from "lucide-react";
 
@@ -27,14 +26,14 @@ export default function BookingDetailPage() {
     updateBookingStatus,
     deleteBooking,
   } = useStore();
-  const { t } = useT();
+  const { t, formatDate, formatDateTime, assetStatus, bookingStatus } = useT();
   const { ask, confirmDialog } = useConfirmDialog();
   const b = bookings.find((x) => x.id === id);
   const [returnNote, setReturnNote] = useState("");
   if (!b)
     return (
       <AppShell>
-        <div className="p-8 text-center">Booking tidak ditemukan</div>
+        <div className="p-8 text-center">{t("bookingNotFound")}</div>
       </AppShell>
     );
   const cust = custodians.find((c) => c.id === b.custodianId);
@@ -45,7 +44,7 @@ export default function BookingDetailPage() {
           href="/bookings"
           className="inline-flex items-center gap-2 text-sm text-muted-foreground"
         >
-          <ArrowLeft className="h-4 w-4" /> Kembali
+          <ArrowLeft className="h-4 w-4" /> {t("back")}
         </Link>
         <Card>
           <CardHeader>
@@ -67,31 +66,40 @@ export default function BookingDetailPage() {
                     : "secondary"
                 }
               >
-                {b.status}
+                {bookingStatus(b.status)}
               </Badge>
             </div>
           </CardHeader>
           <CardContent className="space-y-4 text-sm">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="rounded-xl bg-slate-50 dark:bg-slate-800 p-3">
-                <div className="text-xs text-muted-foreground">Peminjam</div>
+                <div className="text-xs text-muted-foreground">
+                  {t("custodian")}
+                </div>
                 <div className="font-medium">
                   {cust?.name} — {cust?.department}
                 </div>
                 <div className="text-xs">{cust?.email}</div>
               </div>
               <div className="rounded-xl bg-slate-50 dark:bg-slate-800 p-3">
-                <div className="text-xs text-muted-foreground">Periode</div>
+                <div className="text-xs text-muted-foreground">
+                  {t("period")}
+                </div>
                 <div className="font-medium">
                   {formatDate(b.fromDate)} → {formatDate(b.toDate)}
                 </div>
                 <div className="text-xs">
-                  Dibuat {formatDateTime(b.createdAt)} oleh {b.createdBy}
+                  {t("createdByAt", {
+                    date: formatDateTime(b.createdAt),
+                    by: b.createdBy,
+                  })}
                 </div>
               </div>
             </div>
             <div>
-              <div className="font-medium mb-1">Aset ({b.assetIds.length})</div>
+              <div className="font-medium mb-1">
+                {t("assetsCount", { count: b.assetIds.length })}
+              </div>
               {b.assetIds.map((aid) => {
                 const a = assets.find((x) => x.id === aid);
                 return a ? (
@@ -102,19 +110,22 @@ export default function BookingDetailPage() {
                   >
                     <div className="font-medium text-sm">{a.name}</div>
                     <div className="text-xs text-muted-foreground">
-                      {a.qrCode} • {a.status}
+                      {a.qrCode} • {assetStatus(a.status)}
                     </div>
                   </Link>
                 ) : null;
               })}
               {b.kitIds.length > 0 && (
                 <div className="mt-2">
-                  <div className="font-medium mb-1">Kit</div>
+                  <div className="font-medium mb-1">{t("kits")}</div>
                   {b.kitIds.map((kid) => {
                     const k = kits.find((x) => x.id === kid);
                     return k ? (
                       <div key={kid} className="border rounded-xl p-2 text-sm">
-                        {k.name} ({k.assetIds.length} aset)
+                        {t("kitAssetCount", {
+                          name: k.name,
+                          count: k.assetIds.length,
+                        })}
                       </div>
                     ) : null;
                   })}
@@ -122,34 +133,38 @@ export default function BookingDetailPage() {
               )}
             </div>
             <div>
-              <div className="font-medium mb-1">Riwayat Status</div>
+              <div className="font-medium mb-1">{t("statusHistory")}</div>
               <div className="space-y-1">
                 {b.history.map((h, i) => (
                   <div key={i} className="flex gap-2 text-xs">
                     <span className="font-mono">{formatDateTime(h.at)}</span>
                     <Badge variant="secondary" className="text-[10px]">
-                      {h.status}
+                      {bookingStatus(h.status)}
                     </Badge>
-                    <span className="text-muted-foreground">oleh {h.by}</span>
+                    <span className="text-muted-foreground">
+                      {t("byWhom", { by: h.by })}
+                    </span>
                   </div>
                 ))}
               </div>
             </div>
             {b.status === "ONGOING" && (
               <div className="border-t pt-4 space-y-3">
-                <Label>Kondisi Pengembalian</Label>
+                <Label>{t("returnCondition")}</Label>
                 <Textarea
                   value={returnNote}
                   onChange={(e) => setReturnNote(e.target.value)}
-                  placeholder="Baik, lengkap..."
+                  placeholder={t("returnConditionPlaceholder")}
                 />
                 <Button
                   className="w-full rounded-xl bg-emerald-600 hover:bg-emerald-700"
                   onClick={() =>
                     ask({
-                      title: "Tandai dikembalikan?",
-                      description: `"${b.name}" akan selesai (COMPLETE) dan asetnya kembali tersedia.`,
-                      confirmLabel: "Ya, Kembalikan",
+                      title: t("confirmMarkReturned"),
+                      description: t("confirmMarkReturnedBody", {
+                        name: b.name,
+                      }),
+                      confirmLabel: t("yesReturn"),
                       variant: "primary",
                       action: () =>
                         updateBookingStatus(b.id, "COMPLETE", {
@@ -158,7 +173,7 @@ export default function BookingDetailPage() {
                     })
                   }
                 >
-                  <Check className="h-4 w-4" /> Tandai Dikembalikan (COMPLETE)
+                  <Check className="h-4 w-4" /> {t("markReturned")}
                 </Button>
               </div>
             )}
@@ -167,15 +182,17 @@ export default function BookingDetailPage() {
                 className="w-full rounded-xl"
                 onClick={() =>
                   ask({
-                    title: "Mulai peminjaman?",
-                    description: `"${b.name}" akan berjalan (ONGOING) dan asetnya diserahkan.`,
-                    confirmLabel: "Ya, Mulai",
+                    title: t("confirmStartBooking"),
+                    description: t("confirmStartBookingShortBody", {
+                      name: b.name,
+                    }),
+                    confirmLabel: t("yesStart"),
                     variant: "primary",
                     action: () => updateBookingStatus(b.id, "ONGOING"),
                   })
                 }
               >
-                <Check className="h-4 w-4" /> Mulai Peminjaman (ONGOING)
+                <Check className="h-4 w-4" /> {t("startBookingAction")}
               </Button>
             )}
             {(b.status === "RESERVED" || b.status === "DRAFT") && (
@@ -184,25 +201,29 @@ export default function BookingDetailPage() {
                 className="w-full rounded-xl"
                 onClick={() =>
                   ask({
-                    title: "Batalkan peminjaman?",
-                    description: `"${b.name}" akan dibatalkan dan reservasi asetnya dilepas.`,
-                    confirmLabel: "Ya, Batalkan",
+                    title: t("confirmCancelBooking"),
+                    description: t("confirmCancelBookingBody", {
+                      name: b.name,
+                    }),
+                    confirmLabel: t("yesCancelBooking"),
                     action: () => updateBookingStatus(b.id, "CANCELLED"),
                   })
                 }
               >
-                <X className="h-4 w-4" /> Batalkan (CANCELLED)
+                <X className="h-4 w-4" /> {t("cancelBookingAction")}
               </Button>
             )}
             {b.status === "COMPLETE" && b.returnCondition && (
               <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-3 text-sm">
                 <div className="font-medium text-emerald-800">
-                  Kondisi kembali:
+                  {t("returnConditionLabel")}
                 </div>
                 <div>{b.returnCondition}</div>
                 <div className="text-xs text-muted-foreground">
-                  Dikembalikan{" "}
-                  {b.actualReturnDate && formatDateTime(b.actualReturnDate)}
+                  {b.actualReturnDate &&
+                    t("returnedAt", {
+                      date: formatDateTime(b.actualReturnDate),
+                    })}
                 </div>
               </div>
             )}
@@ -211,9 +232,9 @@ export default function BookingDetailPage() {
               className="w-full rounded-xl text-red-600"
               onClick={() =>
                 ask({
-                  title: "Hapus booking?",
-                  description: `"${b.name}" akan dihapus permanen beserta riwayatnya.`,
-                  confirmLabel: "Ya, Hapus",
+                  title: t("confirmDeleteBooking"),
+                  description: t("confirmDeleteBookingBody", { name: b.name }),
+                  confirmLabel: t("yesDelete"),
                   action: () => {
                     deleteBooking(b.id);
                     router.push("/bookings");
@@ -221,7 +242,7 @@ export default function BookingDetailPage() {
                 })
               }
             >
-              <Trash2 className="h-4 w-4" /> Hapus Booking
+              <Trash2 className="h-4 w-4" /> {t("deleteBookingLabel")}
             </Button>
           </CardContent>
         </Card>

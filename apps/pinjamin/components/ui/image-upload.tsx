@@ -19,10 +19,12 @@ import {
   type UploadKind,
 } from "@/lib/supabase";
 import { AssetImage } from "@/components/ui/asset-image";
+import { useT } from "@/lib/i18n";
 
 type Props = {
   value?: string;
   onChange: (url: string) => void;
+  /** Judul di atas kotak. Default: "Foto Aset" sesuai bahasa aktif. */
   label?: string;
   uploadOnly?: boolean;
   /**
@@ -40,10 +42,11 @@ type Props = {
 export function ImageUpload({
   value,
   onChange,
-  label = "Foto Aset",
+  label,
   uploadOnly = false,
   kind = "aset",
 }: Props) {
+  const { t } = useT();
   const [dragOver, setDragOver] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
@@ -59,11 +62,11 @@ export function ImageUpload({
   const handleFile = async (file: File) => {
     setError("");
     if (!file.type.startsWith("image/")) {
-      setError("Hanya file gambar yang diizinkan (jpg, png, webp).");
+      setError(t("onlyImageFiles"));
       return;
     }
     if (file.size > 5 * 1024 * 1024) {
-      setError("Maksimal 5MB. Kompres dulu ya.");
+      setError(t("maxFileSize"));
       return;
     }
     setUploading(true);
@@ -81,7 +84,7 @@ export function ImageUpload({
         });
       } catch {}
     } catch (e: any) {
-      setError(e.message || "Gagal upload");
+      setError(e.message || t("uploadFailed"));
     } finally {
       setUploading(false);
     }
@@ -109,7 +112,7 @@ export function ImageUpload({
   return (
     <div className="space-y-2.5">
       <div className="flex items-center justify-between">
-        <Label className="font-medium">{label}</Label>
+        <Label className="font-medium">{label ?? t("assetPhoto")}</Label>
         {!uploadOnly && !value && (
           <div className="flex gap-1 text-xs">
             <button
@@ -144,11 +147,11 @@ export function ImageUpload({
       {value ? (
         <div className="upload-success flex items-start gap-4">
           <div className="relative group">
-            <AssetImage src={value} alt="Preview" size="xl" />
+            <AssetImage src={value} alt={t("preview")} size="xl" />
             <button
               type="button"
               onClick={clear}
-              aria-label="Hapus foto"
+              aria-label={t("deletePhoto")}
               className="absolute -top-2 -right-2 h-7 w-7 rounded-full bg-white dark:bg-slate-700 border shadow flex items-center justify-center text-slate-600 dark:text-slate-200 hover:text-red-600 hover:border-red-300 transition-colors"
             >
               <X className="h-3.5 w-3.5" />
@@ -156,7 +159,7 @@ export function ImageUpload({
           </div>
           <div className="flex-1 space-y-2 pt-1">
             <div className="flex items-center gap-2 text-xs text-emerald-600 font-medium">
-              <CheckCircle2 className="h-4 w-4 shrink-0" /> Foto tersimpan
+              <CheckCircle2 className="h-4 w-4 shrink-0" /> {t("photoSaved")}
             </div>
             <div className="flex flex-wrap items-center gap-1.5">
               <span
@@ -172,7 +175,7 @@ export function ImageUpload({
                   ? "Base64 • Offline"
                   : isSupabaseConfigured()
                   ? "Supabase Storage"
-                  : "URL eksternal"}
+                  : t("externalUrl")}
               </span>
               {isBase64Image(value) && (
                 <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300">
@@ -191,7 +194,7 @@ export function ImageUpload({
               ) : (
                 <RefreshCw className="h-3.5 w-3.5" />
               )}
-              {uploading ? "Mengupload..." : "Ganti foto"}
+              {uploading ? t("uploading") : t("replacePhoto")}
             </button>
             <input
               ref={inputRef}
@@ -214,7 +217,7 @@ export function ImageUpload({
             onDrop={onDrop}
             onClick={() => inputRef.current?.click()}
             role="button"
-            aria-label="Pilih foto aset"
+            aria-label={t("pickAssetPhoto")}
             className={`relative h-28 w-28 shrink-0 rounded-2xl border-2 flex items-center justify-center cursor-pointer transition-all ${
               dragOver
                 ? "border-amber-400 bg-amber-50/60 dark:bg-amber-950/20 scale-[1.03]"
@@ -244,15 +247,15 @@ export function ImageUpload({
           <div className="flex-1 min-w-0 space-y-1.5">
             <div className="text-sm font-medium text-slate-800 dark:text-slate-100">
               {uploading
-                ? "Mengupload..."
+                ? t("uploading")
                 : dragOver
-                ? "Lepas file di sini"
-                : "Klik kotak atau drag & drop"}
+                ? t("dropFileHere")
+                : t("clickOrDrag")}
             </div>
             <div className="text-xs text-muted-foreground leading-relaxed">
-              PNG, JPG, WEBP • Maks 5MB
+              PNG, JPG, WEBP • max 5MB
               <br />
-              Foto tampil di kolom paling kiri daftar aset.
+              {t("photoHint")}
             </div>
             <Button
               type="button"
@@ -262,7 +265,7 @@ export function ImageUpload({
               disabled={uploading}
               className="rounded-xl"
             >
-              <Upload className="h-3.5 w-3.5" /> Pilih File
+              <Upload className="h-3.5 w-3.5" /> {t("pickFile")}
             </Button>
           </div>
         </div>
@@ -284,13 +287,10 @@ export function ImageUpload({
               }}
               className="rounded-xl bg-[#0a2240] hover:bg-[#12345a] text-white"
             >
-              Simpan
+              {t("save")}
             </Button>
           </div>
-          <p className="text-xs text-muted-foreground">
-            Tempel URL gambar eksternal (https://) atau gunakan mode Upload
-            untuk file lokal.
-          </p>
+          <p className="text-xs text-muted-foreground">{t("urlModeHint")}</p>
         </div>
       )}
 
@@ -302,16 +302,7 @@ export function ImageUpload({
 
       {!isSupabase && (
         <p className="text-[11px] leading-relaxed text-amber-700 dark:text-amber-300/80">
-          ⚠️ Mode offline: foto dikompres & disimpan sebagai base64. Untuk
-          production, aktifkan Supabase Storage (
-          <code className="bg-slate-100 dark:bg-slate-800 px-1 rounded">
-            NEXT_PUBLIC_SUPABASE_URL
-          </code>{" "}
-          + bucket{" "}
-          <code className="bg-slate-100 dark:bg-slate-800 px-1 rounded">
-            assets
-          </code>
-          ).
+          ⚠️ {t("offlineStorageNote")}
         </p>
       )}
     </div>
