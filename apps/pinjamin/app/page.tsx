@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import Image from "next/image";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,7 +23,6 @@ import {
   BarChart3,
   Sparkles,
   Headset,
-  ArrowRight,
   FileText,
   Hash,
   ShieldCheck,
@@ -150,6 +149,24 @@ export default function LandingPage() {
     void runTrack(trackNumber);
   };
 
+  // Dua tombol di navbar adalah SATU-SATUNYA jalan ke kedua bagian ini,
+  // jadi selain menggulung halaman, kursor langsung ditaruh di kolom yang
+  // relevan — pengguna bisa langsung mengetik/menempel tanpa mengetuk lagi.
+  const trackInputRef = useRef<HTMLInputElement>(null);
+  const nameInputRef = useRef<HTMLInputElement>(null);
+
+  const jumpTo =
+    (id: string, ref: React.RefObject<HTMLInputElement | null>) =>
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      document.getElementById(id)?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+      // preventScroll: fokus tidak boleh membatalkan animasi gulir di atas.
+      window.setTimeout(() => ref.current?.focus({ preventScroll: true }), 450);
+    };
+
   // LACAK OTOMATIS tanpa tombol: begitu nomor lengkap (TKT-XXXXXX) selesai
   // diketik/ditempel, status dicari sendiri. Debounce agar tidak request di
   // setiap ketukan, dan hasil direset saat nomor belum lengkap lagi.
@@ -191,14 +208,21 @@ export default function LandingPage() {
     },
   ];
 
+  // overflow-hidden SENGAJA tidak dipasang di elemen akar: ancestor dengan
+  // overflow selain visible membuat position:sticky pada header berhenti
+  // bekerja. Dekorasi glow dikurung di wadahnya sendiri.
   return (
-    <div className="min-h-screen bg-[#0f1d33] text-white relative overflow-hidden">
-      {/* dekorasi glow latar */}
-      <div className="absolute -top-40 -right-40 h-[420px] w-[420px] rounded-full bg-[#CBA12C]/10 blur-[100px] pointer-events-none" />
-      <div className="absolute -bottom-40 -left-40 h-[420px] w-[420px] rounded-full bg-[#1a365d]/50 blur-[100px] pointer-events-none" />
+    <div className="min-h-screen bg-[#0f1d33] text-white relative">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 overflow-hidden"
+      >
+        <div className="absolute -top-40 -right-40 h-[420px] w-[420px] rounded-full bg-[#CBA12C]/10 blur-[100px]" />
+        <div className="absolute -bottom-40 -left-40 h-[420px] w-[420px] rounded-full bg-[#1a365d]/50 blur-[100px]" />
+      </div>
 
       {/* Header */}
-      <header className="relative z-10 border-b border-[#243a5e]/60 bg-[#0f1d33]/85 backdrop-blur-xl">
+      <header className="sticky top-0 z-30 border-b border-[#243a5e]/60 bg-[#0f1d33]/90 backdrop-blur-xl">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 py-4 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="relative h-10 w-10 flex items-center justify-center shrink-0">
@@ -228,20 +252,26 @@ export default function LandingPage() {
               </div>
             </div>
           </div>
-          {/* Navigasi ringkas ke dua aksi di halaman ini. Di layar sempit
-              hanya CTA utama yang tampil supaya header tidak pecah 2 baris. */}
-          <nav className="flex items-center gap-1.5 shrink-0">
+          {/* Dua tombol ini satu-satunya jalan ke kedua bagian utama, jadi
+              keduanya WAJIB tampil di semua ukuran layar — termasuk ponsel.
+              Label dipendekkan di layar sempit agar header tetap satu baris. */}
+          <nav className="flex items-center gap-1.5 shrink-0 sm:gap-2">
             <a
               href="#lacak"
-              className="hidden sm:inline-flex rounded-xl px-3 py-2 text-sm font-medium text-slate-300 hover:text-white hover:bg-white/5 transition-colors whitespace-nowrap"
+              onClick={jumpTo("lacak", trackInputRef)}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-[#243a5e] px-2.5 py-2 text-[13px] font-semibold text-slate-200 transition-colors hover:border-slate-500 hover:bg-white/5 hover:text-white sm:px-3.5 sm:text-sm"
             >
-              Lacak tiket
+              <Search className="h-4 w-4 shrink-0" strokeWidth={2} />
+              <span className="sm:hidden">Lacak</span>
+              <span className="hidden sm:inline">Lacak tiket</span>
             </a>
             <a
               href="#buat-tiket"
-              className="rounded-xl bg-[#CBA12C] px-3.5 py-2 text-sm font-bold text-[#0a2240] hover:bg-[#d4b44a] transition-colors whitespace-nowrap"
+              onClick={jumpTo("buat-tiket", nameInputRef)}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-[#CBA12C] px-2.5 py-2 text-[13px] font-bold text-[#0a2240] transition-colors hover:bg-[#d4b44a] sm:px-3.5 sm:text-sm"
             >
-              Buat tiket
+              <LifeBuoy className="h-4 w-4 shrink-0" strokeWidth={2} />
+              <span className="whitespace-nowrap">Buat tiket</span>
             </a>
           </nav>
         </div>
@@ -267,27 +297,9 @@ export default function LandingPage() {
             Laporkan tanpa akun, dapatkan nomor tiket, lalu pantau statusnya
             kapan saja.
           </p>
-          {/* Di ponsel dua CTA dibagi rata satu baris; sebelumnya membungkus
-              jadi dua baris karena lebar gabungannya melebihi layar 375px. */}
-          <div className="mt-6 sm:mt-7 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center sm:justify-center sm:gap-3">
-            <a href="#buat-tiket" className="block w-full sm:w-auto">
-              <Button className="h-11 w-full rounded-xl px-3 sm:px-5 font-bold">
-                <span className="sm:hidden">Buat tiket</span>
-                <span className="hidden sm:inline">Buat tiket sekarang</span>
-                <ArrowRight className="h-4 w-4" />
-              </Button>
-            </a>
-            <a href="#lacak" className="block w-full sm:w-auto">
-              <Button
-                variant="outline"
-                className="h-11 w-full rounded-xl px-3 sm:px-5"
-              >
-                <Search className="h-4 w-4" />
-                <span className="sm:hidden">Lacak</span>
-                <span className="hidden sm:inline">Lacak tiket saya</span>
-              </Button>
-            </a>
-          </div>
+          {/* CTA hero dihapus: header kini sticky sehingga tombol "Lacak"
+              dan "Buat tiket" selalu terlihat sepanjang halaman — dua tombol
+              di sini hanya menduplikasi aksi yang sama. */}
           <p className="mt-4 inline-flex items-start sm:items-center gap-1.5 text-[11px] sm:text-xs text-slate-400 text-left sm:text-center">
             <ShieldCheck className="h-3.5 w-3.5 shrink-0 mt-0.5 sm:mt-0 text-emerald-400" />
             Tanpa akun • Data hanya dipakai untuk menindaklanjuti tiket
@@ -360,7 +372,10 @@ export default function LandingPage() {
             </div>
 
             {/* Lacak tiket — status muncul otomatis */}
-            <Card className="border-[#243a5e] scroll-mt-24" id="lacak">
+            <Card
+              className="border-[#243a5e] scroll-mt-20 sm:scroll-mt-24"
+              id="lacak"
+            >
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-lg">
                   <Search className="h-5 w-5 text-amber-300" />
@@ -371,6 +386,7 @@ export default function LandingPage() {
                 <form onSubmit={submitTrack} className="relative">
                   <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 pointer-events-none" />
                   <Input
+                    ref={trackInputRef}
                     value={trackNumber}
                     onChange={(e) => setTrackNumber(e.target.value)}
                     placeholder="TKT-XXXXXX"
@@ -442,7 +458,10 @@ export default function LandingPage() {
           {/* w-full wajib: section memakai items-start, sehingga di mode
               flex-column (ponsel) anak tanpa w-full menyusut mengikuti
               lebar konten — kartu ini sempat hanya 224px dari 343px. */}
-          <Card className="w-full shadow-2xl border-[#243a5e]" id="buat-tiket">
+          <Card
+            className="w-full scroll-mt-20 shadow-2xl border-[#243a5e] sm:scroll-mt-24"
+            id="buat-tiket"
+          >
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
                 <LifeBuoy className="h-5 w-5 text-amber-300" />
@@ -514,6 +533,7 @@ export default function LandingPage() {
                   <div className="space-y-1.5">
                     <Label>Nama Lengkap</Label>
                     <Input
+                      ref={nameInputRef}
                       value={form.name}
                       onChange={(e) =>
                         setForm({ ...form, name: e.target.value })
