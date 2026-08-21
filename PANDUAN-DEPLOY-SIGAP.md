@@ -1,7 +1,8 @@
 # Panduan Deploy SIGAP ke Vercel
 
 > **SIGAP — Sistem Integrasi Guna Aset & Pelayanan** (Garudafood)
-> Diperbarui: 21 Agustus 2026 · commit `1becdf1`
+> Diperbarui: 21 Agustus 2026 · commit `ffd1895`
+> **Production:** https://pinjamin-app.vercel.app
 
 ---
 
@@ -12,7 +13,8 @@ Aplikasi **sudah live**. Setelah `git push` ke `main` barusan, Vercel otomatis m
 | Komponen | Status |
 | --- | --- |
 | Repo GitHub | `Muhammadizzi/Pinjamin-app`, branch `main` |
-| Vercel | Terhubung ke repo — push ke `main` = deploy production otomatis |
+| Vercel | Project `pinjamin-app-pinjamin`, domain `pinjamin-app.vercel.app` |
+| Deploy | Push ke `main` = deploy production otomatis (region `sin1`) |
 | Supabase | Project `asset-management` (`nryxcs…`), region ap-northeast-2 |
 | Migrasi DB | Seluruhnya sudah dijalankan ✅ |
 | Akun admin | 1 baris di tabel `admins`, password sudah diganti dari bawaan ✅ |
@@ -87,6 +89,48 @@ Opsional, murni kosmetik. Yang berubah hanya nama di dashboard dan domain bawaan
 > ⚠️ **Domain bawaan ikut berubah.** `pinjamin-xxx.vercel.app` akan berhenti bekerja dan diganti `sigap-xxx.vercel.app`. Kalau URL lama sudah terlanjur dibagikan ke Garudafood atau tercantum di laporan KP, perbarui dulu di sana — atau lewati langkah ini.
 
 Alternatif yang lebih aman: biarkan nama project apa adanya, lalu tambahkan **domain kustom** di Settings → Domains. Domain lama tetap hidup.
+
+---
+
+## 4a. ⚠️ Identitas git harus cocok dengan akun GitHub
+
+Jebakan yang paling mudah terulang. Vercel **memblokir** deployment bila email
+penulis commit tidak terdaftar di akun GitHub — bukan gagal build, tapi
+ditolak sebelum build dimulai:
+
+> *The deployment was blocked because the commit email … could not be matched
+> to a GitHub account.*
+
+Gejalanya menipu: push berhasil, GitHub menerima, tapi production diam-diam
+tidak berubah karena commit-nya tidak pernah ter-deploy.
+
+Repo ini sudah disetel memakai email yang terdaftar:
+
+```bash
+git config --local user.email    # muhammadizzi.s17@gmail.com
+git config --local user.name     # Muhammadizzi
+```
+
+Setelan ini **khusus repo ini** (`--local`); identitas global Anda di repo lain
+tidak berubah.
+
+**Cara memeriksa sebelum push:**
+
+```bash
+git log -1 --format='%ae'
+```
+
+Kalau hasilnya bukan email yang terdaftar di GitHub, perbaiki dulu:
+
+```bash
+git config --local user.email "muhammadizzi.s17@gmail.com"
+git commit --amend --reset-author --no-edit
+git push --force-with-lease
+```
+
+Alternatif lain: tambahkan email tersebut ke akun GitHub Anda
+(Settings → Emails → Add email, lalu verifikasi), kemudian klik **Redeploy**
+pada deployment yang diblokir.
 
 ---
 
@@ -174,6 +218,7 @@ values ('adminsystem', '<hash dari perintah di atas>', 'Administrator');
 
 | Gejala | Penyebab paling sering |
 | --- | --- |
+| **Deployment Blocked**, build tidak pernah mulai | Email penulis commit tidak terdaftar di akun GitHub — lihat [bagian 4a](#4a--identitas-git-harus-cocok-dengan-akun-github) |
 | Build gagal saat install | `installCommand` ter-filter bermasalah → hapus baris itu dari `vercel.json`, build pakai `pnpm install` biasa |
 | Halaman 404 semua | Root Directory belum diarahkan ke `apps/pinjamin` |
 | Login dijawab `503` | `AUTH_SECRET` kosong, atau tidak ada sumber kredensial admin |
