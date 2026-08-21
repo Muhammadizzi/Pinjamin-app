@@ -29,9 +29,9 @@ export default function CategoriesPage() {
     if (!form.name) return;
     ask({
       title: edit
-        ? `Simpan perubahan kategori "${form.name}"?`
-        : `Tambah kategori "${form.name}"?`,
-      confirmLabel: edit ? "Ya, Simpan" : "Ya, Tambah",
+        ? t("confirmEditCategory", { name: form.name })
+        : t("confirmAddCategory", { name: form.name }),
+      confirmLabel: edit ? t("yesSave") : t("yesAdd"),
       variant: "primary",
       action: () => {
         if (edit) {
@@ -58,7 +58,7 @@ export default function CategoriesPage() {
           <div>
             <h1 className="text-xl sm:text-2xl font-bold">{t("categories")}</h1>
             <p className="text-sm text-muted-foreground">
-              Kelola kategori aset (satu kategori per aset)
+              {t("categoriesSub")}
             </p>
           </div>
           <Button
@@ -69,20 +69,20 @@ export default function CategoriesPage() {
             }}
             className="rounded-xl"
           >
-            <Plus className="h-4 w-4" /> Tambah
+            <Plus className="h-4 w-4" /> {t("add")}
           </Button>
         </div>
         {show && (
           <Card>
             <CardHeader>
               <CardTitle className="text-base">
-                {edit ? "Edit" : "Tambah"} Kategori
+                {edit ? t("editCategoryTitle") : t("addCategoryTitle")}
               </CardTitle>
             </CardHeader>
             <CardContent>
               <form onSubmit={submit} className="space-y-4">
                 <div className="space-y-2">
-                  <Label>Nama *</Label>
+                  <Label>{t("name")} *</Label>
                   <Input
                     value={form.name}
                     onChange={(e) => setForm({ ...form, name: e.target.value })}
@@ -92,7 +92,7 @@ export default function CategoriesPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Deskripsi</Label>
+                  <Label>{t("description")}</Label>
                   <Textarea
                     value={form.description}
                     onChange={(e) =>
@@ -101,7 +101,7 @@ export default function CategoriesPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Warna</Label>
+                  <Label>{t("color")}</Label>
                   <div className="flex gap-2">
                     <Input
                       type="color"
@@ -121,7 +121,7 @@ export default function CategoriesPage() {
                   </div>
                 </div>
                 <Button type="submit" className="w-full rounded-xl">
-                  {edit ? "Update" : "Simpan"}
+                  {edit ? t("update") : t("save")}
                 </Button>
               </form>
             </CardContent>
@@ -143,7 +143,7 @@ export default function CategoriesPage() {
                       {c.description || "-"}
                     </div>
                     <Badge variant="secondary" className="mt-2 text-xs">
-                      {count} aset
+                      {t("assetCountLabel", { count })}
                     </Badge>
                   </div>
                   <div className="flex shrink-0 items-center gap-1">
@@ -161,9 +161,11 @@ export default function CategoriesPage() {
                       className="h-8 w-8 text-red-600"
                       onClick={() =>
                         ask({
-                          title: "Hapus kategori?",
-                          description: `Kategori "${c.name}" akan dihapus permanen. Aset berkategori ini tidak ikut terhapus.`,
-                          confirmLabel: "Ya, Hapus",
+                          title: t("confirmDeleteCategory"),
+                          description: t("confirmDeleteCategoryBody", {
+                            name: c.name,
+                          }),
+                          confirmLabel: t("yesDelete"),
                           action: () => deleteCategory(c.id),
                         })
                       }

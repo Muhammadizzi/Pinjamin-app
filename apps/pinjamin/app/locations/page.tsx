@@ -85,8 +85,8 @@ export default function LocationsPage() {
     e.preventDefault();
     if (!form.name || !edit) return;
     ask({
-      title: `Simpan perubahan lokasi "${form.name}"?`,
-      confirmLabel: "Ya, Simpan",
+      title: t("confirmEditLocation", { name: form.name }),
+      confirmLabel: t("yesSave"),
       variant: "primary",
       action: () => {
         updateLocation(edit, {
@@ -157,16 +157,18 @@ export default function LocationsPage() {
             {l.name}
             {isEffectiveParent(l) && (
               <span className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-[#CBA12C]/15 text-[#8a6d1d] dark:text-[#CBA12C] text-[10px] font-semibold">
-                <FolderTree className="h-3 w-3" /> Parent
-                {childCount > 0 ? ` • ${childCount} sub` : ""}
+                <FolderTree className="h-3 w-3" /> {t("parentBadge")}
+                {childCount > 0 ? t("subCount", { count: childCount }) : ""}
               </span>
             )}
           </div>
           <div className="text-xs text-muted-foreground truncate">
-            {parent ? `Di dalam: ${parent.name} • ` : ""}
+            {parent ? t("insideOf", { name: parent.name }) : ""}
             {l.description || "-"}
           </div>
-          <div className="text-xs text-muted-foreground">{assetCount} aset</div>
+          <div className="text-xs text-muted-foreground">
+            {t("assetCountLabel", { count: assetCount })}
+          </div>
         </div>
         <Button
           variant="ghost"
@@ -182,15 +184,13 @@ export default function LocationsPage() {
           className="h-8 w-8 shrink-0 text-red-600 hover:text-red-700 hover:bg-red-50"
           onClick={() =>
             ask({
-              title: "Hapus lokasi?",
-              description: `"${
-                l.name
-              }" akan dihapus permanen. Aset di lokasi ini tidak ikut terhapus.${
-                isEffectiveParent(l)
-                  ? " Sub-lokasi di dalamnya menjadi lokasi biasa."
-                  : ""
-              }`,
-              confirmLabel: "Ya, Hapus",
+              title: t("confirmDeleteLocation"),
+              description:
+                t("confirmDeleteLocationBody", { name: l.name }) +
+                (isEffectiveParent(l)
+                  ? t("confirmDeleteLocationParentExtra")
+                  : ""),
+              confirmLabel: t("yesDelete"),
               action: () => deleteLocation(l.id),
             })
           }
@@ -220,13 +220,15 @@ export default function LocationsPage() {
           <div>
             <h1 className="text-xl sm:text-2xl font-bold">{t("locations")}</h1>
             <p className="text-sm text-muted-foreground">
-              {parentLocs.length} lokasi parent • {regularLocs.length} lokasi
-              biasa
+              {t("locationsSummary", {
+                parents: parentLocs.length,
+                regular: regularLocs.length,
+              })}
             </p>
           </div>
           <Link href="/locations/new">
             <Button className="rounded-xl bg-[#1a365d] hover:bg-[#243a5e] text-white shadow">
-              <Plus className="h-4 w-4" strokeWidth={1.5} /> Tambah
+              <Plus className="h-4 w-4" strokeWidth={1.5} /> {t("add")}
             </Button>
           </Link>
         </div>
@@ -237,18 +239,18 @@ export default function LocationsPage() {
             <CardContent className="p-6">
               <form onSubmit={submitEdit} className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="font-semibold">Edit Lokasi</h3>
+                  <h3 className="font-semibold">{t("editLocation")}</h3>
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
                     onClick={cancelEdit}
                   >
-                    Batal
+                    {t("cancel")}
                   </Button>
                 </div>
                 <div className="space-y-2">
-                  <Label>Nama *</Label>
+                  <Label>{t("name")} *</Label>
                   <Input
                     value={form.name}
                     onChange={(e) => setForm({ ...form, name: e.target.value })}
@@ -259,7 +261,7 @@ export default function LocationsPage() {
 
                 {/* Tipe lokasi: Biasa vs Parent */}
                 <div className="space-y-2">
-                  <Label>Tipe Lokasi</Label>
+                  <Label>{t("locationType")}</Label>
                   <div className="grid grid-cols-2 gap-2">
                     <button
                       type="button"
@@ -273,10 +275,10 @@ export default function LocationsPage() {
                       <MapPin className="h-4 w-4 shrink-0 text-[#1a365d] dark:text-slate-300" />
                       <span>
                         <span className="block text-sm font-semibold">
-                          Lokasi Biasa
+                          {t("regularLocation")}
                         </span>
                         <span className="block text-[11px] text-muted-foreground">
-                          Ruangan/titik — bisa masuk parent
+                          {t("regularLocationHint")}
                         </span>
                       </span>
                     </button>
@@ -294,10 +296,10 @@ export default function LocationsPage() {
                       <FolderTree className="h-4 w-4 shrink-0 text-[#8a6d1d] dark:text-[#CBA12C]" />
                       <span>
                         <span className="block text-sm font-semibold">
-                          Lokasi Parent
+                          {t("parentLocation")}
                         </span>
                         <span className="block text-[11px] text-muted-foreground">
-                          Gedung/area — menaungi sub-lokasi
+                          {t("parentLocationHint")}
                         </span>
                       </span>
                     </button>
@@ -306,14 +308,14 @@ export default function LocationsPage() {
 
                 {!form.isParent && (
                   <div className="space-y-2">
-                    <Label>Parent Lokasi</Label>
+                    <Label>{t("parentOf")}</Label>
                     <Select
                       value={form.parentId}
                       onChange={(e) =>
                         setForm({ ...form, parentId: e.target.value })
                       }
                     >
-                      <option value="">— Tidak ada (mandiri) —</option>
+                      <option value="">{t("noParentStandalone")}</option>
                       {locations
                         .filter(
                           (l) =>
@@ -327,7 +329,7 @@ export default function LocationsPage() {
                         ))}
                     </Select>
                     <p className="text-xs text-muted-foreground">
-                      Dropdown hanya menampilkan lokasi bertipe parent.
+                      {t("parentDropdownHint")}
                     </p>
                   </div>
                 )}
@@ -336,11 +338,11 @@ export default function LocationsPage() {
                   kind="lokasi"
                   value={form.image}
                   onChange={(url) => setForm({ ...form, image: url })}
-                  label="Foto Tempat"
+                  label={t("placePhoto")}
                   uploadOnly
                 />
                 <div className="space-y-2">
-                  <Label>Deskripsi</Label>
+                  <Label>{t("description")}</Label>
                   <Textarea
                     value={form.description}
                     onChange={(e) =>
@@ -356,13 +358,13 @@ export default function LocationsPage() {
                     className="flex-1 rounded-xl"
                     onClick={cancelEdit}
                   >
-                    Batal
+                    {t("cancel")}
                   </Button>
                   <Button
                     type="submit"
                     className="flex-1 rounded-xl bg-[#1a365d] hover:bg-[#243a5e] text-white"
                   >
-                    Update
+                    {t("update")}
                   </Button>
                 </div>
               </form>
@@ -374,7 +376,7 @@ export default function LocationsPage() {
         {parentLocs.length > 0 && (
           <div className="space-y-2">
             <h2 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-              <FolderTree className="h-4 w-4" /> Lokasi Parent
+              <FolderTree className="h-4 w-4" /> {t("parentLocation")}
               <span className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[10px] px-2 py-0.5 rounded-full">
                 {parentLocs.length}
               </span>
@@ -401,7 +403,7 @@ export default function LocationsPage() {
         {regularLocs.length > 0 && (
           <div className="space-y-2">
             <h2 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-              <MapPin className="h-4 w-4" /> Lokasi Biasa
+              <MapPin className="h-4 w-4" /> {t("regularLocation")}
               <span className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[10px] px-2 py-0.5 rounded-full">
                 {regularLocs.length}
               </span>
@@ -422,12 +424,12 @@ export default function LocationsPage() {
               <div className="mx-auto h-14 w-14 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-3">
                 <MapPin className="h-7 w-7 text-slate-400" strokeWidth={1.5} />
               </div>
-              <div className="font-medium">Belum ada lokasi</div>
+              <div className="font-medium">{t("noLocationsYet")}</div>
               <div className="text-sm text-muted-foreground mb-4">
-                Buat lokasi pertama dengan foto
+                {t("noLocationsHint")}
               </div>
               <Link href="/locations/new">
-                <Button className="rounded-xl">Tambah Lokasi Pertama</Button>
+                <Button className="rounded-xl">{t("addFirstLocation")}</Button>
               </Link>
             </CardContent>
           </Card>

@@ -17,14 +17,14 @@ export default function AuditDetailPage() {
   const params = useParams();
   const id = params.id as string;
   const { audits, assets, updateAuditItem, completeAudit } = useStore();
-  const { t } = useT();
+  const { t, assetStatus, auditResult } = useT();
   const { ask, confirmDialog } = useConfirmDialog();
   const audit = audits.find((a) => a.id === id);
   const [notes, setNotes] = useState<Record<string, string>>({});
   if (!audit)
     return (
       <AppShell>
-        <div className="p-8 text-center">Audit tidak ditemukan</div>
+        <div className="p-8 text-center">{t("auditNotFound")}</div>
       </AppShell>
     );
   const progress =
@@ -37,7 +37,7 @@ export default function AuditDetailPage() {
           href="/audits"
           className="inline-flex items-center gap-2 text-sm text-muted-foreground"
         >
-          <ArrowLeft className="h-4 w-4" /> Kembali
+          <ArrowLeft className="h-4 w-4" /> {t("back")}
         </Link>
         <Card>
           <CardHeader>
@@ -45,16 +45,23 @@ export default function AuditDetailPage() {
               <div>
                 <CardTitle>{audit.name}</CardTitle>
                 <p className="text-sm text-muted-foreground">
-                  {audit.status} • {audit.items.length} aset
+                  {audit.status === "OPEN"
+                    ? t("auditStatusOpen")
+                    : t("auditStatusCompleted")}{" "}
+                  • {t("assetCountLabel", { count: audit.items.length })}
                 </p>
               </div>
               <Badge variant={audit.status === "OPEN" ? "warning" : "success"}>
-                {audit.status}
+                {audit.status === "OPEN"
+                  ? t("auditStatusOpen")
+                  : t("auditStatusCompleted")}
               </Badge>
             </div>
             <div className="mt-4">
               <div className="text-xs text-muted-foreground mb-1">
-                Progress {Math.round(progress * 100)}%
+                {t("progressPercent", {
+                  percent: Math.round(progress * 100),
+                })}
               </div>
               <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                 <div
@@ -75,7 +82,8 @@ export default function AuditDetailPage() {
                         {asset?.name || it.assetId}
                       </div>
                       <div className="text-xs text-muted-foreground">
-                        {asset?.qrCode} • {asset?.status}
+                        {asset?.qrCode} •{" "}
+                        {asset ? assetStatus(asset.status) : "-"}
                       </div>
                     </div>
                     <Badge
@@ -89,7 +97,9 @@ export default function AuditDetailPage() {
                           : "secondary"
                       }
                     >
-                      {it.result || "BELUM"}
+                      {it.result
+                        ? auditResult(it.result)
+                        : t("auditNotChecked")}
                     </Badge>
                   </div>
                   {audit.status === "OPEN" && (
@@ -105,7 +115,8 @@ export default function AuditDetailPage() {
                           })
                         }
                       >
-                        <CheckCircle className="h-4 w-4" /> FOUND
+                        <CheckCircle className="h-4 w-4" />{" "}
+                        {auditResult("FOUND")}
                       </Button>
                       <Button
                         size="sm"
@@ -120,7 +131,7 @@ export default function AuditDetailPage() {
                           })
                         }
                       >
-                        <XCircle className="h-4 w-4" /> MISSING
+                        <XCircle className="h-4 w-4" /> {auditResult("MISSING")}
                       </Button>
                       <Button
                         size="sm"
@@ -135,13 +146,14 @@ export default function AuditDetailPage() {
                           })
                         }
                       >
-                        <AlertTriangle className="h-4 w-4" /> DAMAGED
+                        <AlertTriangle className="h-4 w-4" />{" "}
+                        {auditResult("DAMAGED")}
                       </Button>
                     </div>
                   )}
                   {audit.status === "OPEN" && (
                     <Textarea
-                      placeholder="Catatan..."
+                      placeholder={t("notePlaceholder")}
                       value={notes[it.assetId] || it.note || ""}
                       onChange={(e) =>
                         setNotes({ ...notes, [it.assetId]: e.target.value })
@@ -163,21 +175,23 @@ export default function AuditDetailPage() {
                 className="w-full rounded-xl bg-emerald-600 hover:bg-emerald-700"
                 onClick={() =>
                   ask({
-                    title: "Selesaikan audit?",
-                    description: `Audit "${audit.name}" akan dikunci sebagai COMPLETED dan tidak bisa diubah lagi.`,
-                    confirmLabel: "Ya, Selesaikan",
+                    title: t("confirmCompleteAudit"),
+                    description: t("confirmCompleteAuditBody", {
+                      name: audit.name,
+                    }),
+                    confirmLabel: t("yesComplete"),
                     variant: "primary",
                     action: () => completeAudit(audit.id),
                   })
                 }
                 disabled={progress < 1}
               >
-                Selesaikan Audit
+                {t("completeAudit")}
               </Button>
             )}
             {progress < 1 && audit.status === "OPEN" && (
               <p className="text-xs text-amber-600 text-center">
-                Tandai semua aset dulu sebelum menyelesaikan.
+                {t("markAllFirst")}
               </p>
             )}
           </CardContent>

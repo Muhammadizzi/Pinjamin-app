@@ -4,7 +4,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useStore } from "@/lib/store";
 import { useT } from "@/lib/i18n";
-import { formatDate } from "@/lib/utils";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -12,7 +11,7 @@ import { Button } from "@/components/ui/button";
 
 export default function CalendarPage() {
   const { bookings } = useStore();
-  const { t } = useT();
+  const { t, lang, bookingStatus } = useT();
   const [cur, setCur] = useState(() => new Date());
   const year = cur.getFullYear();
   const month = cur.getMonth();
@@ -43,9 +42,11 @@ export default function CalendarPage() {
       <div className="space-y-4 max-w-5xl mx-auto">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold">Kalender Booking</h1>
+            <h1 className="text-xl sm:text-2xl font-bold">
+              {t("bookingCalendarTitle")}
+            </h1>
             <p className="text-sm text-muted-foreground">
-              Tampilan kalender peminjaman
+              {t("bookingCalendarSub")}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -53,7 +54,7 @@ export default function CalendarPage() {
               <ChevronLeft className="h-4 w-4" />
             </Button>
             <div className="font-semibold min-w-[140px] text-center">
-              {cur.toLocaleDateString("id-ID", {
+              {cur.toLocaleDateString(lang === "id" ? "id-ID" : "en-US", {
                 month: "long",
                 year: "numeric",
               })}
@@ -66,13 +67,13 @@ export default function CalendarPage() {
         <Card>
           <CardContent className="p-4">
             <div className="grid grid-cols-7 gap-2 text-center text-xs font-medium text-muted-foreground mb-2">
-              <div>Min</div>
-              <div>Sen</div>
-              <div>Sel</div>
-              <div>Rab</div>
-              <div>Kam</div>
-              <div>Jum</div>
-              <div>Sab</div>
+              <div>{t("dowSun")}</div>
+              <div>{t("dowMon")}</div>
+              <div>{t("dowTue")}</div>
+              <div>{t("dowWed")}</div>
+              <div>{t("dowThu")}</div>
+              <div>{t("dowFri")}</div>
+              <div>{t("dowSat")}</div>
             </div>
             <div className="grid grid-cols-7 gap-2">
               {Array.from({ length: firstDay }).map((_, i) => (
@@ -108,7 +109,7 @@ export default function CalendarPage() {
                       ))}
                       {list.length > 3 && (
                         <div className="text-[10px] text-muted-foreground">
-                          +{list.length - 3} lagi
+                          {t("moreCount", { count: list.length - 3 })}
                         </div>
                       )}
                     </div>
@@ -120,13 +121,15 @@ export default function CalendarPage() {
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Legend</CardTitle>
+            <CardTitle className="text-base">{t("legend")}</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-wrap gap-2 text-xs">
-            <Badge className="bg-blue-500">ONGOING</Badge>
-            <Badge className="bg-amber-500">RESERVED</Badge>
-            <Badge className="bg-red-500">OVERDUE</Badge>
-            <Badge className="bg-emerald-500">COMPLETE</Badge>
+            <Badge className="bg-blue-500">{bookingStatus("ONGOING")}</Badge>
+            <Badge className="bg-amber-500">{bookingStatus("RESERVED")}</Badge>
+            <Badge className="bg-red-500">{bookingStatus("OVERDUE")}</Badge>
+            <Badge className="bg-emerald-500">
+              {bookingStatus("COMPLETE")}
+            </Badge>
           </CardContent>
         </Card>
       </div>

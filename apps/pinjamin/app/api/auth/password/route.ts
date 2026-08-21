@@ -20,7 +20,10 @@ export async function POST(req: NextRequest) {
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ error: "Body tidak valid." }, { status: 400 });
+    return NextResponse.json(
+      { code: "invalidBody", error: "Body tidak valid." },
+      { status: 400 }
+    );
   }
 
   const parsed = passwordSchema.safeParse(body);
@@ -34,13 +37,16 @@ export async function POST(req: NextRequest) {
   const ok = await verifyPassword(currentPassword, current.hash);
   if (!ok) {
     return NextResponse.json(
-      { error: "Password saat ini salah." },
+      { code: "wrongCurrentPassword", error: "Password saat ini salah." },
       { status: 400 }
     );
   }
   if (await verifyPassword(newPassword, current.hash)) {
     return NextResponse.json(
-      { error: "Password baru tidak boleh sama dengan password lama." },
+      {
+        code: "samePassword",
+        error: "Password baru tidak boleh sama dengan password lama.",
+      },
       { status: 400 }
     );
   }

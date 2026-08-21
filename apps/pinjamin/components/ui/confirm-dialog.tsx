@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { AlertTriangle, HelpCircle, X } from "lucide-react";
 import { Button } from "./button";
+import { useT } from "@/lib/i18n";
 
 /**
  * Dialog konfirmasi global untuk aksi CRUD.
@@ -29,9 +30,9 @@ export type ConfirmRequest = {
   title: string;
   /** Penjelasan tambahan (opsional). */
   description?: string;
-  /** Label tombol konfirmasi. Default: "Ya, Hapus" (danger) / "Ya, Lanjutkan" (primary). */
+  /** Label tombol konfirmasi. Default mengikuti bahasa aktif: "Ya, Hapus" (danger) / "Ya, Lanjutkan" (primary). */
   confirmLabel?: string;
-  /** Label tombol batal. Default: "Batal". */
+  /** Label tombol batal. Default mengikuti bahasa aktif ("Batal" / "Cancel"). */
   cancelLabel?: string;
   /** danger = aksi destruktif (merah), primary = aksi biasa (navy/gold). */
   variant?: ConfirmVariant;
@@ -44,7 +45,7 @@ export function ConfirmDialog({
   title,
   description,
   confirmLabel,
-  cancelLabel = "Batal",
+  cancelLabel,
   variant = "danger",
   onConfirm,
   onCancel,
@@ -58,6 +59,7 @@ export function ConfirmDialog({
   onConfirm: () => void;
   onCancel: () => void;
 }) {
+  const { t } = useT();
   // Tombol Escape membatalkan; scroll body dikunci selama dialog terbuka.
   useEffect(() => {
     if (!open) return;
@@ -77,7 +79,7 @@ export function ConfirmDialog({
 
   const isDanger = variant === "danger";
   const effectiveConfirmLabel =
-    confirmLabel ?? (isDanger ? "Ya, Hapus" : "Ya, Lanjutkan");
+    confirmLabel ?? (isDanger ? t("yesDelete") : t("yesContinue"));
   const Icon = isDanger ? AlertTriangle : HelpCircle;
 
   return (
@@ -95,7 +97,7 @@ export function ConfirmDialog({
       <div className="relative w-full max-w-sm rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#12233f] shadow-2xl p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150">
         <button
           onClick={onCancel}
-          aria-label="Tutup dialog"
+          aria-label={t("closeDialog")}
           className="absolute right-3 top-3 rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-white/10 dark:hover:text-slate-200 transition-colors"
         >
           <X className="h-4 w-4" />
@@ -125,7 +127,7 @@ export function ConfirmDialog({
 
         <div className="flex justify-end gap-2 pt-1">
           <Button variant="ghost" onClick={onCancel} className="rounded-xl">
-            {cancelLabel}
+            {cancelLabel ?? t("cancel")}
           </Button>
           <Button
             // eslint-disable-next-line jsx-a11y/no-autofocus -- dialog modal: fokus awal pada aksi utama agar keyboard-friendly

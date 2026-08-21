@@ -1,5 +1,5 @@
 "use client";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AppShell } from "@/components/layout/sidebar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -35,13 +35,40 @@ export default function TagsPage() {
   const { ask, confirmDialog } = useConfirmDialog();
   const [name, setName] = useState("");
   const [color, setColor] = useState(TAG_COLORS[8]);
+  /**
+   * Warna yang sedang digeser di color picker. `<input type="color">`
+   * memicu onChange terus-menerus selama slider ditarik; tanpa penahan ini
+   * satu kali ganti warna mengirim puluhan PATCH ke Supabase. Nilai draft
+   * dipakai untuk tampilan, penulisan ke store ditunda 300ms.
+   */
+  const [draftColor, setDraftColor] = useState<Record<string, string>>({});
+  const colorTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+
+  useEffect(() => {
+    const timers = colorTimers.current;
+    return () => Object.values(timers).forEach(clearTimeout);
+  }, []);
+
+  const changeTagColor = (id: string, next: string) => {
+    setDraftColor((d) => ({ ...d, [id]: next }));
+    clearTimeout(colorTimers.current[id]);
+    colorTimers.current[id] = setTimeout(() => {
+      updateTag(id, { color: next });
+      delete colorTimers.current[id];
+      setDraftColor((d) => {
+        const rest = { ...d };
+        delete rest[id];
+        return rest;
+      });
+    }, 300);
+  };
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name) return;
     ask({
-      title: `Tambah tag "${name}"?`,
-      confirmLabel: "Ya, Tambah",
+      title: t("confirmAddTag", { name }),
+      confirmLabel: t("yesAdd"),
       variant: "primary",
       action: () => {
         addTag({ name, color });
@@ -55,9 +82,7 @@ export default function TagsPage() {
       <div className="max-w-2xl mx-auto space-y-6">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold">{t("tags")}</h1>
-          <p className="text-sm text-muted-foreground">
-            Label fleksibel lintas kategori (many-to-many) • atur warna tiap tag
-          </p>
+          <p className="text-sm text-muted-foreground">{t("tagsSub")}</p>
         </div>
 
         <Card>
@@ -66,25 +91,25 @@ export default function TagsPage() {
               <Input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Nama tag baru..."
+                placeholder={t("newTagPlaceholder")}
                 className="flex-1 h-11 rounded-xl"
                 required
               />
               <Button type="submit" className="rounded-xl">
-                <Plus className="h-4 w-4" /> Tambah
+                <Plus className="h-4 w-4" /> {t("add")}
               </Button>
             </form>
             {/* Pilih warna untuk tag baru */}
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-xs font-medium text-muted-foreground mr-1">
-                Warna:
+                {t("color")}:
               </span>
               {TAG_COLORS.map((c) => (
                 <button
                   key={c}
                   type="button"
                   onClick={() => setColor(c)}
-                  aria-label={`Pilih warna ${c}`}
+                  aria-label={t("pickColor", { color: c })}
                   className={`h-7 w-7 rounded-full border-2 flex items-center justify-center transition-transform hover:scale-110 ${
                     color === c
                       ? "border-slate-900 dark:border-white scale-110"
@@ -102,7 +127,7 @@ export default function TagsPage() {
               ))}
               <label
                 className="h-7 w-7 rounded-full border border-dashed border-slate-300 dark:border-slate-600 flex items-center justify-center cursor-pointer hover:scale-110 transition-transform relative overflow-hidden"
-                title="Warna custom"
+                title={t("customColor")}
                 style={{
                   background: TAG_COLORS.includes(color) ? undefined : color,
                 }}
@@ -131,7 +156,7 @@ export default function TagsPage() {
                 style={{ background: color, color: contrastTextColor(color) }}
               >
                 <TagIcon className="h-3 w-3" />
-                {name || "Preview tag"}
+                {name || t("previewTag")}
               </span>
             </div>
           </CardContent>
@@ -140,7 +165,7 @@ export default function TagsPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {tags.map((tg) => {
             const count = assets.filter((a) => a.tagIds.includes(tg.id)).length;
-            const tagColor = tg.color || "#64748b";
+            const tagColor = draftColor[tg.id] || tg.color || "#64748b";
             return (
               <Card key={tg.id} className="overflow-hidden">
                 <div
@@ -160,13 +185,13 @@ export default function TagsPage() {
                   <div className="flex-1 min-w-0">
                     <div className="font-medium truncate">{tg.name}</div>
                     <div className="text-xs text-muted-foreground">
-                      {count} aset • {tagColor}
+                      {t("assetCountLabel", { count })} • {tagColor}
                     </div>
                   </div>
                   {/* Ubah warna tag */}
                   <label
                     className="h-8 w-8 rounded-lg border flex items-center justify-center cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 relative overflow-hidden"
-                    title="Ubah warna tag"
+                    title={t("changeTagColor")}
                   >
                     <span
                       className="h-4 w-4 rounded-full border border-white/60 shadow"
@@ -175,9 +200,7 @@ export default function TagsPage() {
                     <input
                       type="color"
                       value={tagColor}
-                      onChange={(e) =>
-                        updateTag(tg.id, { color: e.target.value })
-                      }
+                      onChange={(e) => changeTagColor(tg.id, e.target.value)}
                       className="absolute inset-0 opacity-0 cursor-pointer"
                     />
                   </label>
@@ -186,9 +209,12 @@ export default function TagsPage() {
                     size="icon"
                     onClick={() =>
                       ask({
-                        title: "Hapus tag?",
-                        description: `Tag "${tg.name}" akan dihapus permanen dari ${count} aset terkait.`,
-                        confirmLabel: "Ya, Hapus",
+                        title: t("confirmDeleteTag"),
+                        description: t("confirmDeleteTagBody", {
+                          name: tg.name,
+                          count,
+                        }),
+                        confirmLabel: t("yesDelete"),
                         action: () => deleteTag(tg.id),
                       })
                     }

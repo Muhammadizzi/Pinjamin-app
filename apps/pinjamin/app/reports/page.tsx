@@ -10,7 +10,7 @@ import Papa from "papaparse";
 
 export default function ReportsPage() {
   const { assets, bookings, categories, locations, custodians } = useStore();
-  const { t } = useT();
+  const { t, lang, assetStatus, bookingStatus } = useT();
 
   const exportCSV = (which: string) => {
     let data: any[] = [];
@@ -75,24 +75,25 @@ export default function ReportsPage() {
     let data: any[] = [];
     if (which === "inventory")
       data = assets.map((a) => ({
-        Nama: a.name,
-        Status: a.status,
-        Kategori: categories.find((c) => c.id === a.categoryId)?.name,
-        Lokasi: locations.find((l) => l.id === a.locationId)?.name,
-        QR: a.qrCode,
-        Nilai: a.value,
+        [t("colName")]: a.name,
+        [t("colStatus")]: a.status,
+        [t("colCategory")]: categories.find((c) => c.id === a.categoryId)?.name,
+        [t("colLocation")]: locations.find((l) => l.id === a.locationId)?.name,
+        [t("colQr")]: a.qrCode,
+        [t("colValue")]: a.value,
       }));
     else
       data = bookings.map((b) => ({
-        Booking: b.name,
-        Status: b.status,
-        Peminjam: custodians.find((c) => c.id === b.custodianId)?.name,
-        Pinjam: b.fromDate,
-        Kembali: b.toDate,
+        [t("colBooking")]: b.name,
+        [t("colStatus")]: b.status,
+        [t("colCustodian")]: custodians.find((c) => c.id === b.custodianId)
+          ?.name,
+        [t("colFrom")]: b.fromDate,
+        [t("colTo")]: b.toDate,
       }));
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Report");
+    XLSX.utils.book_append_sheet(wb, ws, t("sheetReport"));
     XLSX.writeFile(wb, `report-${which}.xlsx`);
   };
 
@@ -108,11 +109,11 @@ export default function ReportsPage() {
     doc.setFontSize(14);
     doc.text("Pinjamin — Garuda Food", 10, 10);
     doc.setFontSize(10);
-    doc.text("Laporan Inventaris", 10, 16);
+    doc.text(t("pdfReportTitle"), 10, 16);
     doc.setTextColor(0, 0, 0);
     let y = 30;
     doc.setFontSize(11);
-    doc.text(`Total Aset: ${assets.length}`, 10, y);
+    doc.text(t("pdfTotalAssets", { count: assets.length }), 10, y);
     y += 7;
     doc.setFontSize(10);
     categories.forEach((c) => {
@@ -121,14 +122,16 @@ export default function ReportsPage() {
         doc.addPage();
         y = 20;
       }
-      doc.text(`${c.name}: ${total} aset`, 10, y);
+      doc.text(t("pdfCategoryLine", { name: c.name, count: total }), 10, y);
       y += 6;
     });
     y += 4;
     doc.setFontSize(9);
     doc.setTextColor(100, 100, 100);
     doc.text(
-      `Dicetak: ${new Date().toLocaleString("id-ID")} • Pinjamin v1.1`,
+      t("pdfPrintedAt", {
+        date: new Date().toLocaleString(lang === "id" ? "id-ID" : "en-US"),
+      }),
       10,
       y
     );
@@ -153,30 +156,32 @@ export default function ReportsPage() {
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight">
             {t("reports")}
           </h1>
-          <p className="text-sm text-muted-foreground">
-            Laporan & export — tema Pinjamin Garuda Food
-          </p>
+          <p className="text-sm text-muted-foreground">{t("reportsSub")}</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Card className="border-l-4 border-l-[#0a2240]">
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
-                <BarChart3 className="h-5 w-5 text-[#0a2240]" /> Riwayat
-                Peminjaman
+                <BarChart3 className="h-5 w-5 text-[#0a2240]" />{" "}
+                {t("reportHistoryTitle")}
               </CardTitle>
               <p className="text-xs text-muted-foreground">
-                Per periode, per aset, per custodian
+                {t("reportHistorySub")}
               </p>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="text-sm">
-                {bookings.length} total •{" "}
-                {bookings.filter((b) => b.status === "COMPLETE").length} selesai
-                •{" "}
+                {t("reportHistoryStats", {
+                  total: bookings.length,
+                  complete: bookings.filter((b) => b.status === "COMPLETE")
+                    .length,
+                })}
                 <span className="text-amber-600 font-medium">
-                  {bookings.filter((b) => b.status === "OVERDUE").length}{" "}
-                  overdue
+                  {t("reportOverdueCount", {
+                    count: bookings.filter((b) => b.status === "OVERDUE")
+                      .length,
+                  })}
                 </span>
               </div>
               <div className="flex gap-2">
@@ -202,10 +207,11 @@ export default function ReportsPage() {
           <Card className="border-l-4 border-l-[#e6ad1a]">
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
-                <FileText className="h-5 w-5 text-[#e6ad1a]" /> Inventaris Aset
+                <FileText className="h-5 w-5 text-[#e6ad1a]" />{" "}
+                {t("reportInventoryTitle")}
               </CardTitle>
               <p className="text-xs text-muted-foreground">
-                Jumlah per kategori/lokasi/status
+                {t("reportInventorySub")}
               </p>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -268,16 +274,16 @@ export default function ReportsPage() {
             <CardHeader>
               <CardTitle className="text-base text-red-700 flex items-center gap-2">
                 <div className="h-3 w-3 rounded-full bg-red-500 animate-pulse" />{" "}
-                Overdue
+                {t("reportOverdueTitle")}
               </CardTitle>
               <p className="text-xs text-muted-foreground">
-                Aset telat & pemegangnya
+                {t("reportOverdueSub")}
               </p>
             </CardHeader>
             <CardContent className="space-y-3">
               {bookings.filter((b) => b.status === "OVERDUE").length === 0 ? (
                 <p className="text-sm text-emerald-600 font-medium bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-center">
-                  Tidak ada overdue 🎉
+                  {t("noOverdue")}
                 </p>
               ) : (
                 bookings
@@ -289,9 +295,12 @@ export default function ReportsPage() {
                     >
                       <div className="font-medium">{b.name}</div>
                       <div className="text-xs text-muted-foreground">
-                        {custodians.find((c) => c.id === b.custodianId)?.name} •
-                        jatuh tempo{" "}
-                        {new Date(b.toDate).toLocaleDateString("id-ID")}
+                        {custodians.find((c) => c.id === b.custodianId)?.name} •{" "}
+                        {t("dueOn", {
+                          date: new Date(b.toDate).toLocaleDateString(
+                            lang === "id" ? "id-ID" : "en-US"
+                          ),
+                        })}
                       </div>
                     </div>
                   ))
@@ -302,16 +311,18 @@ export default function ReportsPage() {
                 onClick={() => exportCSV("overdue")}
                 className="rounded-xl w-full"
               >
-                <Download className="h-4 w-4" /> Export Overdue CSV
+                <Download className="h-4 w-4" /> {t("exportOverdueCsv")}
               </Button>
             </CardContent>
           </Card>
 
           <Card className="border-l-4 border-l-[#0a2240]">
             <CardHeader>
-              <CardTitle className="text-base">Utilisasi Aset</CardTitle>
+              <CardTitle className="text-base">
+                {t("reportUtilizationTitle")}
+              </CardTitle>
               <p className="text-xs text-muted-foreground">
-                Paling sering / jarang dipinjam
+                {t("reportUtilizationSub")}
               </p>
             </CardHeader>
             <CardContent className="space-y-2">
@@ -320,7 +331,7 @@ export default function ReportsPage() {
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-medium truncate">{a.name}</div>
                     <div className="text-xs text-muted-foreground">
-                      {a.status} • {a.qrCode}
+                      {assetStatus(a.status)} • {a.qrCode}
                     </div>
                   </div>
                   <Badge
@@ -332,7 +343,7 @@ export default function ReportsPage() {
                         : "info"
                     }
                   >
-                    {a.count}x dipinjam
+                    {t("borrowedTimes", { count: a.count })}
                   </Badge>
                 </div>
               ))}
@@ -342,7 +353,7 @@ export default function ReportsPage() {
                 onClick={() => exportCSV("utilisasi")}
                 className="rounded-xl w-full"
               >
-                <Download className="h-4 w-4" /> Export CSV
+                <Download className="h-4 w-4" /> {t("exportCsv")}
               </Button>
             </CardContent>
           </Card>

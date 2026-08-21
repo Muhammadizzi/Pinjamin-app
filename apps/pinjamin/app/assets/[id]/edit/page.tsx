@@ -27,7 +27,7 @@ export default function EditAssetPage() {
     customFields,
     updateAsset,
   } = useStore();
-  const { t } = useT();
+  const { t, assetStatus } = useT();
   const { ask, confirmDialog } = useConfirmDialog();
   const asset = assets.find((a) => a.id === id);
   const [form, setForm] = useState<any>(null);
@@ -38,7 +38,7 @@ export default function EditAssetPage() {
   if (!asset)
     return (
       <AppShell>
-        <div className="p-8 text-center">Aset tidak ditemukan</div>
+        <div className="p-8 text-center">{t("assetNotFound")}</div>
       </AppShell>
     );
   if (!form) return null;
@@ -52,9 +52,9 @@ export default function EditAssetPage() {
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     ask({
-      title: `Simpan perubahan "${form.name || asset.name}"?`,
-      description: "Data aset akan diperbarui sesuai isian form.",
-      confirmLabel: "Ya, Simpan",
+      title: t("confirmSaveChanges", { name: form.name || asset.name }),
+      description: t("confirmSaveAssetBody"),
+      confirmLabel: t("yesSave"),
       variant: "primary",
       action: () => {
         // Buang nilai custom field yang tidak berlaku untuk kategori terpilih
@@ -72,15 +72,15 @@ export default function EditAssetPage() {
   return (
     <AppShell>
       <div className="max-w-3xl mx-auto space-y-6">
-        <h1 className="text-xl sm:text-2xl font-bold">Edit Aset</h1>
+        <h1 className="text-xl sm:text-2xl font-bold">{t("editAsset")}</h1>
         <Card>
           <CardHeader>
-            <CardTitle>Edit {asset.name}</CardTitle>
+            <CardTitle>{t("editAssetOf", { name: asset.name })}</CardTitle>
           </CardHeader>
           <CardContent>
             <form onSubmit={submit} className="space-y-4">
               <div className="space-y-2">
-                <Label>Nama</Label>
+                <Label>{t("name")}</Label>
                 <Input
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
@@ -89,7 +89,7 @@ export default function EditAssetPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label>Deskripsi</Label>
+                <Label>{t("description")}</Label>
                 <Textarea
                   value={form.description}
                   onChange={(e) =>
@@ -99,7 +99,7 @@ export default function EditAssetPage() {
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Kategori</Label>
+                  <Label>{t("category")}</Label>
                   <Select
                     value={form.categoryId || ""}
                     onChange={(e) =>
@@ -115,7 +115,7 @@ export default function EditAssetPage() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Lokasi</Label>
+                  <Label>{t("location")}</Label>
                   <Select
                     value={form.locationId || ""}
                     onChange={(e) =>
@@ -131,7 +131,7 @@ export default function EditAssetPage() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Model</Label>
+                  <Label>{t("model")}</Label>
                   <Select
                     value={form.assetModelId || ""}
                     onChange={(e) =>
@@ -147,39 +147,45 @@ export default function EditAssetPage() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Status</Label>
+                  <Label>{t("status")}</Label>
                   <Select
                     value={form.status}
                     onChange={(e) =>
                       setForm({ ...form, status: e.target.value })
                     }
                   >
-                    <option value="AVAILABLE">AVAILABLE</option>
-                    <option value="CHECKED_OUT">CHECKED_OUT</option>
-                    <option value="MAINTENANCE">MAINTENANCE</option>
-                    <option value="RETIRED">RETIRED</option>
+                    <option value="AVAILABLE">
+                      {assetStatus("AVAILABLE")}
+                    </option>
+                    <option value="CHECKED_OUT">
+                      {assetStatus("CHECKED_OUT")}
+                    </option>
+                    <option value="MAINTENANCE">
+                      {assetStatus("MAINTENANCE")}
+                    </option>
+                    <option value="RETIRED">{assetStatus("RETIRED")}</option>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Serial Number</Label>
+                  <Label>{t("serialNumber")}</Label>
                   <div className="h-11 rounded-xl border bg-slate-50 dark:bg-slate-800 flex items-center px-4 font-mono text-sm">
                     {form.serialNumber || "-"}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Otomatis, tidak diubah
+                    {t("serialAutoLocked")}
                   </p>
                 </div>
                 <div className="sm:col-span-2">
                   <ImageUpload
                     value={form.mainImage || ""}
                     onChange={(url) => setForm({ ...form, mainImage: url })}
-                    label="Foto Aset"
+                    label={t("assetPhoto")}
                     uploadOnly
                   />
                 </div>
               </div>
               <div className="space-y-2">
-                <Label>Tags</Label>
+                <Label>{t("tags")}</Label>
                 <div className="flex flex-wrap gap-2 p-3 rounded-xl border bg-slate-50/50 dark:bg-slate-800/30 border-slate-200 dark:border-slate-700">
                   {tags.map((tItem) => (
                     <button
@@ -215,7 +221,7 @@ export default function EditAssetPage() {
                   ))}
                   {tags.length === 0 && (
                     <span className="text-xs text-muted-foreground">
-                      Belum ada tag
+                      {t("noTagsShort")}
                     </span>
                   )}
                 </div>
@@ -228,26 +234,27 @@ export default function EditAssetPage() {
                     className="w-full flex items-center justify-between p-3 rounded-xl border-2 border-dashed border-slate-200 dark:border-slate-700 hover:border-[#1a365d] transition-colors"
                   >
                     <span className="text-sm font-medium">
-                      Custom Fields (Opsional)
+                      {t("customFieldsOptional")}
                     </span>
                     <span className="text-xs bg-[#1a365d] text-white px-2.5 py-1 rounded-full">
                       {showCustom
-                        ? "Sembunyikan"
-                        : `${visibleCustomFields.length} field`}
+                        ? t("hide")
+                        : t("fieldCount", {
+                            count: visibleCustomFields.length,
+                          })}
                     </span>
                   </button>
                   {showCustom && (
                     <div className="mt-3 space-y-3 border rounded-xl p-4 bg-slate-50/30 dark:bg-slate-800/20">
                       <p className="text-xs text-muted-foreground">
-                        Semua field opsional — boleh dikosongkan. Field
-                        mengikuti kategori aset yang dipilih.
+                        {t("customFieldsHintShort")}
                       </p>
                       {visibleCustomFields.map((cf) => (
                         <div key={cf.id} className="space-y-1">
                           <Label className="text-xs font-medium">
                             {cf.name}{" "}
                             <span className="text-muted-foreground font-normal">
-                              ({cf.type}) • opsional
+                              ({cf.type}) • {t("optional")}
                             </span>
                           </Label>
                           {cf.type === "option" ? (
@@ -263,7 +270,7 @@ export default function EditAssetPage() {
                                 })
                               }
                             >
-                              <option value="">— Pilih —</option>
+                              <option value="">{t("selectPlaceholder")}</option>
                               {cf.options?.map((o) => (
                                 <option key={o} value={o}>
                                   {o}
@@ -283,9 +290,9 @@ export default function EditAssetPage() {
                                 })
                               }
                             >
-                              <option value="">— Pilih —</option>
-                              <option value="true">Ya</option>
-                              <option value="false">Tidak</option>
+                              <option value="">{t("selectPlaceholder")}</option>
+                              <option value="true">{t("yes")}</option>
+                              <option value="false">{t("no")}</option>
                             </Select>
                           ) : (
                             <Input
@@ -307,7 +314,7 @@ export default function EditAssetPage() {
                                 })
                               }
                               className="h-11 rounded-xl"
-                              placeholder="Opsional"
+                              placeholder={t("optionalPlaceholder")}
                             />
                           )}
                         </div>
@@ -323,10 +330,10 @@ export default function EditAssetPage() {
                   className="flex-1 rounded-xl"
                   onClick={() => router.back()}
                 >
-                  Batal
+                  {t("cancel")}
                 </Button>
                 <Button type="submit" className="flex-1 rounded-xl">
-                  Simpan
+                  {t("save")}
                 </Button>
               </div>
             </form>

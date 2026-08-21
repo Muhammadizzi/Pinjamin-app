@@ -2,6 +2,7 @@ import * as XLSX from "xlsx";
 import type { AssetStatus } from "./types";
 import type { AssetImportRow } from "./store";
 import { parseNumber } from "./csv";
+import type { MessageKey } from "./messages";
 
 export type ImportFieldKey =
   | "name"
@@ -17,23 +18,27 @@ export type ImportFieldKey =
   | "modelName"
   | "skip";
 
+/**
+ * Pilihan pemetaan kolom di dialog impor. Labelnya disimpan sebagai KUNCI
+ * kamus supaya ikut bahasa aktif (lihat components/import-dialog.tsx).
+ */
 export const IMPORT_FIELDS: {
   key: ImportFieldKey;
-  label: string;
+  labelKey: MessageKey;
   required?: boolean;
 }[] = [
-  { key: "name", label: "Nama aset", required: true },
-  { key: "status", label: "Status" },
-  { key: "categoryName", label: "Kategori" },
-  { key: "locationName", label: "Lokasi" },
-  { key: "qrCode", label: "Kode QR / kode aset" },
-  { key: "value", label: "Nilai / harga" },
-  { key: "serialNumber", label: "Nomor seri" },
-  { key: "description", label: "Deskripsi / keterangan" },
-  { key: "custodianName", label: "Peminjam / PIC" },
-  { key: "tagNames", label: "Tag" },
-  { key: "modelName", label: "Model / merek" },
-  { key: "skip", label: "Abaikan kolom ini" },
+  { key: "name", labelKey: "importFieldName", required: true },
+  { key: "status", labelKey: "importFieldStatus" },
+  { key: "categoryName", labelKey: "importFieldCategory" },
+  { key: "locationName", labelKey: "importFieldLocation" },
+  { key: "qrCode", labelKey: "importFieldQr" },
+  { key: "value", labelKey: "importFieldValue" },
+  { key: "serialNumber", labelKey: "importFieldSerial" },
+  { key: "description", labelKey: "importFieldDescription" },
+  { key: "custodianName", labelKey: "importFieldCustodian" },
+  { key: "tagNames", labelKey: "importFieldTags" },
+  { key: "modelName", labelKey: "importFieldModel" },
+  { key: "skip", labelKey: "importFieldSkip" },
 ];
 
 const FIELD_HINTS: Record<Exclude<ImportFieldKey, "skip">, string[]> = {

@@ -1,5 +1,6 @@
 "use client";
 import { Image as ImageIcon } from "lucide-react";
+import { useT } from "@/lib/i18n";
 
 const sizeMap = {
   xs: "h-9 w-9 rounded-lg",
@@ -31,12 +32,8 @@ type Props = {
  * kotak abu-abu dengan ikon gambar di tengah saat belum ada foto,
  * dan menampilkan foto (object-cover) jika sudah ada.
  */
-export function AssetImage({
-  src,
-  alt = "Foto aset",
-  size = "md",
-  className = "",
-}: Props) {
+export function AssetImage({ src, alt, size = "md", className = "" }: Props) {
+  const { t } = useT();
   const sizeCls = sizeMap[size];
   const iconCls = iconSizeMap[size];
   return (
@@ -46,7 +43,7 @@ export function AssetImage({
       {src ? (
         <img
           src={src}
-          alt={alt}
+          alt={alt ?? t("assetPhotoAlt")}
           className="absolute inset-0 h-full w-full object-cover"
           loading="lazy"
         />

@@ -21,6 +21,10 @@ export async function POST(req: NextRequest) {
   if (!rate.allowed) {
     return NextResponse.json(
       {
+        // `code` = kunci stabil yang diterjemahkan di client (lib/messages.ts);
+        // `error` tetap dikirim sebagai fallback bahasa Indonesia.
+        code: "tooManyAttempts",
+        retryAfter: rate.retryAfter,
         error: `Terlalu banyak percobaan. Coba lagi dalam ${rate.retryAfter} detik.`,
       },
       {
@@ -34,7 +38,10 @@ export async function POST(req: NextRequest) {
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ error: "Body tidak valid." }, { status: 400 });
+    return NextResponse.json(
+      { code: "invalidBody", error: "Body tidak valid." },
+      { status: 400 }
+    );
   }
 
   const parsed = loginSchema.safeParse(body);
@@ -57,6 +64,7 @@ export async function POST(req: NextRequest) {
       );
       return NextResponse.json(
         {
+          code: "adminNotConfigured",
           error:
             "Akun admin belum dikonfigurasi di server. Hubungi administrator.",
         },
@@ -64,7 +72,7 @@ export async function POST(req: NextRequest) {
       );
     }
     return NextResponse.json(
-      { error: "Username atau password salah." },
+      { code: "badCredentials", error: "Username atau password salah." },
       { status: 401 }
     );
   }
@@ -78,6 +86,7 @@ export async function POST(req: NextRequest) {
     console.error("[auth] gagal menerbitkan sesi:", e);
     return NextResponse.json(
       {
+        code: "serverMisconfigured",
         error:
           "Konfigurasi server belum lengkap (AUTH_SECRET). Hubungi administrator.",
       },

@@ -39,15 +39,15 @@ export default function CustomFieldsPage() {
     if (!form.name) return;
     const catNames =
       form.categoryIds.length === 0
-        ? "semua kategori"
+        ? t("allCategoriesPhrase")
         : categories
             .filter((c) => form.categoryIds.includes(c.id))
             .map((c) => c.name)
             .join(", ");
     ask({
-      title: `Tambah custom field "${form.name}"?`,
-      description: `Field ini akan dipakai untuk: ${catNames}.`,
-      confirmLabel: "Ya, Tambah",
+      title: t("confirmAddCustomField", { name: form.name }),
+      description: t("confirmAddCustomFieldBody", { categories: catNames }),
+      confirmLabel: t("yesAdd"),
       variant: "primary",
       action: () => {
         addCustomField({
@@ -81,18 +81,18 @@ export default function CustomFieldsPage() {
         <div>
           <h1 className="text-xl sm:text-2xl font-bold">{t("customFields")}</h1>
           <p className="text-sm text-muted-foreground">
-            Kolom metadata tambahan untuk aset • bisa dibatasi per kategori
+            {t("customFieldsSub")}
           </p>
         </div>
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Tambah Field</CardTitle>
+            <CardTitle className="text-base">{t("addField")}</CardTitle>
           </CardHeader>
           <CardContent>
             <form onSubmit={submit} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Nama *</Label>
+                  <Label>{t("name")} *</Label>
                   <Input
                     value={form.name}
                     onChange={(e) => setForm({ ...form, name: e.target.value })}
@@ -102,7 +102,7 @@ export default function CustomFieldsPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Tipe</Label>
+                  <Label>{t("fieldType")}</Label>
                   <Select
                     value={form.type}
                     onChange={(e) =>
@@ -118,7 +118,7 @@ export default function CustomFieldsPage() {
                 </div>
                 {form.type === "option" && (
                   <div className="sm:col-span-2 space-y-2">
-                    <Label>Opsi (pisah koma)</Label>
+                    <Label>{t("optionsCommaSeparated")}</Label>
                     <Input
                       value={form.options}
                       onChange={(e) =>
@@ -134,11 +134,13 @@ export default function CustomFieldsPage() {
                 {categories.length > 0 && (
                   <div className="sm:col-span-2 space-y-2">
                     <div className="flex items-center justify-between gap-2">
-                      <Label>Gunakan untuk Kategori</Label>
+                      <Label>{t("useForCategories")}</Label>
                       <div className="flex items-center gap-2">
                         {form.categoryIds.length > 0 && (
                           <span className="bg-[#1a365d] text-white text-[10px] font-semibold px-2 py-0.5 rounded-full">
-                            {form.categoryIds.length} dipilih
+                            {t("selectedCount", {
+                              count: form.categoryIds.length,
+                            })}
                           </span>
                         )}
                         <button
@@ -151,7 +153,7 @@ export default function CustomFieldsPage() {
                           }
                           className="text-[11px] font-medium text-[#1a365d] dark:text-amber-300 hover:underline"
                         >
-                          Pilih Semua
+                          {t("selectAll")}
                         </button>
                         {form.categoryIds.length > 0 && (
                           <button
@@ -161,7 +163,7 @@ export default function CustomFieldsPage() {
                             }
                             className="text-[11px] font-medium text-red-500 hover:underline"
                           >
-                            Reset
+                            {t("reset")}
                           </button>
                         )}
                       </div>
@@ -213,7 +215,7 @@ export default function CustomFieldsPage() {
                                 c.name?.trim() ? "" : "italic opacity-60"
                               }`}
                             >
-                              {c.name?.trim() ? c.name : "(tanpa nama)"}
+                              {c.name?.trim() ? c.name : t("unnamed")}
                             </span>
                             <span
                               className="h-4 w-4 rounded-full flex items-center justify-center shrink-0"
@@ -232,8 +234,7 @@ export default function CustomFieldsPage() {
                       })}
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      Tidak memilih kategori = field berlaku untuk{" "}
-                      <b>semua kategori</b>.
+                      {t("noCategoryMeansAll")}
                     </p>
                   </div>
                 )}
@@ -247,11 +248,11 @@ export default function CustomFieldsPage() {
                     }
                     id="req"
                   />
-                  <Label htmlFor="req">Wajib diisi</Label>
+                  <Label htmlFor="req">{t("requiredField")}</Label>
                 </div>
               </div>
               <Button type="submit" className="w-full rounded-xl">
-                <Plus className="h-4 w-4" /> Tambah Field
+                <Plus className="h-4 w-4" /> {t("addField")}
               </Button>
             </form>
           </CardContent>
@@ -267,13 +268,13 @@ export default function CustomFieldsPage() {
                   <div className="flex-1 min-w-0">
                     <div className="font-medium">{cf.name}</div>
                     <div className="text-xs text-muted-foreground">
-                      {cf.type} {cf.required && "• wajib"}{" "}
+                      {cf.type} {cf.required && `• ${t("requiredShort")}`}{" "}
                       {cf.options && `• ${cf.options.join(", ")}`}
                     </div>
                     <div className="flex flex-wrap gap-1 mt-1.5">
                       {assignedCats.length === 0 ? (
                         <Badge variant="secondary" className="text-[10px]">
-                          Semua kategori
+                          {t("allCategoriesBadge")}
                         </Badge>
                       ) : (
                         assignedCats.map(
@@ -304,9 +305,11 @@ export default function CustomFieldsPage() {
                     size="icon"
                     onClick={() =>
                       ask({
-                        title: "Hapus custom field?",
-                        description: `Field "${cf.name}" akan dihapus permanen dari semua aset.`,
-                        confirmLabel: "Ya, Hapus",
+                        title: t("confirmDeleteCustomField"),
+                        description: t("confirmDeleteCustomFieldBody", {
+                          name: cf.name,
+                        }),
+                        confirmLabel: t("yesDelete"),
                         action: () => deleteCustomField(cf.id),
                       })
                     }
@@ -320,7 +323,7 @@ export default function CustomFieldsPage() {
           })}
           {customFields.length === 0 && (
             <p className="text-center text-muted-foreground py-8">
-              Belum ada custom field.
+              {t("noCustomFields")}
             </p>
           )}
         </div>

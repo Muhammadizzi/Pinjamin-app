@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { useStore } from "@/lib/store";
 import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useT } from "@/lib/i18n";
-import { formatDate, contrastTextColor } from "@/lib/utils";
+import { contrastTextColor } from "@/lib/utils";
 import { downloadQrPng, printQrPng } from "@/lib/qr-download";
 import { QRCodeSVG } from "qrcode.react";
 import {
@@ -40,7 +40,7 @@ export default function AssetDetailPage() {
     customFields,
     deleteAsset,
   } = useStore();
-  const { t } = useT();
+  const { t, formatDate, assetStatus } = useT();
   const { ask, confirmDialog } = useConfirmDialog();
   const [downloadingQr, setDownloadingQr] = useState(false);
   const [printingQr, setPrintingQr] = useState(false);
@@ -49,9 +49,9 @@ export default function AssetDetailPage() {
     return (
       <AppShell>
         <div className="p-8 text-center">
-          Aset tidak ditemukan.{" "}
+          {t("assetNotFound")}{" "}
           <Link href="/assets" className="text-primary underline">
-            Kembali
+            {t("back")}
           </Link>
         </div>
       </AppShell>
@@ -63,9 +63,12 @@ export default function AssetDetailPage() {
 
   const handleDelete = () => {
     ask({
-      title: "Hapus aset?",
-      description: `"${asset.name}" (${asset.qrCode}) akan dihapus permanen dan tidak bisa dikembalikan.`,
-      confirmLabel: "Ya, Hapus",
+      title: t("confirmDeleteAsset"),
+      description: t("confirmDeleteAssetBody", {
+        name: asset.name,
+        qr: asset.qrCode,
+      }),
+      confirmLabel: t("yesDelete"),
       action: () => {
         deleteAsset(asset.id);
         router.push("/assets");
@@ -80,7 +83,7 @@ export default function AssetDetailPage() {
           href="/assets"
           className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
         >
-          <ArrowLeft className="h-4 w-4" /> Kembali ke Assets
+          <ArrowLeft className="h-4 w-4" /> {t("backToAssets")}
         </Link>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -107,13 +110,13 @@ export default function AssetDetailPage() {
                           : "secondary"
                       }
                     >
-                      {asset.status}
+                      {assetStatus(asset.status)}
                     </Badge>
                   </div>
                   <div className="flex-1 min-w-0 space-y-2 text-center sm:text-left">
                     <h1 className="text-xl font-bold truncate">{asset.name}</h1>
                     <p className="text-sm text-muted-foreground line-clamp-3">
-                      {asset.description || "Tanpa deskripsi"}
+                      {asset.description || t("noDescription")}
                     </p>
                     {asset.tagIds.length > 0 && (
                       <div className="flex flex-wrap gap-1.5 pt-1 justify-center sm:justify-start">
@@ -142,7 +145,7 @@ export default function AssetDetailPage() {
                   <div className="space-y-3">
                     <div className="flex items-center gap-2">
                       <TagIcon className="h-4 w-4 text-muted-foreground" />{" "}
-                      Kategori:{" "}
+                      {t("category")}:{" "}
                       <span className="font-medium">{cat?.name || "-"}</span>{" "}
                       {cat && (
                         <span
@@ -153,26 +156,26 @@ export default function AssetDetailPage() {
                     </div>
                     <div className="flex items-center gap-2">
                       <MapPin className="h-4 w-4 text-muted-foreground" />{" "}
-                      Lokasi:{" "}
+                      {t("location")}:{" "}
                       <span className="font-medium">{loc?.name || "-"}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <User className="h-4 w-4 text-muted-foreground" />{" "}
-                      Custodian:{" "}
+                      {t("custodian")}:{" "}
                       <span className="font-medium">{cust?.name || "-"}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <Calendar className="h-4 w-4 text-muted-foreground" />{" "}
-                      Dibuat: {formatDate(asset.createdAt)}
+                      {t("createdLabel")}: {formatDate(asset.createdAt)}
                     </div>
                   </div>
                   <div className="space-y-3">
                     <div>
-                      Model:{" "}
+                      {t("model")}:{" "}
                       <span className="font-medium">{model?.name || "-"}</span>
                     </div>
                     <div>
-                      Serial:{" "}
+                      {t("serialLabel")}:{" "}
                       <span className="font-mono text-xs bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded">
                         {asset.serialNumber || "-"}
                       </span>
@@ -187,7 +190,9 @@ export default function AssetDetailPage() {
                     );
                     return visibleCustomFields.length > 0 ? (
                       <div className="sm:col-span-2 border-t pt-4 space-y-2">
-                        <div className="font-medium text-sm">Custom Fields</div>
+                        <div className="font-medium text-sm">
+                          {t("customFields")}
+                        </div>
                         {visibleCustomFields.map((cf) => (
                           <div
                             key={cf.id}
@@ -210,12 +215,14 @@ export default function AssetDetailPage() {
 
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Riwayat & Catatan</CardTitle>
+                <CardTitle className="text-base">
+                  {t("historyAndNotes")}
+                </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 {asset.notes.length === 0 ? (
                   <p className="text-sm text-muted-foreground">
-                    Belum ada catatan.
+                    {t("noNotesYet")}
                   </p>
                 ) : (
                   asset.notes.map((n) => (
@@ -231,7 +238,7 @@ export default function AssetDetailPage() {
                   ))
                 )}
                 <div className="text-xs text-muted-foreground">
-                  Update terakhir: {formatDate(asset.updatedAt)}
+                  {t("lastUpdate", { date: formatDate(asset.updatedAt) })}
                 </div>
               </CardContent>
             </Card>
@@ -260,7 +267,7 @@ export default function AssetDetailPage() {
                     {asset.qrCode}
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    Scan untuk aksi cepat
+                    {t("scanForQuickAction")}
                   </div>
                 </div>
                 <div className="flex gap-2 w-full">
@@ -278,14 +285,14 @@ export default function AssetDetailPage() {
                         });
                       } catch (e) {
                         console.error(e);
-                        alert("Gagal membuat PNG QR. Coba lagi.");
+                        alert(t("qrPngFailed"));
                       } finally {
                         setDownloadingQr(false);
                       }
                     }}
                   >
                     <Download className="h-3.5 w-3.5" />
-                    {downloadingQr ? "Membuat..." : "Download"}
+                    {downloadingQr ? t("generating") : t("download")}
                   </Button>
                   <Button
                     variant="outline"
@@ -301,14 +308,14 @@ export default function AssetDetailPage() {
                         });
                       } catch (e) {
                         console.error(e);
-                        alert("Gagal menyiapkan print QR. Coba lagi.");
+                        alert(t("qrPrintFailed"));
                       } finally {
                         setPrintingQr(false);
                       }
                     }}
                   >
                     <Printer className="h-3.5 w-3.5" />
-                    {printingQr ? "Menyiapkan..." : "Print"}
+                    {printingQr ? t("preparing") : t("print")}
                   </Button>
                 </div>
               </CardContent>
@@ -318,7 +325,7 @@ export default function AssetDetailPage() {
               <CardContent className="p-4 flex flex-col gap-2">
                 <Link href={`/assets/${asset.id}/edit`}>
                   <Button className="w-full rounded-xl">
-                    <Pencil className="h-4 w-4" /> Edit Aset
+                    <Pencil className="h-4 w-4" /> {t("editAsset")}
                   </Button>
                 </Link>
                 <Button
@@ -326,11 +333,11 @@ export default function AssetDetailPage() {
                   className="w-full rounded-xl"
                   onClick={handleDelete}
                 >
-                  <Trash2 className="h-4 w-4" /> Hapus
+                  <Trash2 className="h-4 w-4" /> {t("delete")}
                 </Button>
                 <Link href="/bookings/new">
                   <Button variant="outline" className="w-full rounded-xl">
-                    Booking Aset Ini
+                    {t("bookThisAsset")}
                   </Button>
                 </Link>
               </CardContent>

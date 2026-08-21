@@ -5,15 +5,13 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function formatDate(date: string | Date) {
-  const d = typeof date === "string" ? new Date(date) : date;
-  return new Intl.DateTimeFormat("id-ID", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  }).format(d);
-}
-
+/**
+ * Tanggal + jam dalam locale Indonesia — khusus halaman publik (landing
+ * tiket) yang memang hanya berbahasa Indonesia.
+ *
+ * Di halaman admin JANGAN pakai ini: pakai `formatDate` / `formatDateTime`
+ * dari `useT()` (lib/i18n.tsx) supaya formatnya ikut bahasa yang dipilih.
+ */
 export function formatDateTime(date: string | Date) {
   const d = typeof date === "string" ? new Date(date) : date;
   return new Intl.DateTimeFormat("id-ID", {

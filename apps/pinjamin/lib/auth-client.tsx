@@ -9,6 +9,7 @@ import React, {
   useState,
 } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { useT } from "./i18n";
 import type { PublicAdmin } from "./auth-types";
 
 type LoginResult = { ok: true } | { ok: false; error: string };
@@ -52,6 +53,9 @@ export function getCachedAdminUsername() {
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+  // AuthProvider dipasang DI DALAM I18nProvider (lihat app/layout.tsx),
+  // jadi pesan error login bisa ikut bahasa aktif.
+  const { t, serverError } = useT();
   const [user, setUserState] = useState<PublicAdmin | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -106,7 +110,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
-          return { ok: false as const, error: data.error || "Login gagal" };
+          return {
+            ok: false as const,
+            error: serverError(data, t("loginFailed")),
+          };
         }
         if (data.profile) setUser(data.profile);
         window.dispatchEvent(new Event("pinjamin:session"));
@@ -114,11 +121,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } catch {
         return {
           ok: false as const,
-          error: "Tidak bisa terhubung ke server. Coba lagi.",
+          error: t("serverUnreachableRetry"),
         };
       }
     },
-    [setUser]
+    [setUser, t, serverError]
   );
 
   const logout = useCallback(async () => {

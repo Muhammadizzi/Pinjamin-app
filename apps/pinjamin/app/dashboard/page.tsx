@@ -6,7 +6,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useStore } from "@/lib/store";
 import { useT } from "@/lib/i18n";
-import { formatDate } from "@/lib/utils";
 import Link from "next/link";
 import {
   Package,
@@ -23,7 +22,7 @@ import {
 
 export default function DashboardPage() {
   const { assets, bookings } = useStore();
-  const { t, lang } = useT();
+  const { t, lang, formatDate, bookingStatus } = useT();
   const statsRef = useRef<HTMLDivElement>(null);
 
   const total = assets.length;
@@ -75,17 +74,12 @@ export default function DashboardPage() {
               </span>
               <span className="h-3 w-px bg-slate-200 dark:bg-white/10" />
               <span className="text-muted-foreground">
-                {lang === "id"
-                  ? `Hari ini ${new Date().toLocaleDateString("id-ID", {
-                      weekday: "long",
-                      day: "numeric",
-                      month: "short",
-                    })}`
-                  : `Today ${new Date().toLocaleDateString("en-US", {
-                      weekday: "long",
-                      day: "numeric",
-                      month: "short",
-                    })}`}
+                {t("todayIs", {
+                  date: new Date().toLocaleDateString(
+                    lang === "id" ? "id-ID" : "en-US",
+                    { weekday: "long", day: "numeric", month: "short" }
+                  ),
+                })}
               </span>
             </div>
             <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight">
@@ -253,7 +247,7 @@ export default function DashboardPage() {
                         : "secondary"
                     }
                   >
-                    {b.status}
+                    {bookingStatus(b.status)}
                   </Badge>
                 </Link>
               ))}
@@ -285,7 +279,7 @@ export default function DashboardPage() {
                       {t("due")} {formatDate(b.toDate)}
                     </div>
                     <Badge variant="destructive" className="mt-2 text-[11px]">
-                      {b.status}
+                      {bookingStatus(b.status)}
                     </Badge>
                   </div>
                 ))}
@@ -297,10 +291,10 @@ export default function DashboardPage() {
                     />
                     <div>
                       <div className="text-sm font-medium">
-                        {maintenance} {t("maintenance").toLowerCase()}
+                        {t("maintenanceCount", { count: maintenance })}
                       </div>
                       <div className="text-xs text-muted-foreground">
-                        {lang === "id" ? "Perlu pengecekan" : "Needs check"}
+                        {t("needsCheck")}
                       </div>
                     </div>
                   </div>

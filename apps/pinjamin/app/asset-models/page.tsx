@@ -25,8 +25,8 @@ export default function AssetModelsPage() {
     e.preventDefault();
     if (!form.name) return;
     ask({
-      title: `Tambah model aset "${form.name}"?`,
-      confirmLabel: "Ya, Tambah",
+      title: t("confirmAddModel", { name: form.name }),
+      confirmLabel: t("yesAdd"),
       variant: "primary",
       action: () => {
         addAssetModel(form);
@@ -39,19 +39,17 @@ export default function AssetModelsPage() {
       <div className="max-w-3xl mx-auto space-y-6">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold">{t("assetModels")}</h1>
-          <p className="text-sm text-muted-foreground">
-            Spesifikasi model aset
-          </p>
+          <p className="text-sm text-muted-foreground">{t("assetModelsSub")}</p>
         </div>
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Tambah Model</CardTitle>
+            <CardTitle className="text-base">{t("addModel")}</CardTitle>
           </CardHeader>
           <CardContent>
             <form onSubmit={submit} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2 sm:col-span-2">
-                  <Label>Nama Model *</Label>
+                  <Label>{t("modelName")} *</Label>
                   <Input
                     value={form.name}
                     onChange={(e) => setForm({ ...form, name: e.target.value })}
@@ -61,7 +59,7 @@ export default function AssetModelsPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Merek</Label>
+                  <Label>{t("brand")}</Label>
                   <Input
                     value={form.brand}
                     onChange={(e) =>
@@ -72,14 +70,14 @@ export default function AssetModelsPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Kategori</Label>
+                  <Label>{t("category")}</Label>
                   <Select
                     value={form.categoryId}
                     onChange={(e) =>
                       setForm({ ...form, categoryId: e.target.value })
                     }
                   >
-                    <option value="">— Pilih —</option>
+                    <option value="">{t("selectPlaceholder")}</option>
                     {categories.map((c) => (
                       <option key={c.id} value={c.id}>
                         {c.name}
@@ -89,7 +87,7 @@ export default function AssetModelsPage() {
                 </div>
               </div>
               <Button type="submit" className="w-full rounded-xl">
-                <Plus className="h-4 w-4" /> Tambah Model
+                <Plus className="h-4 w-4" /> {t("addModel")}
               </Button>
             </form>
           </CardContent>
@@ -112,9 +110,11 @@ export default function AssetModelsPage() {
                   size="icon"
                   onClick={() =>
                     ask({
-                      title: "Hapus model aset?",
-                      description: `Model "${m.name}" akan dihapus permanen.`,
-                      confirmLabel: "Ya, Hapus",
+                      title: t("confirmDeleteModel"),
+                      description: t("confirmDeleteModelBody", {
+                        name: m.name,
+                      }),
+                      confirmLabel: t("yesDelete"),
                       action: () => deleteAssetModel(m.id),
                     })
                   }

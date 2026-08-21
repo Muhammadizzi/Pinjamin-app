@@ -14,6 +14,7 @@ import {
   type ParsedSpreadsheet,
 } from "@/lib/import-file";
 import type { ImportAssetsResult } from "@/lib/store";
+import { useT } from "@/lib/i18n";
 import {
   AlertCircle,
   CheckCircle2,
@@ -31,6 +32,7 @@ type Props = {
 };
 
 export function ImportDialog({ open, onClose, onImport }: Props) {
+  const { t, assetStatus } = useT();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [parsed, setParsed] = useState<ParsedSpreadsheet | null>(null);
@@ -59,7 +61,7 @@ export function ImportDialog({ open, onClose, onImport }: Props) {
       setParsed(next);
       setFileObj(file);
     } catch (e) {
-      setErr(e instanceof Error ? e.message : "Gagal membaca file.");
+      setErr(e instanceof Error ? e.message : t("importReadFailed"));
       setParsed(null);
     } finally {
       setBusy(false);
@@ -91,15 +93,17 @@ export function ImportDialog({ open, onClose, onImport }: Props) {
   const confirm = () => {
     if (!parsed || parsed.rows.length === 0) return;
     const r = onImport(parsed.rows);
-    const parts = [`${r.imported} aset masuk`];
-    if (r.categoriesCreated) parts.push(`${r.categoriesCreated} kategori baru`);
-    if (r.locationsCreated) parts.push(`${r.locationsCreated} lokasi baru`);
-    if (r.custodiansCreated) parts.push(`${r.custodiansCreated} peminjam baru`);
-    if (r.tagsCreated) parts.push(`${r.tagsCreated} tag baru`);
-    if (r.modelsCreated) parts.push(`${r.modelsCreated} model baru`);
-    const extra = r.skipped
-      ? ` ${r.skipped} baris dilewati (duplikat QR / nama kosong).`
-      : "";
+    const parts = [t("importedSummary", { count: r.imported })];
+    if (r.categoriesCreated)
+      parts.push(t("createdCategories", { count: r.categoriesCreated }));
+    if (r.locationsCreated)
+      parts.push(t("createdLocations", { count: r.locationsCreated }));
+    if (r.custodiansCreated)
+      parts.push(t("createdCustodians", { count: r.custodiansCreated }));
+    if (r.tagsCreated) parts.push(t("createdTags", { count: r.tagsCreated }));
+    if (r.modelsCreated)
+      parts.push(t("createdModels", { count: r.modelsCreated }));
+    const extra = r.skipped ? t("skippedRows", { count: r.skipped }) : "";
     setDone(`${parts.join(", ")}.${extra}`);
   };
 
@@ -115,16 +119,13 @@ export function ImportDialog({ open, onClose, onImport }: Props) {
         <div className="flex items-center gap-3 px-5 py-4 border-b border-[#243a5e]">
           <FileSpreadsheet className="h-5 w-5 text-amber-300" />
           <div className="flex-1 min-w-0">
-            <div className="font-semibold">Impor dari Excel / CSV</div>
-            <div className="text-xs text-slate-400">
-              Tidak perlu template — kolom dideteksi otomatis, bisa Anda
-              sesuaikan.
-            </div>
+            <div className="font-semibold">{t("importTitle")}</div>
+            <div className="text-xs text-slate-400">{t("importSubtitle")}</div>
           </div>
           <button
             onClick={close}
             className="p-2 rounded-lg hover:bg-white/10 text-slate-400"
-            aria-label="Tutup"
+            aria-label={t("close")}
           >
             <X className="h-4 w-4" />
           </button>
@@ -140,11 +141,10 @@ export function ImportDialog({ open, onClose, onImport }: Props) {
               )}
               <div>
                 <div className="font-medium">
-                  {busy ? "Membaca file…" : "Jatuhkan atau pilih file"}
+                  {busy ? t("readingFile") : t("dropOrPickFile")}
                 </div>
                 <div className="text-xs text-slate-400 mt-1">
-                  .xlsx · .xls · .csv · .ods — header bebas (Nama / Barang /
-                  Asset, Lokasi, Kategori, …)
+                  {t("importFileHint")}
                 </div>
               </div>
               <input
@@ -189,35 +189,34 @@ export function ImportDialog({ open, onClose, onImport }: Props) {
                   >
                     {parsed.sheetNames.map((s) => (
                       <option key={s} value={s}>
-                        Sheet: {s}
+                        {t("sheetLabel", { name: s })}
                       </option>
                     ))}
                   </Select>
                 )}
                 <span className="text-xs text-slate-400">
-                  {parsed.rows.length} baris siap impor
+                  {t("rowsReady", { count: parsed.rows.length })}
                   {parsed.invalid
-                    ? ` · ${parsed.invalid} tanpa nama dilewati`
+                    ? t("rowsSkippedNoName", { count: parsed.invalid })
                     : ""}
                 </span>
                 <button
                   className="ml-auto text-xs text-amber-300 hover:underline"
                   onClick={reset}
                 >
-                  Ganti file
+                  {t("changeFile")}
                 </button>
               </div>
 
               {!nameMapped && (
                 <div className="text-xs rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-100 px-3 py-2">
-                  Kolom <strong>Nama aset</strong> belum terpetakan. Pilih kolom
-                  yang berisi nama barang di bawah.
+                  {t("nameNotMapped")}
                 </div>
               )}
 
               <div>
                 <div className="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-2">
-                  Pemetaan kolom
+                  {t("columnMapping")}
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {parsed.headers.map((h, i) => (
@@ -227,7 +226,7 @@ export function ImportDialog({ open, onClose, onImport }: Props) {
                     >
                       <div className="flex-1 min-w-0">
                         <div className="text-xs text-slate-500">
-                          Kolom {i + 1}
+                          {t("columnN", { n: i + 1 })}
                         </div>
                         <div className="text-sm font-medium truncate" title={h}>
                           {h}
@@ -242,7 +241,7 @@ export function ImportDialog({ open, onClose, onImport }: Props) {
                       >
                         {IMPORT_FIELDS.map((f) => (
                           <option key={f.key} value={f.key}>
-                            {f.label}
+                            {t(f.labelKey)}
                           </option>
                         ))}
                       </Select>
@@ -254,18 +253,24 @@ export function ImportDialog({ open, onClose, onImport }: Props) {
               {parsed.preview.length > 0 && (
                 <div>
                   <div className="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-2">
-                    Pratinjau ({Math.min(8, parsed.rows.length)} dari{" "}
-                    {parsed.rows.length})
+                    {t("previewCount", {
+                      shown: Math.min(8, parsed.rows.length),
+                      total: parsed.rows.length,
+                    })}
                   </div>
                   <div className="overflow-x-auto rounded-xl border border-[#243a5e]">
                     <table className="w-full text-xs">
                       <thead className="bg-[#0f1d33] text-slate-400">
                         <tr>
-                          <th className="px-3 py-2 text-left">Nama</th>
-                          <th className="px-3 py-2 text-left">Kategori</th>
-                          <th className="px-3 py-2 text-left">Lokasi</th>
-                          <th className="px-3 py-2 text-left">Status</th>
-                          <th className="px-3 py-2 text-left">PIC</th>
+                          <th className="px-3 py-2 text-left">{t("name")}</th>
+                          <th className="px-3 py-2 text-left">
+                            {t("category")}
+                          </th>
+                          <th className="px-3 py-2 text-left">
+                            {t("location")}
+                          </th>
+                          <th className="px-3 py-2 text-left">{t("status")}</th>
+                          <th className="px-3 py-2 text-left">{t("colPic")}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -279,7 +284,7 @@ export function ImportDialog({ open, onClose, onImport }: Props) {
                               {r.locationName || "—"}
                             </td>
                             <td className="px-3 py-2 text-slate-400">
-                              {r.status || "AVAILABLE"}
+                              {assetStatus(r.status || "AVAILABLE")}
                             </td>
                             <td className="px-3 py-2 text-slate-400">
                               {r.custodianName || "—"}
@@ -297,7 +302,7 @@ export function ImportDialog({ open, onClose, onImport }: Props) {
 
         <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-[#243a5e] bg-[#0f1d33]">
           <Button variant="outline" className="rounded-xl" onClick={close}>
-            {done ? "Tutup" : "Batal"}
+            {done ? t("close") : t("cancel")}
           </Button>
           {parsed && !done && (
             <Button
@@ -305,7 +310,7 @@ export function ImportDialog({ open, onClose, onImport }: Props) {
               disabled={!nameMapped || parsed.rows.length === 0 || busy}
               onClick={confirm}
             >
-              Impor {parsed.rows.length} baris
+              {t("importNRows", { count: parsed.rows.length })}
             </Button>
           )}
         </div>
