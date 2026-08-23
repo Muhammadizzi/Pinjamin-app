@@ -112,6 +112,16 @@ type TicketPatch = {
   status?: TicketStatus;
   priority?: TicketPriority;
   assetId?: string | null;
+  /**
+   * Koreksi email pelapor.
+   *
+   * Bukan sekadar data kontak: email inilah yang dipakai pelapor untuk
+   * membuktikan dirinya saat membalas dari halaman lacak
+   * (app/api/tickets/track/verify). Salah ketik satu huruf saat membuat
+   * tiket = pelapor terkunci dari percakapannya sendiri, dan hanya admin
+   * yang bisa membukanya kembali.
+   */
+  email?: string;
 };
 
 /* ------------------------------------------------------------------ */
@@ -507,6 +517,7 @@ function applyPatch(current: Ticket, patch: TicketPatch, now: string): Ticket {
     }
   }
   if (patch.assetId !== undefined) next.assetId = patch.assetId;
+  if (patch.email !== undefined) next.email = patch.email;
 
   return next;
 }
@@ -527,6 +538,7 @@ export async function updateTicket(
       .update({
         status: next.status,
         priority: next.priority,
+        email: next.email,
         asset_id: next.assetId ?? null,
         response_due_at: next.responseDueAt,
         resolution_due_at: next.resolutionDueAt,
@@ -867,6 +879,23 @@ export function validateNewTicket(
  */
 export function redactPortalTokens(text: string): string {
   return text.replace(/([?&]t=)[a-f0-9]{32,}/gi, "$1***");
+}
+
+/**
+ * Normalisasi + validasi email pelapor. Aturannya sengaja sama persis dengan
+ * validateNewTicket agar email hasil koreksi admin tidak bisa berbentuk lain
+ * daripada email yang lolos lewat form publik.
+ */
+export function validateReporterEmail(
+  v: unknown
+): { error: string } | { email: string } {
+  const email = String(v ?? "")
+    .trim()
+    .toLowerCase();
+  if (email.length > 150 || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
+    return { error: "Format email tidak valid." };
+  }
+  return { email };
 }
 
 /** Validasi isi balasan (dipakai portal pelapor maupun panel admin). */

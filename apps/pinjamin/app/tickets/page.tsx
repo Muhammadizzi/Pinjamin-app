@@ -24,7 +24,6 @@ import {
   TICKET_PRIORITIES,
   TICKET_STATUSES,
   slaState,
-  ticketPortalPath,
   type TicketAttachment,
   type TicketPriority,
   type TicketStatus,
@@ -148,6 +147,7 @@ export default function TicketsPage() {
   const [selected, setSelected] = useState<Ticket | null>(null);
   const [saving, setSaving] = useState(false);
   const [assetPick, setAssetPick] = useState("");
+  const [emailDraft, setEmailDraft] = useState("");
 
   // --- Percakapan ---
   const [messages, setMessages] = useState<ThreadMessage[]>([]);
@@ -160,7 +160,7 @@ export default function TicketsPage() {
     kind: "ok" | "err";
     text: string;
   } | null>(null);
-  const [copied, setCopied] = useState<"number" | "link" | null>(null);
+  const [copied, setCopied] = useState(false);
   const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -297,6 +297,7 @@ export default function TicketsPage() {
   const openDetail = (ticket: Ticket) => {
     setSelected(ticket);
     setAssetPick(ticket.assetId || "");
+    setEmailDraft(ticket.email);
     setComposerMode("REPLY");
     setDraft("");
     attach.reset();
@@ -339,6 +340,7 @@ export default function TicketsPage() {
       status?: TicketStatus;
       priority?: TicketPriority;
       assetId?: string | null;
+      email?: string;
     }
   ) => {
     setSaving(true);
@@ -360,6 +362,8 @@ export default function TicketsPage() {
         showNotice("ok", t("assetLinkSaved"));
       } else if (patch.priority) {
         showNotice("ok", t("prioritySaved"));
+      } else if (patch.email) {
+        showNotice("ok", t("reporterEmailSaved"));
       }
       // Perubahan status sengaja TANPA toast — sudah terlihat langsung pada
       // pill status yang aktif.
@@ -433,12 +437,11 @@ export default function TicketsPage() {
     });
   };
 
-  const copyToClipboard = async (teks: string, jenis: "number" | "link") => {
+  const copyNumber = async (teks: string) => {
     try {
       await navigator.clipboard.writeText(teks);
-      setCopied(jenis);
-      if (jenis === "link") showNotice("ok", t("portalLinkCopied"));
-      setTimeout(() => setCopied(null), 1500);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
     } catch {}
   };
 
@@ -506,12 +509,6 @@ export default function TicketsPage() {
       cls: "from-red-500/25 to-red-500/5 text-red-300",
     },
   ];
-
-  const portalUrl = selected
-    ? `${
-        typeof window === "undefined" ? "" : window.location.origin
-      }${ticketPortalPath(selected.number, selected.accessToken)}`
-    : "";
 
   return (
     <AppShell>
@@ -763,11 +760,11 @@ export default function TicketsPage() {
                       {selected.number}
                     </span>
                     <button
-                      onClick={() => copyToClipboard(selected.number, "number")}
+                      onClick={() => copyNumber(selected.number)}
                       title={t("copyTicketNumber")}
                       className="rounded-lg p-1 hover:bg-white/10 transition-colors"
                     >
-                      {copied === "number" ? (
+                      {copied ? (
                         <Check className="h-3.5 w-3.5 text-emerald-400" />
                       ) : (
                         <Copy className="h-3.5 w-3.5 text-slate-400" />
@@ -1139,33 +1136,45 @@ export default function TicketsPage() {
                 </div>
               </div>
 
-              {/* Tautan portal pelapor */}
+              {/* Email pelapor — menggantikan kolom "Link portal pelapor".
+                  Tautan berkunci itu memberi hak membalas permanen kepada
+                  siapa pun yang memegangnya; sejak percakapan bisa diakses
+                  lewat halaman lacak, menyebarkannya jadi jalur yang lebih
+                  lemah daripada konfirmasi email. Yang tersisa hanyalah kasus
+                  pelapor salah mengetik emailnya sendiri — dan itu
+                  diselesaikan di sini, bukan dengan membagikan kunci. */}
               <div className="space-y-2">
                 <div className="text-sm font-semibold text-white">
-                  {t("portalLink")}
+                  {t("editReporterEmail")}
                 </div>
                 <div className="flex gap-2">
                   <Input
-                    readOnly
-                    value={portalUrl}
-                    onFocus={(e) => e.currentTarget.select()}
-                    className="flex-1 rounded-xl bg-[#0f1d33] font-mono text-xs"
+                    type="email"
+                    value={emailDraft}
+                    onChange={(e) => setEmailDraft(e.target.value)}
+                    placeholder="nama@garudafood.co.id"
+                    className="flex-1 rounded-xl bg-[#0f1d33]"
                   />
                   <Button
                     variant="outline"
-                    className="rounded-xl shrink-0"
-                    onClick={() => copyToClipboard(portalUrl, "link")}
-                    title={t("copyPortalLink")}
+                    className="shrink-0 rounded-xl"
+                    disabled={
+                      saving ||
+                      emailDraft.trim().length === 0 ||
+                      emailDraft.trim().toLowerCase() ===
+                        selected.email.toLowerCase()
+                    }
+                    onClick={() =>
+                      patchTicket(selected.id, {
+                        email: emailDraft.trim().toLowerCase(),
+                      })
+                    }
                   >
-                    {copied === "link" ? (
-                      <Check className="h-4 w-4 text-emerald-400" />
-                    ) : (
-                      <Copy className="h-4 w-4" />
-                    )}
+                    {t("saveEmail")}
                   </Button>
                 </div>
                 <p className="text-[11px] text-slate-500">
-                  {t("portalLinkHint")}
+                  {t("reporterEmailHint")}
                 </p>
               </div>
 
