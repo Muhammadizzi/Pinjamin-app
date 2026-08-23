@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { clientIp, requireAuth, ticketLimiter, unauthorized } from "@/lib/auth";
 import { createTicket, listTickets, validateNewTicket } from "@/lib/tickets";
+import { ticketPortalPath } from "@/lib/ticket-shared";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -46,8 +47,17 @@ export async function POST(req: NextRequest) {
 
   try {
     const ticket = await createTicket(result.data);
+    // Token dikembalikan HANYA di sini — pada respons untuk pelapor yang baru
+    // saja mengirim tiketnya. Setelah ini satu-satunya cara mendapatkannya
+    // kembali adalah dari link yang ia simpan, atau dari admin.
     return NextResponse.json(
-      { ok: true, number: ticket.number, createdAt: ticket.createdAt },
+      {
+        ok: true,
+        number: ticket.number,
+        token: ticket.accessToken,
+        portalPath: ticketPortalPath(ticket.number, ticket.accessToken),
+        createdAt: ticket.createdAt,
+      },
       { status: 201 }
     );
   } catch (e) {

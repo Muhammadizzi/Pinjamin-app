@@ -11,6 +11,25 @@ import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useStore } from "@/lib/store";
 import { useT } from "@/lib/i18n";
 import {
+  MessageBubble,
+  PendingAttachments,
+  PriorityBadge,
+  SlaLine,
+  humanizeDuration,
+  type ThreadMessage,
+} from "@/components/tickets/ticket-bits";
+import { useAttachments } from "@/components/tickets/use-attachments";
+import {
+  ATTACHMENTS_MAX,
+  TICKET_PRIORITIES,
+  TICKET_STATUSES,
+  slaState,
+  ticketPortalPath,
+  type TicketAttachment,
+  type TicketPriority,
+  type TicketStatus,
+} from "@/lib/ticket-shared";
+import {
   LifeBuoy,
   Search,
   RefreshCw,
@@ -23,21 +42,22 @@ import {
   Tag as TagIcon,
   Inbox,
   Loader2,
-  CheckCircle2,
   CircleDot,
-  Archive,
   Clock,
+  MessageSquare,
+  Paperclip,
+  Send,
   StickyNote,
   Copy,
   Check,
   Link2,
   Package,
   ExternalLink,
+  ShieldAlert,
   Unlink,
 } from "lucide-react";
 
-type TicketStatus = "OPEN" | "IN_PROGRESS" | "RESOLVED" | "CLOSED";
-
+/** Bentuk tiket seperti dikirim GET /api/tickets (lihat lib/tickets.ts). */
 interface Ticket {
   id: string;
   number: string;
@@ -48,9 +68,15 @@ interface Ticket {
   subject: string;
   message: string;
   status: TicketStatus;
-  adminNote: string;
+  priority: TicketPriority;
+  accessToken: string;
+  attachments: TicketAttachment[];
   /** Tautan opsional ke aset SIGAP (lihat lib/tickets.ts). */
   assetId?: string | null;
+  responseDueAt: string | null;
+  resolutionDueAt: string | null;
+  firstResponseAt: string | null;
+  resolvedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -65,6 +91,10 @@ const STATUS_META: Record<TicketStatus, { badge: string; dot: string }> = {
     badge: "bg-amber-500/15 text-amber-300 border-amber-500/30",
     dot: "bg-amber-400",
   },
+  REPLIED: {
+    badge: "bg-sky-500/15 text-sky-300 border-sky-500/30",
+    dot: "bg-sky-400",
+  },
   RESOLVED: {
     badge: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
     dot: "bg-emerald-400",
@@ -75,12 +105,8 @@ const STATUS_META: Record<TicketStatus, { badge: string; dot: string }> = {
   },
 };
 
-const STATUS_ORDER: TicketStatus[] = [
-  "OPEN",
-  "IN_PROGRESS",
-  "RESOLVED",
-  "CLOSED",
-];
+/** Filter daftar: per status, semua, atau khusus tiket yang melanggar SLA. */
+type Filter = TicketStatus | "ALL" | "OVERDUE";
 
 function StatusBadge({
   status,
@@ -100,26 +126,49 @@ function StatusBadge({
   );
 }
 
+/** Tiket dianggap melanggar SLA bila salah satu tenggatnya terlewat. */
+function isOverdue(t: Ticket, now: number): boolean {
+  return (
+    slaState(t.responseDueAt, t.firstResponseAt, t.createdAt, now) ===
+      "BREACHED" ||
+    slaState(t.resolutionDueAt, t.resolvedAt, t.createdAt, now) === "BREACHED"
+  );
+}
+
 export default function TicketsPage() {
   const { ask, confirmDialog } = useConfirmDialog();
   const { assets, updateAsset, isHydrated } = useStore();
-  const { t, ticketStatus, assetStatus, formatDateTime } = useT();
+  const { t, ticketStatus, ticketPriority, assetStatus, formatDateTime } =
+    useT();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [filter, setFilter] = useState<TicketStatus | "ALL">("ALL");
+  const [filter, setFilter] = useState<Filter>("ALL");
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Ticket | null>(null);
-  const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
   const [assetPick, setAssetPick] = useState("");
+
+  // --- Percakapan ---
+  const [messages, setMessages] = useState<ThreadMessage[]>([]);
+  const [messagesLoading, setMessagesLoading] = useState(false);
+  const [composerMode, setComposerMode] = useState<"REPLY" | "NOTE">("REPLY");
+  const [draft, setDraft] = useState("");
+  const [sending, setSending] = useState(false);
+
   const [notice, setNotice] = useState<{
     kind: "ok" | "err";
     text: string;
   } | null>(null);
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<"number" | "link" | null>(null);
   const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const attach = useAttachments({
+    tooMany: t("attachmentLimit", { count: ATTACHMENTS_MAX }),
+    failed: t("attachmentFailed"),
+  });
 
   const showNotice = useCallback((kind: "ok" | "err", text: string) => {
     setNotice({ kind, text });
@@ -178,20 +227,33 @@ export default function TicketsPage() {
     return () => window.removeEventListener("keydown", onKey);
   }, [selected]);
 
+  // Jam dinding untuk penilaian SLA. Disimpan di state dan disegarkan tiap
+  // menit: dipanggil langsung saat render, badge "sisa 2 jam" akan membeku
+  // pada nilai render pertama sampai ada interaksi lain.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+
   const stats = useMemo(
     () => ({
       open: tickets.filter((x) => x.status === "OPEN").length,
       inProgress: tickets.filter((x) => x.status === "IN_PROGRESS").length,
-      resolved: tickets.filter((x) => x.status === "RESOLVED").length,
-      closed: tickets.filter((x) => x.status === "CLOSED").length,
+      replied: tickets.filter((x) => x.status === "REPLIED").length,
+      overdue: tickets.filter((x) => isOverdue(x, now)).length,
     }),
-    [tickets]
+    [tickets, now]
   );
 
-  const filters = useMemo<Array<{ key: TicketStatus | "ALL"; label: string }>>(
+  const filters = useMemo<Array<{ key: Filter; label: string }>>(
     () => [
       { key: "ALL", label: t("all") },
-      ...STATUS_ORDER.map((k) => ({ key: k, label: ticketStatus(k) })),
+      ...TICKET_STATUSES.map((k) => ({
+        key: k as Filter,
+        label: ticketStatus(k),
+      })),
+      { key: "OVERDUE", label: t("overdueTickets") },
     ],
     [t, ticketStatus]
   );
@@ -199,7 +261,11 @@ export default function TicketsPage() {
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
     return tickets.filter((x) => {
-      if (filter !== "ALL" && x.status !== filter) return false;
+      if (filter === "OVERDUE") {
+        if (!isOverdue(x, now)) return false;
+      } else if (filter !== "ALL" && x.status !== filter) {
+        return false;
+      }
       if (!q) return true;
       return (
         x.number.toLowerCase().includes(q) ||
@@ -208,12 +274,34 @@ export default function TicketsPage() {
         x.email.toLowerCase().includes(q)
       );
     });
-  }, [tickets, filter, search]);
+  }, [tickets, filter, search, now]);
+
+  /** Ambil thread lengkap (termasuk catatan internal) untuk satu tiket. */
+  const loadMessages = useCallback(async (id: string) => {
+    setMessagesLoading(true);
+    try {
+      const res = await fetch(`/api/tickets/${id}/messages`);
+      if (res.ok) {
+        const j = await res.json();
+        setMessages(j.messages || []);
+      } else {
+        setMessages([]);
+      }
+    } catch {
+      setMessages([]);
+    } finally {
+      setMessagesLoading(false);
+    }
+  }, []);
 
   const openDetail = (ticket: Ticket) => {
     setSelected(ticket);
-    setNote(ticket.adminNote);
     setAssetPick(ticket.assetId || "");
+    setComposerMode("REPLY");
+    setDraft("");
+    attach.reset();
+    setMessages([]);
+    void loadMessages(ticket.id);
   };
 
   const linkedAsset = useMemo(
@@ -245,7 +333,14 @@ export default function TicketsPage() {
     }
   };
 
-  const patchTicket = async (id: string, patch: Partial<Ticket>) => {
+  const patchTicket = async (
+    id: string,
+    patch: {
+      status?: TicketStatus;
+      priority?: TicketPriority;
+      assetId?: string | null;
+    }
+  ) => {
     setSaving(true);
     try {
       const res = await fetch(`/api/tickets/${id}`, {
@@ -261,18 +356,56 @@ export default function TicketsPage() {
       const updated: Ticket = j.ticket;
       setTickets((prev) => prev.map((x) => (x.id === id ? updated : x)));
       setSelected((prev) => (prev && prev.id === id ? updated : prev));
-      if (patch.status) {
-        // Sengaja TANPA toast — perubahan status sudah terlihat langsung
-        // pada badge/pill status yang aktif.
-      } else if (patch.assetId !== undefined) {
+      if (patch.assetId !== undefined) {
         showNotice("ok", t("assetLinkSaved"));
-      } else {
-        // Simpan catatan → tutup modal, balik ke daftar tiket.
-        showNotice("ok", t("noteSaved"));
-        setSelected(null);
+      } else if (patch.priority) {
+        showNotice("ok", t("prioritySaved"));
       }
+      // Perubahan status sengaja TANPA toast — sudah terlihat langsung pada
+      // pill status yang aktif.
     } finally {
       setSaving(false);
+    }
+  };
+
+  /** Kirim balasan ke pelapor (REPLY) atau simpan catatan internal (NOTE). */
+  const sendMessage = async () => {
+    if (!selected) return;
+    const body = draft.trim();
+    if (!body && attach.items.length === 0) return;
+
+    setSending(true);
+    try {
+      const res = await fetch(`/api/tickets/${selected.id}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          kind: composerMode,
+          body,
+          attachments: attach.items,
+        }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        showNotice("err", j.error || t("messageFailed"));
+        return;
+      }
+      setMessages((prev) => [...prev, j.message]);
+      const updated: Ticket = j.ticket;
+      setTickets((prev) =>
+        prev.map((x) => (x.id === updated.id ? updated : x))
+      );
+      setSelected(updated);
+      setDraft("");
+      attach.reset();
+      showNotice(
+        "ok",
+        composerMode === "REPLY" ? t("replySent") : t("noteAdded")
+      );
+    } catch {
+      showNotice("err", t("messageFailed"));
+    } finally {
+      setSending(false);
     }
   };
 
@@ -300,16 +433,42 @@ export default function TicketsPage() {
     });
   };
 
-  const copyNumber = async (num: string) => {
+  const copyToClipboard = async (teks: string, jenis: "number" | "link") => {
     try {
-      await navigator.clipboard.writeText(num);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
+      await navigator.clipboard.writeText(teks);
+      setCopied(jenis);
+      if (jenis === "link") showNotice("ok", t("portalLinkCopied"));
+      setTimeout(() => setCopied(null), 1500);
     } catch {}
   };
 
+  /** Satuan durasi dari kamus — {count} diisi humanizeDuration. */
+  const durationUnit = useMemo(
+    () => ({
+      minutes: t("minutesShort"),
+      hours: t("hoursShort"),
+      days: t("daysShort"),
+    }),
+    [t]
+  );
+
+  /** Teks pendek untuk satu tenggat SLA: waktu pemenuhan, sisa, atau telat. */
+  const slaDetail = (dueAt: string | null, fulfilledAt: string | null) => {
+    if (!dueAt) return "—";
+    if (fulfilledAt) {
+      return new Date(fulfilledAt) <= new Date(dueAt)
+        ? t("slaOnTime")
+        : t("slaBreached");
+    }
+    const diff = new Date(dueAt).getTime() - now;
+    const teks = humanizeDuration(diff, durationUnit);
+    return diff >= 0
+      ? t("slaDueIn", { time: teks })
+      : t("slaLateBy", { time: teks });
+  };
+
   const statCards: Array<{
-    key: TicketStatus;
+    key: Filter;
     label: string;
     value: number;
     icon: typeof Clock;
@@ -330,20 +489,29 @@ export default function TicketsPage() {
       cls: "from-amber-500/20 to-amber-500/5 text-amber-300",
     },
     {
-      key: "RESOLVED",
-      label: ticketStatus("RESOLVED"),
-      value: stats.resolved,
-      icon: CheckCircle2,
-      cls: "from-emerald-500/20 to-emerald-500/5 text-emerald-300",
+      key: "REPLIED",
+      label: ticketStatus("REPLIED"),
+      value: stats.replied,
+      icon: MessageSquare,
+      cls: "from-sky-500/20 to-sky-500/5 text-sky-300",
     },
+    // Kartu keempat sengaja BUKAN status: tiket selesai tidak butuh perhatian,
+    // sedangkan tiket yang lewat SLA justru hal pertama yang harus dilihat
+    // admin saat membuka halaman ini.
     {
-      key: "CLOSED",
-      label: ticketStatus("CLOSED"),
-      value: stats.closed,
-      icon: Archive,
-      cls: "from-slate-500/20 to-slate-500/5 text-slate-400",
+      key: "OVERDUE",
+      label: t("overdueTickets"),
+      value: stats.overdue,
+      icon: ShieldAlert,
+      cls: "from-red-500/25 to-red-500/5 text-red-300",
     },
   ];
+
+  const portalUrl = selected
+    ? `${
+        typeof window === "undefined" ? "" : window.location.origin
+      }${ticketPortalPath(selected.number, selected.accessToken)}`
+    : "";
 
   return (
     <AppShell>
@@ -499,7 +667,10 @@ export default function TicketsPage() {
                 {filter === "ALL"
                   ? t("noTicketsHintAll")
                   : t("noTicketsHintFiltered", {
-                      status: ticketStatus(filter),
+                      status:
+                        filter === "OVERDUE"
+                          ? t("overdueTickets")
+                          : ticketStatus(filter),
                     })}
               </div>
             </CardContent>
@@ -520,12 +691,16 @@ export default function TicketsPage() {
                     status={tk.status}
                     label={ticketStatus(tk.status)}
                   />
-                  {tk.adminNote && (
+                  <PriorityBadge
+                    priority={tk.priority}
+                    label={ticketPriority(tk.priority)}
+                  />
+                  {tk.attachments.length > 0 && (
                     <span
-                      title={t("hasAdminNote")}
+                      title={t("attachmentsLabel")}
                       className="inline-flex items-center gap-1 text-[11px] text-slate-500"
                     >
-                      <StickyNote className="h-3 w-3" /> {t("noteShort")}
+                      <Paperclip className="h-3 w-3" /> {tk.attachments.length}
                     </span>
                   )}
                   {tk.assetId && (
@@ -551,6 +726,21 @@ export default function TicketsPage() {
                 <p className="mt-1 text-sm text-slate-400 line-clamp-1">
                   {tk.message}
                 </p>
+                {/* Tenggat penyelesaian ikut di daftar: memilih tiket mana yang
+                    dikerjakan lebih dulu tidak seharusnya menuntut membuka
+                    satu per satu. */}
+                <div className="mt-2">
+                  <SlaLine
+                    label={t("slaResolution")}
+                    state={slaState(
+                      tk.resolutionDueAt,
+                      tk.resolvedAt,
+                      tk.createdAt,
+                      now
+                    )}
+                    detail={slaDetail(tk.resolutionDueAt, tk.resolvedAt)}
+                  />
+                </div>
               </button>
             ))}
           </div>
@@ -573,11 +763,11 @@ export default function TicketsPage() {
                       {selected.number}
                     </span>
                     <button
-                      onClick={() => copyNumber(selected.number)}
+                      onClick={() => copyToClipboard(selected.number, "number")}
                       title={t("copyTicketNumber")}
                       className="rounded-lg p-1 hover:bg-white/10 transition-colors"
                     >
-                      {copied ? (
+                      {copied === "number" ? (
                         <Check className="h-3.5 w-3.5 text-emerald-400" />
                       ) : (
                         <Copy className="h-3.5 w-3.5 text-slate-400" />
@@ -586,6 +776,10 @@ export default function TicketsPage() {
                     <StatusBadge
                       status={selected.status}
                       label={ticketStatus(selected.status)}
+                    />
+                    <PriorityBadge
+                      priority={selected.priority}
+                      label={ticketPriority(selected.priority)}
                     />
                   </div>
                   <h2 className="text-lg font-bold text-white mt-1 leading-snug">
@@ -631,8 +825,190 @@ export default function TicketsPage() {
                 </div>
               </div>
 
-              <div className="rounded-xl bg-[#0f1d33] border border-[#243a5e] p-4 text-sm text-slate-200 whitespace-pre-wrap leading-relaxed">
-                {selected.message}
+              {/* SLA */}
+              <div className="flex flex-wrap gap-x-4 gap-y-1.5 rounded-xl border border-[#243a5e] bg-[#0f1d33] px-3.5 py-2.5">
+                <SlaLine
+                  label={t("slaResponse")}
+                  state={slaState(
+                    selected.responseDueAt,
+                    selected.firstResponseAt,
+                    selected.createdAt,
+                    now
+                  )}
+                  detail={slaDetail(
+                    selected.responseDueAt,
+                    selected.firstResponseAt
+                  )}
+                />
+                <SlaLine
+                  label={t("slaResolution")}
+                  state={slaState(
+                    selected.resolutionDueAt,
+                    selected.resolvedAt,
+                    selected.createdAt,
+                    now
+                  )}
+                  detail={slaDetail(
+                    selected.resolutionDueAt,
+                    selected.resolvedAt
+                  )}
+                />
+              </div>
+
+              {/* Percakapan */}
+              <div className="space-y-3">
+                <div className="text-sm font-semibold text-white flex items-center gap-2">
+                  <MessageSquare className="h-4 w-4 text-amber-300" />
+                  {t("conversation")}
+                </div>
+
+                <div className="space-y-2.5">
+                  {/* Pesan pertama = isi tiket itu sendiri. */}
+                  <MessageBubble
+                    message={{
+                      id: "awal",
+                      author: "USER",
+                      body: selected.message,
+                      attachments: selected.attachments,
+                      createdAt: selected.createdAt,
+                    }}
+                    mine={false}
+                    authorLabel={selected.name}
+                    timeLabel={formatDateTime(selected.createdAt)}
+                  />
+
+                  {messagesLoading ? (
+                    <div className="py-4 text-center text-xs text-slate-500">
+                      <Loader2 className="mx-auto mb-1 h-4 w-4 animate-spin" />
+                      {t("loadingConversation")}
+                    </div>
+                  ) : (
+                    messages.map((m) => (
+                      <MessageBubble
+                        key={m.id}
+                        message={m}
+                        mine={m.author === "ADMIN"}
+                        authorLabel={
+                          m.author === "ADMIN" ? t("adminLabel") : selected.name
+                        }
+                        noteLabel={t("internalNoteLabel")}
+                        timeLabel={formatDateTime(m.createdAt)}
+                      />
+                    ))
+                  )}
+
+                  {!messagesLoading && messages.length === 0 && (
+                    <p className="py-1 text-center text-xs text-slate-500">
+                      {t("noMessagesYet")}
+                    </p>
+                  )}
+                </div>
+
+                {/* Penulis pesan: balasan ke pelapor vs catatan internal.
+                    Dipisah sebagai tab, bukan checkbox, supaya bedanya tidak
+                    bisa terlewat — keduanya berakhir di tempat yang sangat
+                    berbeda bagi pelapor. */}
+                <div className="rounded-xl border border-[#243a5e] bg-[#0f1d33] p-3 space-y-2.5">
+                  <div className="flex gap-2">
+                    {(["REPLY", "NOTE"] as const).map((mode) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        onClick={() => setComposerMode(mode)}
+                        className={`rounded-full px-3 py-1.5 text-xs font-semibold border transition-all ${
+                          composerMode === mode
+                            ? mode === "REPLY"
+                              ? "bg-[#CBA12C] text-[#1a365d] border-[#CBA12C]"
+                              : "bg-amber-400/15 text-amber-200 border-amber-400/40"
+                            : "text-slate-300 border-[#243a5e] hover:border-slate-500"
+                        }`}
+                      >
+                        {mode === "REPLY" ? t("replyTab") : t("noteTab")}
+                      </button>
+                    ))}
+                  </div>
+
+                  <Textarea
+                    value={draft}
+                    onChange={(e) => setDraft(e.target.value)}
+                    rows={3}
+                    placeholder={
+                      composerMode === "REPLY"
+                        ? t("replyPlaceholder")
+                        : t("internalNotePlaceholder")
+                    }
+                    className="rounded-xl bg-[#12263f]"
+                  />
+
+                  <p className="text-[11px] text-slate-500">
+                    {composerMode === "REPLY"
+                      ? t("replyVisibleHint")
+                      : t("noteVisibleHint")}
+                  </p>
+
+                  <PendingAttachments
+                    items={attach.items}
+                    onRemove={attach.remove}
+                    removeLabel={t("removeAttachment")}
+                  />
+                  {attach.error && (
+                    <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+                      {attach.error}
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-2">
+                    <input
+                      ref={fileRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/gif"
+                      multiple
+                      hidden
+                      onChange={(e) => {
+                        void attach.add(e.target.files);
+                        e.target.value = "";
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="rounded-xl"
+                      disabled={attach.uploading}
+                      onClick={() => fileRef.current?.click()}
+                    >
+                      {attach.uploading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Paperclip className="h-4 w-4" />
+                      )}
+                      {attach.uploading
+                        ? t("uploadingAttachment")
+                        : t("addAttachment")}
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="ml-auto rounded-xl"
+                      disabled={
+                        sending ||
+                        attach.uploading ||
+                        (draft.trim().length === 0 && attach.items.length === 0)
+                      }
+                      onClick={sendMessage}
+                    >
+                      {sending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : composerMode === "REPLY" ? (
+                        <Send className="h-4 w-4" />
+                      ) : (
+                        <StickyNote className="h-4 w-4" />
+                      )}
+                      {composerMode === "REPLY"
+                        ? t("sendReply")
+                        : t("saveInternalNote")}
+                    </Button>
+                  </div>
+                </div>
               </div>
 
               {/* Aset terkait */}
@@ -714,12 +1090,39 @@ export default function TicketsPage() {
                 )}
               </div>
 
+              {/* Prioritas */}
+              <div className="space-y-2">
+                <div className="text-sm font-semibold text-white">
+                  {t("changePriority")}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {TICKET_PRIORITIES.map((p) => (
+                    <button
+                      key={p}
+                      disabled={saving || selected.priority === p}
+                      onClick={() => patchTicket(selected.id, { priority: p })}
+                      className={`rounded-full px-3.5 py-1.5 text-xs font-semibold border transition-all disabled:opacity-60 ${
+                        selected.priority === p
+                          ? "bg-[#CBA12C] text-[#1a365d] border-[#CBA12C]"
+                          : "text-slate-300 border-[#243a5e] hover:border-slate-500"
+                      }`}
+                    >
+                      {ticketPriority(p)}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[11px] text-slate-500">
+                  {t("slaTargetHint")}
+                </p>
+              </div>
+
+              {/* Status */}
               <div className="space-y-2">
                 <div className="text-sm font-semibold text-white">
                   {t("changeStatus")}
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  {STATUS_ORDER.map((s) => (
+                  {TICKET_STATUSES.map((s) => (
                     <button
                       key={s}
                       disabled={saving || selected.status === s}
@@ -736,30 +1139,37 @@ export default function TicketsPage() {
                 </div>
               </div>
 
+              {/* Tautan portal pelapor */}
               <div className="space-y-2">
                 <div className="text-sm font-semibold text-white">
-                  {t("adminNote")}{" "}
-                  <span className="text-xs font-normal text-slate-500">
-                    {t("adminNoteHint")}
-                  </span>
+                  {t("portalLink")}
                 </div>
-                <Textarea
-                  value={note}
-                  onChange={(e) => setNote(e.target.value)}
-                  rows={3}
-                  placeholder={t("adminNotePlaceholder")}
-                  className="rounded-xl bg-[#0f1d33]"
-                />
+                <div className="flex gap-2">
+                  <Input
+                    readOnly
+                    value={portalUrl}
+                    onFocus={(e) => e.currentTarget.select()}
+                    className="flex-1 rounded-xl bg-[#0f1d33] font-mono text-xs"
+                  />
+                  <Button
+                    variant="outline"
+                    className="rounded-xl shrink-0"
+                    onClick={() => copyToClipboard(portalUrl, "link")}
+                    title={t("copyPortalLink")}
+                  >
+                    {copied === "link" ? (
+                      <Check className="h-4 w-4 text-emerald-400" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+                <p className="text-[11px] text-slate-500">
+                  {t("portalLinkHint")}
+                </p>
               </div>
 
               <div className="flex items-center gap-2 pt-1">
-                <Button
-                  onClick={() => patchTicket(selected.id, { adminNote: note })}
-                  disabled={saving}
-                  className="rounded-xl"
-                >
-                  {saving ? t("saving") : t("saveNote")}
-                </Button>
                 <Button
                   variant="ghost"
                   onClick={() => removeTicket(selected)}

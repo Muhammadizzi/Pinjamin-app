@@ -85,3 +85,33 @@ export function clientIp(req: {
   }
   return req.headers.get("x-real-ip")?.trim() || "unknown";
 }
+
+/**
+ * Portal pelapor: 40 pembukaan / 5 menit per IP.
+ *
+ * Endpoint portal dijaga token 256-bit, jadi menebaknya tidak realistis —
+ * batas ini murni agar satu IP tidak bisa memakainya sebagai alat scraping
+ * ketika sebuah token bocor (mis. link diteruskan ke grup WhatsApp).
+ */
+export const portalLimiter = createRateLimiter({
+  maxAttempts: 40,
+  windowMs: 5 * 60 * 1000,
+});
+
+/** Balasan pelapor dari portal: 15 kiriman / 15 menit per IP. */
+export const replyLimiter = createRateLimiter({
+  maxAttempts: 15,
+  windowMs: 15 * 60 * 1000,
+});
+
+/**
+ * Unggah lampiran publik: 12 berkas / 15 menit per IP.
+ *
+ * Ini satu-satunya jalan menulis ke Storage tanpa login, jadi batasnya lebih
+ * ketat daripada endpoint publik lain: tiap panggilan yang lolos menaruh
+ * objek permanen di bucket kita.
+ */
+export const publicUploadLimiter = createRateLimiter({
+  maxAttempts: 12,
+  windowMs: 15 * 60 * 1000,
+});

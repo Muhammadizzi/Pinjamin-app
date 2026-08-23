@@ -9,12 +9,22 @@ import { verifySession } from "./lib/auth-edge";
  *
  * API publik:
  *   POST /api/auth/login
- *   POST /api/tickets          (buat tiket)
- *   GET  /api/tickets/track    (lacak tiket)
+ *   POST /api/tickets                 (buat tiket)
+ *   GET  /api/tickets/track           (lacak status via nomor)
+ *   GET  /api/tickets/portal          (portal pelapor — butuh token tiket)
+ *   POST /api/tickets/portal/reply    (pelapor membalas — butuh token tiket)
+ *   POST /api/tickets/upload          (lampiran tiket)
  *
  * API admin lainnya dicek lagi di handler (requireAuth + token version).
  */
 const PUBLIC_PAGES = new Set(["/", "/login"]);
+
+/**
+ * Halaman portal pelapor: /tiket/TKT-XXXXXX?t=<token>.
+ * Publik karena pelapor tidak punya akun — yang menjaganya adalah token di
+ * URL, diverifikasi server saat halaman memanggil /api/tickets/portal.
+ */
+const PUBLIC_PAGE_PREFIXES = ["/login", "/tiket/"];
 
 function isPublicAsset(pathname: string) {
   if (pathname.startsWith("/_next")) return true;
@@ -45,6 +55,10 @@ function isPublicApi(pathname: string, method: string) {
   if (pathname === "/api/auth/login" && method === "POST") return true;
   if (pathname === "/api/tickets" && method === "POST") return true;
   if (pathname === "/api/tickets/track" && method === "GET") return true;
+  if (pathname === "/api/tickets/portal" && method === "GET") return true;
+  if (pathname === "/api/tickets/portal/reply" && method === "POST")
+    return true;
+  if (pathname === "/api/tickets/upload" && method === "POST") return true;
   return false;
 }
 
@@ -73,7 +87,8 @@ export default async function proxy(req: NextRequest) {
   }
 
   const isPublicPage =
-    PUBLIC_PAGES.has(pathname) || pathname.startsWith("/login");
+    PUBLIC_PAGES.has(pathname) ||
+    PUBLIC_PAGE_PREFIXES.some((p) => pathname.startsWith(p));
 
   if (!session && !isPublicPage) {
     const url = req.nextUrl.clone();

@@ -12,7 +12,13 @@ import { getSupabaseAdmin } from "./supabase-server";
 export const BUCKET = "assets";
 
 /** Jenis unggahan yang dikenali → prefix folder di dalam bucket. */
-export const UPLOAD_KINDS = ["aset", "lokasi", "kit", "avatar"] as const;
+export const UPLOAD_KINDS = [
+  "aset",
+  "lokasi",
+  "kit",
+  "avatar",
+  "tiket",
+] as const;
 export type UploadKind = (typeof UPLOAD_KINDS)[number];
 
 export function isUploadKind(v: unknown): v is UploadKind {

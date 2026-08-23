@@ -9,6 +9,20 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatDateTime } from "@/lib/utils";
+import { PendingAttachments } from "@/components/tickets/ticket-bits";
+import { useAttachments } from "@/components/tickets/use-attachments";
+import {
+  ATTACHMENTS_MAX,
+  TICKET_CATEGORIES,
+  TICKET_NUMBER_RE,
+  TICKET_PRIORITIES,
+  type TicketPriority,
+} from "@/lib/ticket-shared";
+import {
+  PRIORITY_HINT_ID,
+  PRIORITY_LABEL_ID,
+  statusMeta,
+} from "@/lib/ticket-labels-id";
 import {
   LifeBuoy,
   Send,
@@ -25,38 +39,21 @@ import {
   Headset,
   FileText,
   Hash,
+  Paperclip,
+  ExternalLink,
   ShieldCheck,
 } from "lucide-react";
 
-/** HARUS sinkron dengan lib/tickets.ts (file server, tidak bisa di-import ke client). */
-const CATEGORIES = ["Aset & IT", "Fasilitas / Gedung", "Umum", "Lainnya"];
-
-/** Bentuk nomor tiket lengkap yang memicu lacak otomatis (sufiks 6 char). */
-const TICKET_NUMBER_RE = /^TKT-[A-Z0-9]{6}$/;
-
-const STATUS_META: Record<string, { label: string; cls: string; dot: string }> =
-  {
-    OPEN: {
-      label: "Open",
-      cls: "bg-red-500/15 text-red-300 border-red-500/30",
-      dot: "bg-red-400",
-    },
-    IN_PROGRESS: {
-      label: "Diproses",
-      cls: "bg-amber-500/15 text-amber-300 border-amber-500/30",
-      dot: "bg-amber-400",
-    },
-    RESOLVED: {
-      label: "Selesai",
-      cls: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
-      dot: "bg-emerald-400",
-    },
-    CLOSED: {
-      label: "Ditutup",
-      cls: "bg-slate-500/15 text-slate-400 border-slate-500/30",
-      dot: "bg-slate-400",
-    },
-  };
+/** Nilai awal form — dipakai saat mula-mula dan saat "Buat Tiket Lain". */
+const FORM_KOSONG = {
+  name: "",
+  email: "",
+  phone: "",
+  category: TICKET_CATEGORIES[0] as string,
+  priority: "MEDIUM" as TicketPriority,
+  subject: "",
+  message: "",
+};
 
 interface TrackResult {
   number: string;
@@ -69,18 +66,20 @@ interface TrackResult {
 
 export default function LandingPage() {
   // --- Buat tiket ---
-  const [form, setForm] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    category: CATEGORIES[0],
-    subject: "",
-    message: "",
-  });
+  const [form, setForm] = useState(FORM_KOSONG);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
-  const [createdNumber, setCreatedNumber] = useState("");
-  const [copied, setCopied] = useState(false);
+  /** Terisi setelah tiket tersimpan: nomor + tautan portal berisi tokennya. */
+  const [created, setCreated] = useState<{
+    number: string;
+    portalPath: string;
+  } | null>(null);
+  const [copied, setCopied] = useState<"nomor" | "link" | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const attach = useAttachments({
+    tooMany: `Maksimal ${ATTACHMENTS_MAX} lampiran.`,
+    failed: "Gagal mengunggah lampiran.",
+  });
 
   // --- Lacak tiket ---
   const [trackNumber, setTrackNumber] = useState("");
@@ -96,15 +95,16 @@ export default function LandingPage() {
       const res = await fetch("/api/tickets", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, attachments: attach.items }),
       });
       const j = await res.json().catch(() => ({}));
       if (!res.ok) {
         setFormError(j.error || "Gagal membuat tiket. Coba lagi.");
         return;
       }
-      setCreatedNumber(j.number);
+      setCreated({ number: j.number, portalPath: j.portalPath });
       setTrackNumber(j.number);
+      attach.reset();
     } catch {
       setFormError("Tidak bisa terhubung ke server. Coba lagi.");
     } finally {
@@ -112,11 +112,11 @@ export default function LandingPage() {
     }
   };
 
-  const copyNumber = async () => {
+  const copyText = async (teks: string, jenis: "nomor" | "link") => {
     try {
-      await navigator.clipboard.writeText(createdNumber);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1800);
+      await navigator.clipboard.writeText(teks);
+      setCopied(jenis);
+      setTimeout(() => setCopied(null), 1800);
     } catch {}
   };
 
@@ -198,13 +198,13 @@ export default function LandingPage() {
     },
     {
       icon: Hash,
-      title: "Simpan nomor",
-      desc: "Anda langsung dapat nomor tiket, mis. TKT-8F3K2A.",
+      title: "Simpan tautan",
+      desc: "Anda dapat nomor tiket + tautan pribadi untuk membuka percakapan.",
     },
     {
       icon: Search,
-      title: "Lacak status",
-      desc: "Tempel nomor di kolom Lacak Tiket — status muncul otomatis.",
+      title: "Balas & pantau",
+      desc: "Balas langsung tim SIGAP di tautan itu, atau cek status lewat nomor.",
     },
   ];
 
@@ -409,8 +409,7 @@ export default function LandingPage() {
                         {trackResult.number}
                       </span>
                       {(() => {
-                        const meta =
-                          STATUS_META[trackResult.status] || STATUS_META.OPEN;
+                        const meta = statusMeta(trackResult.status);
                         return (
                           <span
                             className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${meta.cls}`}
@@ -469,7 +468,7 @@ export default function LandingPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {createdNumber ? (
+              {created ? (
                 <div className="text-center space-y-4 py-4 sm:py-6">
                   <CheckCircle2
                     className="h-14 w-14 text-emerald-400 mx-auto"
@@ -480,50 +479,77 @@ export default function LandingPage() {
                       Tiket Berhasil Dibuat!
                     </div>
                     <p className="text-sm text-slate-400 mt-1">
-                      Simpan nomor ini untuk melacak status tiket Anda:
+                      Simpan nomor tiket Anda:
                     </p>
                   </div>
                   <div className="inline-flex max-w-full items-center gap-2 rounded-2xl border border-amber-400/40 bg-amber-400/10 px-4 py-2.5 sm:px-5 sm:py-3">
                     <span className="font-mono text-xl sm:text-2xl font-extrabold text-amber-300 tracking-wide">
-                      {createdNumber}
+                      {created.number}
                     </span>
                     <button
-                      onClick={copyNumber}
+                      onClick={() => copyText(created.number, "nomor")}
                       title="Salin nomor tiket"
                       className="rounded-lg p-1.5 hover:bg-white/10 transition-colors"
                     >
-                      {copied ? (
+                      {copied === "nomor" ? (
                         <Check className="h-4 w-4 text-emerald-400" />
                       ) : (
                         <Copy className="h-4 w-4 text-slate-300" />
                       )}
                     </button>
                   </div>
-                  <div className="grid grid-cols-2 gap-2 pt-1 sm:flex sm:items-center sm:justify-center">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full rounded-xl sm:w-auto"
-                      onClick={() => {
-                        setCreatedNumber("");
-                        setForm({
-                          name: "",
-                          email: "",
-                          phone: "",
-                          category: CATEGORIES[0],
-                          subject: "",
-                          message: "",
-                        });
-                      }}
-                    >
-                      Buat Tiket Lain
-                    </Button>
-                    <a href="#lacak" className="block">
-                      <Button size="sm" className="w-full rounded-xl sm:w-auto">
-                        Lacak Sekarang
+
+                  {/* Tautan portal — satu-satunya kunci ke percakapan tiket.
+                      Ditampilkan menonjol karena server TIDAK bisa
+                      mengirimkannya ulang: tidak ada akun untuk memulihkannya
+                      dan SIGAP belum mengirim email. */}
+                  <div className="rounded-2xl border border-[#243a5e] bg-[#0f1d33] p-3.5 space-y-2.5 text-left">
+                    <div className="text-[13px] font-semibold">
+                      Tautan percakapan tiket
+                    </div>
+                    <p className="text-[11px] leading-relaxed text-slate-400">
+                      Buka tautan ini untuk membaca balasan tim SIGAP dan
+                      membalasnya. Simpan baik-baik — tautan ini bersifat
+                      pribadi dan tidak dikirim ulang.
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full rounded-xl"
+                        onClick={() =>
+                          copyText(
+                            `${window.location.origin}${created.portalPath}`,
+                            "link"
+                          )
+                        }
+                      >
+                        {copied === "link" ? (
+                          <Check className="h-4 w-4 text-emerald-400" />
+                        ) : (
+                          <Copy className="h-4 w-4" />
+                        )}
+                        {copied === "link" ? "Tersalin" : "Salin tautan"}
                       </Button>
-                    </a>
+                      <Link href={created.portalPath} className="block">
+                        <Button size="sm" className="w-full rounded-xl">
+                          <ExternalLink className="h-4 w-4" /> Buka tiket
+                        </Button>
+                      </Link>
+                    </div>
                   </div>
+
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="rounded-xl"
+                    onClick={() => {
+                      setCreated(null);
+                      setForm(FORM_KOSONG);
+                    }}
+                  >
+                    Buat Tiket Lain
+                  </Button>
                 </div>
               ) : (
                 <form
@@ -575,21 +601,46 @@ export default function LandingPage() {
                       />
                     </div>
                   </div>
-                  <div className="space-y-1.5">
-                    <Label>Kategori</Label>
-                    <Select
-                      value={form.category}
-                      onChange={(e) =>
-                        setForm({ ...form, category: e.target.value })
-                      }
-                      className="h-11 rounded-xl"
-                    >
-                      {CATEGORIES.map((c) => (
-                        <option key={c} value={c}>
-                          {c}
-                        </option>
-                      ))}
-                    </Select>
+                  <div className="grid gap-3.5 sm:grid-cols-2 sm:gap-4">
+                    <div className="space-y-1.5">
+                      <Label>Kategori</Label>
+                      <Select
+                        value={form.category}
+                        onChange={(e) =>
+                          setForm({ ...form, category: e.target.value })
+                        }
+                        className="h-11 rounded-xl"
+                      >
+                        {TICKET_CATEGORIES.map((c) => (
+                          <option key={c} value={c}>
+                            {c}
+                          </option>
+                        ))}
+                      </Select>
+                    </div>
+                    {/* Prioritas dari pelapor adalah USULAN — admin bisa
+                        menggesernya. Tiap pilihan diberi keterangan dampak
+                        supaya "Mendesak" tidak jadi pilihan default semua
+                        orang. */}
+                    <div className="space-y-1.5">
+                      <Label>Prioritas</Label>
+                      <Select
+                        value={form.priority}
+                        onChange={(e) =>
+                          setForm({
+                            ...form,
+                            priority: e.target.value as TicketPriority,
+                          })
+                        }
+                        className="h-11 rounded-xl"
+                      >
+                        {TICKET_PRIORITIES.map((p) => (
+                          <option key={p} value={p}>
+                            {PRIORITY_LABEL_ID[p]} — {PRIORITY_HINT_ID[p]}
+                          </option>
+                        ))}
+                      </Select>
+                    </div>
                   </div>
                   <div className="space-y-1.5">
                     <Label>Subjek</Label>
@@ -616,6 +667,54 @@ export default function LandingPage() {
                       required
                     />
                   </div>
+
+                  {/* Lampiran opsional — foto layar error atau kondisi aset
+                      biasanya memotong satu putaran tanya-jawab. */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <Label>Lampiran (opsional)</Label>
+                      <span className="text-[11px] text-slate-500">
+                        Gambar, maks. 5MB
+                      </span>
+                    </div>
+                    <input
+                      ref={fileRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/gif"
+                      multiple
+                      hidden
+                      onChange={(e) => {
+                        void attach.add(e.target.files);
+                        e.target.value = "";
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="rounded-xl"
+                      disabled={attach.uploading}
+                      onClick={() => fileRef.current?.click()}
+                    >
+                      {attach.uploading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Paperclip className="h-4 w-4" />
+                      )}
+                      {attach.uploading ? "Mengunggah..." : "Pilih gambar"}
+                    </Button>
+                    <PendingAttachments
+                      items={attach.items}
+                      onRemove={attach.remove}
+                      removeLabel="Hapus lampiran"
+                    />
+                    {attach.error && (
+                      <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+                        {attach.error}
+                      </div>
+                    )}
+                  </div>
+
                   {formError && (
                     <div className="text-sm rounded-xl border border-red-500/30 bg-red-500/10 text-red-300 px-3 py-2">
                       {formError}

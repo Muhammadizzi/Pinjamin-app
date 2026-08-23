@@ -47,8 +47,10 @@ type I18nValue = {
   assetStatus: (status: string) => string;
   /** Label status peminjaman (DRAFT, RESERVED, ONGOING, ...). */
   bookingStatus: (status: string) => string;
-  /** Label status tiket helpdesk (OPEN, IN_PROGRESS, ...). */
+  /** Label status tiket helpdesk (OPEN, IN_PROGRESS, REPLIED, ...). */
   ticketStatus: (status: string) => string;
+  /** Label prioritas tiket (LOW, MEDIUM, HIGH, URGENT). */
+  ticketPriority: (priority: string) => string;
   /** Label hasil audit (FOUND, MISSING, DAMAGED). */
   auditResult: (result: string) => string;
   /**
@@ -80,8 +82,16 @@ const BOOKING_STATUS_KEY: Record<string, MessageKey> = {
 const TICKET_STATUS_KEY: Record<string, MessageKey> = {
   OPEN: "ticketOpen",
   IN_PROGRESS: "ticketInProgress",
+  REPLIED: "ticketReplied",
   RESOLVED: "ticketResolved",
   CLOSED: "ticketClosed",
+};
+
+const TICKET_PRIORITY_KEY: Record<string, MessageKey> = {
+  LOW: "priorityLow",
+  MEDIUM: "priorityMedium",
+  HIGH: "priorityHigh",
+  URGENT: "priorityUrgent",
 };
 
 const AUDIT_RESULT_KEY: Record<string, MessageKey> = {
@@ -194,6 +204,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
       assetStatus: byKey(ASSET_STATUS_KEY),
       bookingStatus: byKey(BOOKING_STATUS_KEY),
       ticketStatus: byKey(TICKET_STATUS_KEY),
+      ticketPriority: byKey(TICKET_PRIORITY_KEY),
       auditResult: byKey(AUDIT_RESULT_KEY),
     };
   }, [lang, setLang]);

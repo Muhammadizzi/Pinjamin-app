@@ -1,36 +1,43 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorized } from "@/lib/auth";
+import { deleteTicket, updateTicket } from "@/lib/tickets";
 import {
-  deleteTicket,
-  TICKET_STATUSES,
-  updateTicket,
+  isTicketPriority,
+  isTicketStatus,
+  type TicketPriority,
   type TicketStatus,
-} from "@/lib/tickets";
+} from "@/lib/ticket-shared";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type Ctx = { params: Promise<{ id: string }> };
 
-/** PATCH /api/tickets/:id — ubah status / catatan admin (khusus admin). */
+/**
+ * PATCH /api/tickets/:id — ubah status / prioritas / tautan aset (admin).
+ *
+ * Catatan admin TIDAK lagi di sini: sejak thread percakapan ada, catatan
+ * internal adalah pesan kind=NOTE lewat POST /api/tickets/:id/messages.
+ */
 export async function PATCH(req: NextRequest, ctx: Ctx) {
   if (!(await requireAuth(req))) return unauthorized();
   const { id } = await ctx.params;
 
-  let body: any = {};
+  let body: Record<string, unknown> = {};
   try {
-    body = await req.json();
+    body = (await req.json()) as Record<string, unknown>;
   } catch {
     return NextResponse.json({ error: "Body tidak valid." }, { status: 400 });
   }
 
   const patch: {
     status?: TicketStatus;
-    adminNote?: string;
+    priority?: TicketPriority;
     assetId?: string | null;
   } = {};
+
   if (body.status !== undefined) {
-    if (!TICKET_STATUSES.includes(body.status)) {
+    if (!isTicketStatus(body.status)) {
       return NextResponse.json(
         { error: "Status tidak dikenal." },
         { status: 400 }
@@ -38,16 +45,17 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     }
     patch.status = body.status;
   }
-  if (body.adminNote !== undefined) {
-    const note = String(body.adminNote).trim();
-    if (note.length > 1000) {
+
+  if (body.priority !== undefined) {
+    if (!isTicketPriority(body.priority)) {
       return NextResponse.json(
-        { error: "Catatan admin maksimal 1000 karakter." },
+        { error: "Prioritas tidak dikenal." },
         { status: 400 }
       );
     }
-    patch.adminNote = note;
+    patch.priority = body.priority;
   }
+
   if (body.assetId !== undefined) {
     // null = lepas tautan; string = tautkan ke Asset.id (existence
     // divalidasi client karena aset hidup di store client).
@@ -66,6 +74,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
       );
     }
   }
+
   if (Object.keys(patch).length === 0) {
     return NextResponse.json(
       { error: "Tidak ada perubahan." },
