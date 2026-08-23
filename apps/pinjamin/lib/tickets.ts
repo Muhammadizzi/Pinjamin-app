@@ -79,6 +79,13 @@ export interface Ticket {
   /** Kapan admin PERTAMA kali membalas pelapor. null = belum pernah. */
   firstResponseAt: string | null;
   resolvedAt: string | null;
+  /**
+   * Jeda SLA. Jam penyelesaian berhenti selama tiket menunggu pelapor
+   * (status REPLIED) — lihat supabase/10-sla-pause.sql.
+   * `slaPausedAt` null berarti jam sedang berjalan.
+   */
+  slaPausedAt: string | null;
+  slaPausedMs: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -168,6 +175,8 @@ function rowToTicket(row: Row): Ticket {
     resolutionDueAt: nullableIso(row.resolution_due_at),
     firstResponseAt: nullableIso(row.first_response_at),
     resolvedAt: nullableIso(row.resolved_at),
+    slaPausedAt: nullableIso(row.sla_paused_at),
+    slaPausedMs: Number(row.sla_paused_ms ?? 0) || 0,
     createdAt: str(row.created_at, new Date().toISOString()),
     updatedAt: str(row.updated_at, new Date().toISOString()),
   };
@@ -192,6 +201,8 @@ function ticketToRow(t: Ticket): Row {
     resolution_due_at: t.resolutionDueAt,
     first_response_at: t.firstResponseAt,
     resolved_at: t.resolvedAt,
+    sla_paused_at: t.slaPausedAt,
+    sla_paused_ms: t.slaPausedMs,
     created_at: t.createdAt,
     updated_at: t.updatedAt,
   };
@@ -292,6 +303,9 @@ function normalizeTicket(raw: Partial<Ticket> & { id: string }): Ticket {
     firstResponseAt: raw.firstResponseAt ?? null,
     resolvedAt:
       raw.resolvedAt ?? (isTicketDone(status) ? raw.updatedAt || null : null),
+    slaPausedAt:
+      raw.slaPausedAt ?? (status === "REPLIED" ? raw.updatedAt || null : null),
+    slaPausedMs: raw.slaPausedMs ?? 0,
     createdAt,
     updatedAt: raw.updatedAt || createdAt,
   };
@@ -461,6 +475,8 @@ export async function createTicket(data: NewTicketInput): Promise<Ticket> {
     resolutionDueAt: due.resolutionDueAt,
     firstResponseAt: null,
     resolvedAt: null,
+    slaPausedAt: null,
+    slaPausedMs: 0,
     createdAt: now,
     updatedAt: now,
   };
@@ -481,6 +497,47 @@ export async function createTicket(data: NewTicketInput): Promise<Ticket> {
 }
 
 /**
+ * Kelola jam jeda SLA saat status berpindah.
+ *
+ * Jam berhenti selama tiket berstatus REPLIED (menunggu pelapor) dan jalan
+ * lagi begitu keluar dari status itu — entah karena pelapor membalas atau
+ * karena admin menggeser statusnya manual. Durasi tiap jeda yang selesai
+ * ditumpuk ke `slaPausedMs`.
+ *
+ * Dipakai BERSAMA oleh applyPatch (perubahan status manual) dan
+ * applyMessageSideEffects (perpindahan otomatis karena ada pesan baru).
+ * Kalau keduanya punya salinan aturan sendiri, cukup satu jalur yang lupa
+ * menutup jedanya untuk membuat sebuah tiket berhenti dihitung selamanya.
+ */
+function transisiJeda(
+  ticket: Pick<Ticket, "status" | "slaPausedAt" | "slaPausedMs">,
+  statusBaru: TicketStatus,
+  now: string
+): { slaPausedAt: string | null; slaPausedMs: number } {
+  const sedangJeda = ticket.status === "REPLIED";
+  const akanJeda = statusBaru === "REPLIED";
+
+  if (!sedangJeda && akanJeda) {
+    return { slaPausedAt: now, slaPausedMs: ticket.slaPausedMs };
+  }
+
+  if (sedangJeda && !akanJeda) {
+    // Tutup jeda yang berjalan. slaPausedAt bisa saja kosong pada tiket lama
+    // yang statusnya REPLIED sebelum kolom ini ada — anggap saja nol,
+    // jangan sampai menghasilkan NaN yang merusak seluruh perhitungan.
+    const mulai = ticket.slaPausedAt
+      ? new Date(ticket.slaPausedAt).getTime()
+      : NaN;
+    const tambahan = Number.isFinite(mulai)
+      ? Math.max(0, new Date(now).getTime() - mulai)
+      : 0;
+    return { slaPausedAt: null, slaPausedMs: ticket.slaPausedMs + tambahan };
+  }
+
+  return { slaPausedAt: ticket.slaPausedAt, slaPausedMs: ticket.slaPausedMs };
+}
+
+/**
  * Terapkan patch ke satu tiket, termasuk efek turunannya:
  * - prioritas berubah  → deadline SLA dihitung ulang dari waktu DIBUAT
  * - status jadi selesai → `resolvedAt` dicatat (sekali)
@@ -498,6 +555,9 @@ function applyPatch(current: Ticket, patch: TicketPatch, now: string): Ticket {
     next.resolutionDueAt = due.resolutionDueAt;
   }
   if (patch.status && patch.status !== current.status) {
+    const jeda = transisiJeda(current, patch.status, now);
+    next.slaPausedAt = jeda.slaPausedAt;
+    next.slaPausedMs = jeda.slaPausedMs;
     next.status = patch.status;
     if (isTicketDone(patch.status)) {
       next.resolvedAt = current.resolvedAt ?? now;
@@ -530,6 +590,8 @@ export async function updateTicket(
         response_due_at: next.responseDueAt,
         resolution_due_at: next.resolutionDueAt,
         resolved_at: next.resolvedAt,
+        sla_paused_at: next.slaPausedAt,
+        sla_paused_ms: next.slaPausedMs,
         updated_at: now,
       })
       .eq("id", id)
@@ -670,6 +732,14 @@ async function applyMessageSideEffects(
     next.resolvedAt = null;
   }
 
+  // Status bergeser karena pesan ini → jam jeda ikut dikelola. Aturannya
+  // sama persis dengan perubahan status manual.
+  if (next.status && next.status !== ticket.status) {
+    const jeda = transisiJeda(ticket, next.status, now);
+    next.slaPausedAt = jeda.slaPausedAt;
+    next.slaPausedMs = jeda.slaPausedMs;
+  }
+
   const merged: Ticket = { ...ticket, ...next } as Ticket;
 
   const supa = getSupabaseAdmin();
@@ -680,6 +750,8 @@ async function applyMessageSideEffects(
         status: merged.status,
         first_response_at: merged.firstResponseAt,
         resolved_at: merged.resolvedAt,
+        sla_paused_at: merged.slaPausedAt,
+        sla_paused_ms: merged.slaPausedMs,
         updated_at: now,
       })
       .eq("id", ticket.id)
@@ -761,6 +833,10 @@ export function publicTicketView(
     resolutionDueAt: t.resolutionDueAt,
     firstResponseAt: t.firstResponseAt,
     resolvedAt: t.resolvedAt,
+    // Ikut dikirim supaya pelapor melihat sisa waktu yang sama persis dengan
+    // yang dilihat admin — termasuk saat jam sedang berhenti.
+    slaPausedAt: t.slaPausedAt,
+    slaPausedMs: t.slaPausedMs,
     createdAt: t.createdAt,
     updatedAt: t.updatedAt,
   };

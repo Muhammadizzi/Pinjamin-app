@@ -400,6 +400,11 @@ export const messages = {
   slaBreached: ["lewat batas", "breached"],
   slaDueIn: ["sisa {time}", "{time} left"],
   slaLateBy: ["telat {time}", "{time} late"],
+  slaPaused: ["dijeda", "paused"],
+  slaPausedHint: [
+    "Jam penyelesaian berhenti selama tiket menunggu balasan pelapor, dan jalan lagi begitu ia menjawab.",
+    "The resolution clock stops while the ticket waits on the reporter, and resumes once they reply.",
+  ],
   slaTargetHint: [
     "Target SLA dihitung dari prioritas tiket. Mengubah prioritas menggeser kedua tenggat.",
     "SLA targets follow the ticket priority. Changing the priority shifts both deadlines.",

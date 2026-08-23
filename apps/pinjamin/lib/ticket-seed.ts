@@ -486,6 +486,10 @@ function lengkapi(seed: Seed): Ticket {
     resolutionDueAt: due.resolutionDueAt,
     firstResponseAt: firstAdminReply(seed.id),
     resolvedAt: isTicketDone(seed.status) ? seed.updatedAt : null,
+    // Tidak ada tiket contoh yang berstatus REPLIED, jadi tak satu pun
+    // sedang dijeda.
+    slaPausedAt: null,
+    slaPausedMs: 0,
     createdAt: seed.createdAt,
     updatedAt: seed.updatedAt,
   };

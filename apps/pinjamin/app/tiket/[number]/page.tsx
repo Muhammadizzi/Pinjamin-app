@@ -24,7 +24,7 @@ import {
 import {
   ATTACHMENTS_MAX,
   TICKET_NUMBER_RE,
-  slaState,
+  evaluateSla,
   type TicketAttachment,
   type TicketPriority,
   type TicketStatus,
@@ -63,6 +63,8 @@ interface PortalTicket {
   resolutionDueAt: string | null;
   firstResponseAt: string | null;
   resolvedAt: string | null;
+  slaPausedAt: string | null;
+  slaPausedMs: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -260,26 +262,16 @@ function PortalInner() {
   const meta = statusMeta(ticket.status);
   const closed = ticket.status === "CLOSED";
 
-  const responseState = slaState(
-    ticket.responseDueAt,
-    ticket.firstResponseAt,
-    ticket.createdAt,
-    now
-  );
-  const resolutionState = slaState(
-    ticket.resolutionDueAt,
-    ticket.resolvedAt,
-    ticket.createdAt,
-    now
-  );
+  const sla = evaluateSla(ticket, now);
 
   /** Teks sisa/telat untuk satu tenggat, dalam bahasa pelapor. */
-  const slaDetail = (dueAt: string | null, fulfilledAt: string | null) => {
-    if (!dueAt) return "—";
-    if (fulfilledAt) return formatDateTime(fulfilledAt);
-    const diff = new Date(dueAt).getTime() - now;
-    const teks = humanizeDuration(diff, DURATION_UNIT_ID);
-    return diff >= 0 ? `sisa ${teks}` : `telat ${teks}`;
+  const slaDetail = (leg: {
+    remainingMs: number;
+    fulfilledAt: string | null;
+  }) => {
+    if (leg.fulfilledAt) return formatDateTime(leg.fulfilledAt);
+    const teks = humanizeDuration(leg.remainingMs, DURATION_UNIT_ID);
+    return leg.remainingMs >= 0 ? `sisa ${teks}` : `telat ${teks}`;
   };
 
   return (
@@ -315,14 +307,19 @@ function PortalInner() {
           <div className="flex flex-wrap gap-x-4 gap-y-1.5 rounded-xl border border-[#243a5e] bg-[#0f1d33] px-3.5 py-2.5">
             <SlaLine
               label="Target respons"
-              state={responseState}
-              detail={slaDetail(ticket.responseDueAt, ticket.firstResponseAt)}
+              state={sla.response.state}
+              detail={slaDetail(sla.response)}
             />
             <SlaLine
               label="Target selesai"
-              state={resolutionState}
-              detail={slaDetail(ticket.resolutionDueAt, ticket.resolvedAt)}
+              state={sla.resolution.state}
+              detail={slaDetail(sla.resolution)}
             />
+            {sla.paused && (
+              <span className="rounded-full border border-slate-500/40 bg-slate-500/10 px-2 py-0.5 text-[10px] font-semibold text-slate-400">
+                dijeda — menunggu balasan Anda
+              </span>
+            )}
           </div>
         </CardContent>
       </Card>

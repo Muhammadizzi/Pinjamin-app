@@ -23,7 +23,7 @@ import {
   TICKET_CATEGORIES,
   TICKET_NUMBER_RE,
   TICKET_PRIORITIES,
-  slaState,
+  evaluateSla,
   type TicketAttachment,
   type TicketPriority,
 } from "@/lib/ticket-shared";
@@ -79,6 +79,8 @@ interface TrackTicket {
   resolutionDueAt: string | null;
   firstResponseAt: string | null;
   resolvedAt: string | null;
+  slaPausedAt: string | null;
+  slaPausedMs: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -339,12 +341,13 @@ export default function LandingPage() {
   };
 
   /** Teks sisa/telat untuk satu tenggat SLA di hasil lacak. */
-  const slaDetail = (dueAt: string | null, fulfilledAt: string | null) => {
-    if (!dueAt) return "—";
-    if (fulfilledAt) return formatDateTime(fulfilledAt);
-    const selisih = new Date(dueAt).getTime() - trackNow;
-    const teks = humanizeDuration(selisih, DURATION_UNIT_ID);
-    return selisih >= 0 ? `sisa ${teks}` : `telat ${teks}`;
+  const slaDetail = (leg: {
+    remainingMs: number;
+    fulfilledAt: string | null;
+  }) => {
+    if (leg.fulfilledAt) return formatDateTime(leg.fulfilledAt);
+    const teks = humanizeDuration(leg.remainingMs, DURATION_UNIT_ID);
+    return leg.remainingMs >= 0 ? `sisa ${teks}` : `telat ${teks}`;
   };
 
   // Dua tombol di navbar adalah SATU-SATUNYA jalan ke kedua bagian ini,
@@ -636,34 +639,28 @@ export default function LandingPage() {
 
                     {/* Target SLA — menjawab "kapan ini diurus?" tanpa perlu
                         bertanya ke admin. */}
-                    <div className="flex flex-wrap gap-x-4 gap-y-1.5">
-                      <SlaLine
-                        label="Target respons"
-                        state={slaState(
-                          trackResult.ticket.responseDueAt,
-                          trackResult.ticket.firstResponseAt,
-                          trackResult.ticket.createdAt,
-                          trackNow
-                        )}
-                        detail={slaDetail(
-                          trackResult.ticket.responseDueAt,
-                          trackResult.ticket.firstResponseAt
-                        )}
-                      />
-                      <SlaLine
-                        label="Target selesai"
-                        state={slaState(
-                          trackResult.ticket.resolutionDueAt,
-                          trackResult.ticket.resolvedAt,
-                          trackResult.ticket.createdAt,
-                          trackNow
-                        )}
-                        detail={slaDetail(
-                          trackResult.ticket.resolutionDueAt,
-                          trackResult.ticket.resolvedAt
-                        )}
-                      />
-                    </div>
+                    {(() => {
+                      const sla = evaluateSla(trackResult.ticket, trackNow);
+                      return (
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+                          <SlaLine
+                            label="Target respons"
+                            state={sla.response.state}
+                            detail={slaDetail(sla.response)}
+                          />
+                          <SlaLine
+                            label="Target selesai"
+                            state={sla.resolution.state}
+                            detail={slaDetail(sla.resolution)}
+                          />
+                          {sla.paused && (
+                            <span className="rounded-full border border-slate-500/40 bg-slate-500/10 px-2 py-0.5 text-[10px] font-semibold text-slate-400">
+                              dijeda — menunggu balasan Anda
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })()}
 
                     {/* Percakapan. Dibatasi tingginya karena kartu ini berbagi
                         kolom dengan blok lain — thread panjang akan mendorong

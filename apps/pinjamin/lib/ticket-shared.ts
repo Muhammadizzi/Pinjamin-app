@@ -122,6 +122,100 @@ export function slaState(
 }
 
 /* ------------------------------------------------------------------ */
+/* Jeda SLA                                                            */
+/* ------------------------------------------------------------------ */
+
+/** Bagian tiket yang dibutuhkan untuk menilai SLA. */
+export interface SlaSource {
+  createdAt: string;
+  responseDueAt: string | null;
+  resolutionDueAt: string | null;
+  firstResponseAt: string | null;
+  resolvedAt: string | null;
+  /** Awal jeda yang sedang berjalan (status REPLIED). null = jam berjalan. */
+  slaPausedAt: string | null;
+  /** Akumulasi jeda yang sudah selesai, dalam milidetik. */
+  slaPausedMs: number;
+}
+
+export interface SlaLeg {
+  state: SlaState;
+  /** Sisa waktu (positif) atau keterlambatan (negatif), dalam milidetik. */
+  remainingMs: number;
+  /** Waktu pemenuhan, bila tenggat ini sudah terpenuhi. */
+  fulfilledAt: string | null;
+}
+
+export interface SlaVerdict {
+  response: SlaLeg;
+  resolution: SlaLeg;
+  /** Jam penyelesaian sedang berhenti karena menunggu pelapor. */
+  paused: boolean;
+  /** Total waktu yang tidak dihitung, termasuk jeda yang sedang berjalan. */
+  pausedMs: number;
+}
+
+/**
+ * Nilai KEDUA tenggat sekaligus.
+ *
+ * Sengaja satu pintu, bukan dua fungsi terpisah: hanya tenggat penyelesaian
+ * yang dijeda, dan memisahkannya berarti tiap pemanggil harus mengingat
+ * sendiri mana yang boleh memakai jam yang mana. Di berkas ini saja ada tiga
+ * pemanggil (panel admin, halaman lacak, portal pelapor) — cukup satu yang
+ * lupa untuk membuat pelapor dan admin melihat angka berbeda pada tiket yang
+ * sama.
+ *
+ * Target respons TIDAK pernah dijeda: status REPLIED baru mungkin terjadi
+ * setelah admin membalas, jadi tenggat respons sudah tuntas lebih dulu.
+ */
+export function evaluateSla(
+  t: SlaSource,
+  now: number = Date.now()
+): SlaVerdict {
+  // Tanggal yang tidak bisa diurai menghasilkan NaN, dan NaN merambat ke
+  // SELURUH perhitungan — sisa waktu, warna badge, sampai kartu "Lewat SLA"
+  // ikut jadi tak berarti. Satu baris rusak di database tidak boleh
+  // menjatuhkan tampilan seluruh daftar tiket.
+  const mulaiJeda = t.slaPausedAt ? new Date(t.slaPausedAt).getTime() : NaN;
+  const jedaBerjalan = Number.isFinite(mulaiJeda)
+    ? Math.max(0, now - mulaiJeda)
+    : 0;
+  const akumulasi = Number.isFinite(t.slaPausedMs)
+    ? Math.max(0, t.slaPausedMs)
+    : 0;
+  const pausedMs = akumulasi + jedaBerjalan;
+
+  // Jam untuk tenggat penyelesaian: waktu nyata dikurangi seluruh jeda.
+  const nowResolusi = now - pausedMs;
+
+  const leg = (
+    dueAt: string | null,
+    fulfilledAt: string | null,
+    jam: number
+  ): SlaLeg => ({
+    state: slaState(dueAt, fulfilledAt, t.createdAt, jam),
+    remainingMs: dueAt
+      ? new Date(dueAt).getTime() -
+        (fulfilledAt ? new Date(fulfilledAt).getTime() : jam)
+      : 0,
+    fulfilledAt: fulfilledAt ?? null,
+  });
+
+  return {
+    response: leg(t.responseDueAt, t.firstResponseAt, now),
+    resolution: leg(t.resolutionDueAt, t.resolvedAt, nowResolusi),
+    paused: Number.isFinite(mulaiJeda),
+    pausedMs,
+  };
+}
+
+/** Salah satu tenggat terlewat — dasar kartu "Lewat SLA" di panel admin. */
+export function isSlaBreached(t: SlaSource, now: number = Date.now()): boolean {
+  const v = evaluateSla(t, now);
+  return v.response.state === "BREACHED" || v.resolution.state === "BREACHED";
+}
+
+/* ------------------------------------------------------------------ */
 /* Nomor tiket & token portal                                          */
 /* ------------------------------------------------------------------ */
 

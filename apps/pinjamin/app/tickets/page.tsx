@@ -20,7 +20,8 @@ import {
   ATTACHMENTS_MAX,
   TICKET_PRIORITIES,
   TICKET_STATUSES,
-  slaState,
+  evaluateSla,
+  isSlaBreached,
   type TicketAttachment,
   type TicketPriority,
   type TicketStatus,
@@ -67,6 +68,8 @@ interface Ticket {
   resolutionDueAt: string | null;
   firstResponseAt: string | null;
   resolvedAt: string | null;
+  slaPausedAt: string | null;
+  slaPausedMs: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -113,15 +116,6 @@ function StatusBadge({
       <span className={`h-1.5 w-1.5 rounded-full ${meta.dot}`} />
       {label}
     </span>
-  );
-}
-
-/** Tiket dianggap melanggar SLA bila salah satu tenggatnya terlewat. */
-function isOverdue(t: Ticket, now: number): boolean {
-  return (
-    slaState(t.responseDueAt, t.firstResponseAt, t.createdAt, now) ===
-      "BREACHED" ||
-    slaState(t.resolutionDueAt, t.resolvedAt, t.createdAt, now) === "BREACHED"
   );
 }
 
@@ -229,7 +223,7 @@ export default function TicketsPage() {
       open: tickets.filter((x) => x.status === "OPEN").length,
       inProgress: tickets.filter((x) => x.status === "IN_PROGRESS").length,
       replied: tickets.filter((x) => x.status === "REPLIED").length,
-      overdue: tickets.filter((x) => isOverdue(x, now)).length,
+      overdue: tickets.filter((x) => isSlaBreached(x, now)).length,
     }),
     [tickets, now]
   );
@@ -250,7 +244,7 @@ export default function TicketsPage() {
     const q = search.trim().toLowerCase();
     return tickets.filter((x) => {
       if (filter === "OVERDUE") {
-        if (!isOverdue(x, now)) return false;
+        if (!isSlaBreached(x, now)) return false;
       } else if (filter !== "ALL" && x.status !== filter) {
         return false;
       }
@@ -410,17 +404,21 @@ export default function TicketsPage() {
     [t]
   );
 
-  /** Teks pendek untuk satu tenggat SLA: waktu pemenuhan, sisa, atau telat. */
-  const slaDetail = (dueAt: string | null, fulfilledAt: string | null) => {
-    if (!dueAt) return "—";
-    if (fulfilledAt) {
-      return new Date(fulfilledAt) <= new Date(dueAt)
-        ? t("slaOnTime")
-        : t("slaBreached");
+  /**
+   * Teks pendek untuk satu tenggat SLA: waktu pemenuhan, sisa, atau telat.
+   * `remainingMs` datang dari evaluateSla — yang sudah memperhitungkan jeda
+   * pada tenggat penyelesaian.
+   */
+  const slaDetail = (leg: {
+    remainingMs: number;
+    fulfilledAt: string | null;
+    state: string;
+  }) => {
+    if (leg.fulfilledAt) {
+      return leg.state === "MET" ? t("slaOnTime") : t("slaBreached");
     }
-    const diff = new Date(dueAt).getTime() - now;
-    const teks = humanizeDuration(diff, durationUnit);
-    return diff >= 0
+    const teks = humanizeDuration(leg.remainingMs, durationUnit);
+    return leg.remainingMs >= 0
       ? t("slaDueIn", { time: teks })
       : t("slaLateBy", { time: teks });
   };
@@ -671,17 +669,24 @@ export default function TicketsPage() {
                 {/* Tenggat penyelesaian ikut di daftar: memilih tiket mana yang
                     dikerjakan lebih dulu tidak seharusnya menuntut membuka
                     satu per satu. */}
-                <div className="mt-2">
-                  <SlaLine
-                    label={t("slaResolution")}
-                    state={slaState(
-                      tk.resolutionDueAt,
-                      tk.resolvedAt,
-                      tk.createdAt,
-                      now
-                    )}
-                    detail={slaDetail(tk.resolutionDueAt, tk.resolvedAt)}
-                  />
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  {(() => {
+                    const sla = evaluateSla(tk, now);
+                    return (
+                      <>
+                        <SlaLine
+                          label={t("slaResolution")}
+                          state={sla.resolution.state}
+                          detail={slaDetail(sla.resolution)}
+                        />
+                        {sla.paused && (
+                          <span className="rounded-full border border-slate-500/40 bg-slate-500/10 px-1.5 py-px text-[10px] font-semibold text-slate-400">
+                            {t("slaPaused")}
+                          </span>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
               </button>
             ))}
@@ -768,34 +773,35 @@ export default function TicketsPage() {
               </div>
 
               {/* SLA */}
-              <div className="flex flex-wrap gap-x-4 gap-y-1.5 rounded-xl border border-[#243a5e] bg-[#0f1d33] px-3.5 py-2.5">
-                <SlaLine
-                  label={t("slaResponse")}
-                  state={slaState(
-                    selected.responseDueAt,
-                    selected.firstResponseAt,
-                    selected.createdAt,
-                    now
-                  )}
-                  detail={slaDetail(
-                    selected.responseDueAt,
-                    selected.firstResponseAt
-                  )}
-                />
-                <SlaLine
-                  label={t("slaResolution")}
-                  state={slaState(
-                    selected.resolutionDueAt,
-                    selected.resolvedAt,
-                    selected.createdAt,
-                    now
-                  )}
-                  detail={slaDetail(
-                    selected.resolutionDueAt,
-                    selected.resolvedAt
-                  )}
-                />
-              </div>
+              {(() => {
+                const sla = evaluateSla(selected, now);
+                return (
+                  <div className="space-y-1.5 rounded-xl border border-[#243a5e] bg-[#0f1d33] px-3.5 py-2.5">
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+                      <SlaLine
+                        label={t("slaResponse")}
+                        state={sla.response.state}
+                        detail={slaDetail(sla.response)}
+                      />
+                      <SlaLine
+                        label={t("slaResolution")}
+                        state={sla.resolution.state}
+                        detail={slaDetail(sla.resolution)}
+                      />
+                      {sla.paused && (
+                        <span className="rounded-full border border-slate-500/40 bg-slate-500/10 px-2 py-0.5 text-[10px] font-semibold text-slate-400">
+                          {t("slaPaused")}
+                        </span>
+                      )}
+                    </div>
+                    {sla.paused && (
+                      <p className="text-[11px] leading-relaxed text-slate-500">
+                        {t("slaPausedHint")}
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
 
               {/* Percakapan */}
               <div className="space-y-3">
