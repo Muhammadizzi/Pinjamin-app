@@ -35,7 +35,6 @@ type Seed = {
   status: TicketStatus;
   priority?: TicketPriority;
   adminNote: string;
-  assetId?: string;
   createdAt: string;
   updatedAt: string;
 };
@@ -59,7 +58,6 @@ const SEEDS: Seed[] = [
     status: "IN_PROGRESS",
     priority: "HIGH",
     adminNote: "Sudah remote. Suspect RAM. Tunggu spare SODIMM dari vendor.",
-    assetId: "gf-ast-002",
     createdAt: iso(-2, 8),
     updatedAt: iso(-1, 16),
   },
@@ -76,7 +74,6 @@ const SEEDS: Seed[] = [
     status: "OPEN",
     priority: "HIGH",
     adminNote: "",
-    assetId: "gf-ast-003",
     createdAt: iso(0, 9),
     updatedAt: iso(0, 9),
   },
@@ -93,7 +90,6 @@ const SEEDS: Seed[] = [
     status: "IN_PROGRESS",
     priority: "URGENT",
     adminNote: "Aset PIN-PCK011 sudah MAINTENANCE. Teknisi vendor datang sore.",
-    assetId: "gf-ast-011",
     createdAt: iso(-1, 6),
     updatedAt: iso(0, 7),
   },
@@ -109,7 +105,6 @@ const SEEDS: Seed[] = [
       "Hasil uji kadar air lot tepung Australia tidak konsisten vs lab Rembang. Mohon jadwalkan kalibrasi Ohaus PX224 di Lab QC Pati sebelum audit HACCP.",
     status: "OPEN",
     adminNote: "",
-    assetId: "gf-ast-012",
     createdAt: iso(-1, 11),
     updatedAt: iso(-1, 11),
   },
@@ -126,7 +121,6 @@ const SEEDS: Seed[] = [
     status: "RESOLVED",
     adminNote:
       "Ribbon diganti, print test 20 label OK. Tutup tiket setelah shift 2 konfirmasi.",
-    assetId: "gf-ast-022",
     createdAt: iso(-5, 7),
     updatedAt: iso(-3, 15),
   },
@@ -142,7 +136,6 @@ const SEEDS: Seed[] = [
       "Folder \\\\gf-file\\procurement\\tender-bopp tidak bisa dibuka dari laptop EliteBook. Error access denied. Butuh akses read/write untuk tender film BOPP minggu ini.",
     status: "IN_PROGRESS",
     adminNote: "Request AD group PROC-TENDER sudah diajukan ke IT Security.",
-    assetId: "gf-ast-027",
     createdAt: iso(-3, 13),
     updatedAt: iso(-2, 9),
   },
@@ -174,7 +167,6 @@ const SEEDS: Seed[] = [
       "Kartu tap Innova B 88 GF tidak membuka palang basement HQ. Security minta tiket ke GA/IT akses.",
     status: "RESOLVED",
     adminNote: "Kartu di-reprogram di sistem C3. Tes tap 3x berhasil.",
-    assetId: "gf-ast-005",
     createdAt: iso(-6, 7),
     updatedAt: iso(-5, 11),
   },
@@ -206,7 +198,6 @@ const SEEDS: Seed[] = [
       "Pickup L300 bunyi aneh di bagian kopling saat tour Indomaret Jatim. Bisa diservis di bengkel resmi? Sales butuh unit cadangan 3 hari.",
     status: "OPEN",
     adminNote: "",
-    assetId: "gf-ast-024",
     createdAt: iso(0, 7),
     updatedAt: iso(0, 7),
   },
@@ -222,7 +213,6 @@ const SEEDS: Seed[] = [
       "Meja listrik ruang IT HQ tidak bisa dinaikkan. Motor bunyi klik. Mohon teknisi furniture / ganti unit.",
     status: "IN_PROGRESS",
     adminNote: "Aset PIN-MEJ006 sudah MAINTENANCE. Sparepart dipesan.",
-    assetId: "gf-ast-006",
     createdAt: iso(-4, 10),
     updatedAt: iso(-2, 15),
   },
@@ -271,7 +261,6 @@ const SEEDS: Seed[] = [
     status: "OPEN",
     priority: "URGENT",
     adminNote: "",
-    assetId: "gf-ast-026",
     createdAt: iso(-1, 15),
     updatedAt: iso(-1, 15),
   },
@@ -302,7 +291,6 @@ const SEEDS: Seed[] = [
       "Dari set 12 HT safety Pati, 3 unit tidak mau ngecas di docking. Shift malam kesulitan komunikasi ke security.",
     status: "IN_PROGRESS",
     adminNote: "3 unit ditarik ke engineering. Docking bay dicek tegangan.",
-    assetId: "gf-ast-028",
     createdAt: iso(-2, 18),
     updatedAt: iso(-1, 8),
   },
@@ -494,7 +482,6 @@ function lengkapi(seed: Seed): Ticket {
     accessToken: crypto.randomBytes(32).toString("hex"),
     attachments: [],
     adminNote: seed.adminNote,
-    assetId: seed.assetId ?? null,
     responseDueAt: due.responseDueAt,
     resolutionDueAt: due.resolutionDueAt,
     firstResponseAt: firstAdminReply(seed.id),

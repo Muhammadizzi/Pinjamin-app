@@ -321,29 +321,12 @@ export const messages = {
     "Tidak ada tiket berstatus {status}.",
     "No tickets with status {status}.",
   ],
-  linkedToAsset: ["Tertaut ke aset", "Linked to an asset"],
-  assetShort: ["aset", "asset"],
   copyTicketNumber: ["Salin nomor tiket", "Copy ticket number"],
   createdAt: ["dibuat {date}", "created {date}"],
   updatedAt: ["update {date}", "updated {date}"],
-  relatedAsset: ["Aset Terkait", "Related Asset"],
-  assetNotInStore: [
-    "(aset tidak ditemukan di store)",
-    "(asset not found in the store)",
-  ],
-  openAssetPage: ["Buka halaman aset", "Open asset page"],
-  unlinkAsset: ["Lepas tautan aset", "Unlink asset"],
-  unlink: ["Lepas", "Unlink"],
-  linkAsset: ["Tautkan", "Link"],
+  // Tidak lagi dipakai sejak penautan aset dihapus dari panel tiket, tapi
+  // SENGAJA dipertahankan: CLAUDE.md melarang mengutak-atik nama kunci ini.
   noAssetsInPinjamin: ["Belum ada aset di SIGAP", "No assets in SIGAP yet"],
-  pickReportedAsset: [
-    "— Pilih aset yang dilaporkan —",
-    "— Choose the reported asset —",
-  ],
-  linkAssetHint: [
-    "Menautkan tiket ke aset berstatus Tersedia akan otomatis menandainya Maintenance — tidak bisa ikut dipinjam sampai diperbaiki.",
-    "Linking a ticket to an Available asset automatically marks it Maintenance — it can't be booked until it's fixed.",
-  ],
   changeStatus: ["Ubah Status", "Change Status"],
   deleteTicket: ["Hapus Tiket", "Delete Ticket"],
   confirmDeleteTicketBody: [
@@ -356,11 +339,6 @@ export const messages = {
     "Failed to delete the ticket.",
   ],
   ticketSaveFailed: ["Gagal menyimpan tiket.", "Failed to save the ticket."],
-  assetMarkedMaintenance: [
-    "Aset ditandai Maintenance ✓",
-    "Asset marked as Maintenance ✓",
-  ],
-  assetLinkSaved: ["Tautan aset disimpan ✓", "Asset link saved ✓"],
 
   // ---------- Tiket: percakapan, SLA, prioritas ----------
   conversation: ["Percakapan", "Conversation"],

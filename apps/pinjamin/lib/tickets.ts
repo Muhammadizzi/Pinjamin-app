@@ -73,12 +73,6 @@ export interface Ticket {
   attachments: TicketAttachment[];
   /** @deprecated diganti thread ticket_messages (kind NOTE). Baca-saja. */
   adminNote: string;
-  /**
-   * Tautan opsional ke aset SIGAP (Asset.id di store client). Disimpan
-   * sebagai id mentah; keberadaan aset divalidasi di sisi client (server
-   * tiket tidak mengenal store aset). null/undefined = tidak tertaut.
-   */
-  assetId?: string | null;
   /** Deadline SLA — dibekukan saat dibuat, dihitung ulang bila prioritas berubah. */
   responseDueAt: string | null;
   resolutionDueAt: string | null;
@@ -111,7 +105,6 @@ export type NewTicketInput = {
 type TicketPatch = {
   status?: TicketStatus;
   priority?: TicketPriority;
-  assetId?: string | null;
   /**
    * Koreksi email pelapor.
    *
@@ -171,7 +164,6 @@ function rowToTicket(row: Row): Ticket {
     accessToken: str(row.access_token),
     attachments: parseAttachments(row.attachments),
     adminNote: str(row.admin_note),
-    assetId: (row.asset_id as string | null) ?? null,
     responseDueAt: nullableIso(row.response_due_at),
     resolutionDueAt: nullableIso(row.resolution_due_at),
     firstResponseAt: nullableIso(row.first_response_at),
@@ -196,7 +188,6 @@ function ticketToRow(t: Ticket): Row {
     access_token: t.accessToken,
     attachments: t.attachments,
     admin_note: t.adminNote,
-    asset_id: t.assetId ?? null,
     response_due_at: t.responseDueAt,
     resolution_due_at: t.resolutionDueAt,
     first_response_at: t.firstResponseAt,
@@ -296,7 +287,6 @@ function normalizeTicket(raw: Partial<Ticket> & { id: string }): Ticket {
     accessToken: raw.accessToken || newToken(),
     attachments: parseAttachments(raw.attachments),
     adminNote: raw.adminNote || "",
-    assetId: raw.assetId ?? null,
     responseDueAt: raw.responseDueAt ?? due.responseDueAt,
     resolutionDueAt: raw.resolutionDueAt ?? due.resolutionDueAt,
     firstResponseAt: raw.firstResponseAt ?? null,
@@ -467,7 +457,6 @@ export async function createTicket(data: NewTicketInput): Promise<Ticket> {
     status: "OPEN",
     accessToken: newToken(),
     adminNote: "",
-    assetId: null,
     responseDueAt: due.responseDueAt,
     resolutionDueAt: due.resolutionDueAt,
     firstResponseAt: null,
@@ -516,7 +505,6 @@ function applyPatch(current: Ticket, patch: TicketPatch, now: string): Ticket {
       next.resolvedAt = null;
     }
   }
-  if (patch.assetId !== undefined) next.assetId = patch.assetId;
   if (patch.email !== undefined) next.email = patch.email;
 
   return next;
@@ -539,7 +527,6 @@ export async function updateTicket(
         status: next.status,
         priority: next.priority,
         email: next.email,
-        asset_id: next.assetId ?? null,
         response_due_at: next.responseDueAt,
         resolution_due_at: next.resolutionDueAt,
         resolved_at: next.resolvedAt,
@@ -750,7 +737,7 @@ export async function loadDemoTickets(): Promise<Ticket[]> {
  * Disusun eksplisit — bukan hasil menghapus field dari objek Ticket — supaya
  * kolom baru di masa depan tidak ikut bocor hanya karena seseorang lupa
  * menambahkannya ke daftar buangan. Yang TIDAK pernah masuk ke sini:
- * accessToken, email, phone, adminNote, assetId.
+ * accessToken, email, phone, adminNote.
  *
  * `withReporterName` dipisah karena kedua pemanggil punya syarat berbeda:
  * portal dijaga token 256-bit sehingga wajar menyapa pelapor dengan namanya,

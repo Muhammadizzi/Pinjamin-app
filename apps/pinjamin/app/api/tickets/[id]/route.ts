@@ -18,8 +18,8 @@ export const dynamic = "force-dynamic";
 type Ctx = { params: Promise<{ id: string }> };
 
 /**
- * PATCH /api/tickets/:id — ubah status, prioritas, tautan aset, atau
- * memperbaiki email pelapor (admin).
+ * PATCH /api/tickets/:id — ubah status, prioritas, atau memperbaiki email
+ * pelapor (admin).
  *
  * Catatan admin TIDAK lagi di sini: sejak thread percakapan ada, catatan
  * internal adalah pesan kind=NOTE lewat POST /api/tickets/:id/messages.
@@ -38,7 +38,6 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   const patch: {
     status?: TicketStatus;
     priority?: TicketPriority;
-    assetId?: string | null;
     email?: string;
   } = {};
 
@@ -60,25 +59,6 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
       );
     }
     patch.priority = body.priority;
-  }
-
-  if (body.assetId !== undefined) {
-    // null = lepas tautan; string = tautkan ke Asset.id (existence
-    // divalidasi client karena aset hidup di store client).
-    if (body.assetId === null) {
-      patch.assetId = null;
-    } else if (
-      typeof body.assetId === "string" &&
-      body.assetId.trim().length > 0 &&
-      body.assetId.trim().length <= 80
-    ) {
-      patch.assetId = body.assetId.trim();
-    } else {
-      return NextResponse.json(
-        { error: "ID aset tidak valid." },
-        { status: 400 }
-      );
-    }
   }
 
   // Mengubah email berarti mengubah SIAPA yang bisa membalas tiket ini dari
