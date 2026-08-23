@@ -1,4 +1,5 @@
 "use client";
+import { useState } from "react";
 import { Paperclip, ShieldAlert, Clock3, CheckCircle2, X } from "lucide-react";
 import type {
   MessageAuthor,
@@ -115,13 +116,55 @@ export function SlaLine({
 /* ------------------------------------------------------------------ */
 
 /**
- * Lampiran ditampilkan sebagai tautan bernama, BUKAN <img>.
+ * Lampiran ditampilkan langsung sebagai gambar.
  *
- * Berkasnya diunggah lewat endpoint publik, jadi memasangnya langsung di
- * halaman berarti apa pun yang lolos ke bucket ikut dirender pada tiap
- * pembukaan tiket. `rel="noopener noreferrer"` menutup akses window.opener
- * dari tab yang dibuka.
+ * Aman dilakukan karena jalur unggahnya sempit: /api/tickets/upload hanya
+ * menerima JPG/PNG/WebP/GIF (SVG ditolak — ia bisa memuat <script>), dan
+ * validateAttachments() menolak URL apa pun yang bukan dari folder `tiket/`
+ * di bucket kita sendiri. Jadi yang bisa dirender di sini hanyalah raster
+ * yang kita simpan sendiri.
+ *
+ * Gambar dibungkus tautan agar bisa dibuka ukuran penuh, dan dibatasi
+ * tingginya supaya satu foto tidak menelan seluruh percakapan.
  */
+function LampiranGambar({ item }: { item: TicketAttachment }) {
+  // Objek storage bisa saja sudah dihapus (mis. tiketnya dibersihkan).
+  // Tanpa penangkap ini yang tersisa hanya ikon gambar rusak tanpa keterangan.
+  const [gagal, setGagal] = useState(false);
+
+  if (gagal) {
+    return (
+      <span className="inline-flex max-w-full items-center gap-1.5 rounded-lg border border-[#243a5e] bg-[#0f1d33] px-2 py-1 text-[11px] text-slate-500">
+        <Paperclip className="h-3 w-3 shrink-0" />
+        <span className="truncate">{item.name}</span>
+        <span className="shrink-0">(tidak tersedia)</span>
+      </span>
+    );
+  }
+
+  return (
+    <a
+      href={item.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      title={item.name}
+      className="block overflow-hidden rounded-xl border border-[#243a5e] transition-colors hover:border-slate-500"
+    >
+      {/* next/image dilewati dengan sengaja: host-nya Supabase Storage yang
+          harus didaftarkan di next.config, dan lampiran tiket tidak butuh
+          optimasi build-time. */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={item.url}
+        alt={item.name}
+        loading="lazy"
+        onError={() => setGagal(true)}
+        className="max-h-64 w-auto max-w-full object-contain"
+      />
+    </a>
+  );
+}
+
 export function AttachmentList({
   items,
   className = "",
@@ -131,18 +174,9 @@ export function AttachmentList({
 }) {
   if (items.length === 0) return null;
   return (
-    <div className={`flex flex-wrap gap-1.5 ${className}`}>
+    <div className={`flex flex-wrap gap-2 ${className}`}>
       {items.map((a) => (
-        <a
-          key={a.url}
-          href={a.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex max-w-full items-center gap-1.5 rounded-lg border border-[#243a5e] bg-[#0f1d33] px-2 py-1 text-[11px] text-slate-300 transition-colors hover:border-slate-500 hover:text-white"
-        >
-          <Paperclip className="h-3 w-3 shrink-0" />
-          <span className="truncate">{a.name}</span>
-        </a>
+        <LampiranGambar key={a.url} item={a} />
       ))}
     </div>
   );

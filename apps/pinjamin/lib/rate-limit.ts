@@ -115,3 +115,17 @@ export const publicUploadLimiter = createRateLimiter({
   maxAttempts: 12,
   windowMs: 15 * 60 * 1000,
 });
+
+/**
+ * Konfirmasi email di halaman lacak: 8 percobaan / 15 menit per IP.
+ *
+ * Paling ketat di antara semua limiter publik. Endpoint ini menukar
+ * "nomor tiket + email yang benar" dengan token portal — yaitu hak MEMBALAS
+ * atas nama pelapor. Email karyawan mengikuti pola yang mudah ditebak
+ * (nama.belakang@garudafood.co.id), jadi tanpa batas seketat ini, menebaknya
+ * hanya soal waktu.
+ */
+export const verifyLimiter = createRateLimiter({
+  maxAttempts: 8,
+  windowMs: 15 * 60 * 1000,
+});

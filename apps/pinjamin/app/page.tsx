@@ -50,6 +50,7 @@ import {
   FileText,
   Hash,
   Paperclip,
+  Mail,
   ExternalLink,
   ShieldCheck,
 } from "lucide-react";
@@ -67,6 +68,7 @@ const FORM_KOSONG = {
 
 interface TrackTicket {
   number: string;
+  name: string;
   subject: string;
   category: string;
   status: string;
@@ -180,6 +182,162 @@ export default function LandingPage() {
     return () => clearInterval(id);
   }, []);
 
+  /* ---------------- Balas dari halaman lacak ---------------- */
+
+  const [balasDraft, setBalasDraft] = useState("");
+  const [mintaEmail, setMintaEmail] = useState(false);
+  const [emailKonfirmasi, setEmailKonfirmasi] = useState("");
+  const [memverifikasi, setMemverifikasi] = useState(false);
+  const [mengirimBalasan, setMengirimBalasan] = useState(false);
+  const [balasError, setBalasError] = useState("");
+  const balasFileRef = useRef<HTMLInputElement>(null);
+  const attachBalas = useAttachments({
+    tooMany: `Maksimal ${ATTACHMENTS_MAX} lampiran per balasan.`,
+    failed: "Gagal mengunggah lampiran.",
+  });
+
+  /**
+   * Token portal disimpan di sessionStorage, per nomor tiket.
+   *
+   * sessionStorage, bukan localStorage: ia ikut hilang saat tab ditutup,
+   * sehingga hak membalas tidak tertinggal di komputer bersama — dan di
+   * pabrik, satu PC dipakai bergantian antar shift. Konsekuensinya pelapor
+   * mengonfirmasi emailnya sekali per sesi, bukan sekali seumur hidup.
+   */
+  const kunciSesi = (number: string) => `sigap_tiket_token_${number}`;
+
+  const ambilToken = (number: string): string | null => {
+    try {
+      return sessionStorage.getItem(kunciSesi(number));
+    } catch {
+      return null;
+    }
+  };
+
+  const simpanToken = (number: string, token: string) => {
+    try {
+      sessionStorage.setItem(kunciSesi(number), token);
+    } catch {
+      /* mode privat / storage penuh — cukup tanya email lagi nanti */
+    }
+  };
+
+  /** Kirim balasan memakai token yang sudah dipegang. */
+  const kirimDenganToken = useCallback(
+    async (
+      number: string,
+      token: string,
+      isi: string,
+      lampiran: TicketAttachment[]
+    ) => {
+      const res = await fetch("/api/tickets/portal/reply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          number,
+          token,
+          body: isi,
+          attachments: lampiran,
+        }),
+      });
+      const j = await res.json().catch(() => ({}));
+      return { ok: res.ok, status: res.status, j };
+    },
+    []
+  );
+
+  const kirimBalasanLacak = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!trackResult) return;
+    const number = trackResult.ticket.number;
+    const isi = balasDraft.trim();
+    if (!isi && attachBalas.items.length === 0) return;
+
+    setBalasError("");
+    const token = ambilToken(number);
+    // Belum pernah dikonfirmasi di sesi ini → minta emailnya dulu.
+    if (!token) {
+      setMintaEmail(true);
+      return;
+    }
+
+    setMengirimBalasan(true);
+    try {
+      const { ok, status, j } = await kirimDenganToken(
+        number,
+        token,
+        isi,
+        attachBalas.items
+      );
+      if (!ok) {
+        // Token tersimpan ternyata tidak berlaku (tiket dihapus & dibuat
+        // ulang, dsb.) — jangan buntu, minta konfirmasi email lagi.
+        if (status === 404) {
+          setMintaEmail(true);
+          return;
+        }
+        setBalasError(j.error || "Gagal mengirim balasan.");
+        return;
+      }
+      setBalasDraft("");
+      attachBalas.reset();
+      await runTrack(number);
+    } catch {
+      setBalasError("Tidak bisa terhubung ke server. Coba lagi.");
+    } finally {
+      setMengirimBalasan(false);
+    }
+  };
+
+  /** Tukar email dengan token, lalu langsung kirim balasan yang tertunda. */
+  const konfirmasiEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!trackResult) return;
+    const number = trackResult.ticket.number;
+
+    setMemverifikasi(true);
+    setBalasError("");
+    try {
+      const res = await fetch("/api/tickets/track/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ number, email: emailKonfirmasi }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setBalasError(j.error || "Email tidak cocok dengan tiket ini.");
+        return;
+      }
+
+      simpanToken(number, j.token);
+      setMintaEmail(false);
+      setEmailKonfirmasi("");
+
+      const isi = balasDraft.trim();
+      if (!isi && attachBalas.items.length === 0) return;
+
+      setMengirimBalasan(true);
+      const kirim = await kirimDenganToken(
+        number,
+        j.token,
+        isi,
+        attachBalas.items
+      );
+      if (!kirim.ok) {
+        setBalasError(kirim.j.error || "Gagal mengirim balasan.");
+        return;
+      }
+      setBalasDraft("");
+      attachBalas.reset();
+      await runTrack(number);
+    } catch {
+      setBalasError("Tidak bisa terhubung ke server. Coba lagi.");
+    } finally {
+      setMemverifikasi(false);
+      setMengirimBalasan(false);
+    }
+  };
+
   /** Teks sisa/telat untuk satu tenggat SLA di hasil lacak. */
   const slaDetail = (dueAt: string | null, fulfilledAt: string | null) => {
     if (!dueAt) return "—";
@@ -238,13 +396,13 @@ export default function LandingPage() {
     },
     {
       icon: Hash,
-      title: "Simpan tautan",
-      desc: "Anda dapat nomor tiket + tautan pribadi untuk membuka percakapan.",
+      title: "Simpan nomor",
+      desc: "Anda langsung dapat nomor tiket, mis. TKT-8F3K2A.",
     },
     {
       icon: Search,
       title: "Balas & pantau",
-      desc: "Balas langsung tim SIGAP di tautan itu, atau cek status lewat nomor.",
+      desc: "Tempel nomornya di Lacak Tiket untuk membaca dan membalas jawaban tim.",
     },
   ];
 
@@ -520,7 +678,7 @@ export default function LandingPage() {
                           createdAt: trackResult.ticket.createdAt,
                         }}
                         mine
-                        authorLabel="Pelapor"
+                        authorLabel={trackResult.ticket.name}
                         timeLabel={formatDateTime(trackResult.ticket.createdAt)}
                       />
                       {trackResult.messages.map((m) => (
@@ -529,20 +687,148 @@ export default function LandingPage() {
                           message={m}
                           mine={m.author === "USER"}
                           authorLabel={
-                            m.author === "USER" ? "Pelapor" : "Admin SIGAP"
+                            m.author === "USER"
+                              ? trackResult.ticket.name
+                              : "Admin SIGAP"
                           }
                           timeLabel={formatDateTime(m.createdAt)}
                         />
                       ))}
                     </div>
 
-                    {/* Membalas tetap butuh tautan pribadi: nomor tiket saja
-                        tidak membuktikan siapa yang mengetik. */}
-                    <p className="text-[11px] leading-relaxed text-slate-500">
-                      Ingin membalas? Buka tautan pribadi yang Anda terima saat
-                      membuat tiket. Bila hilang, minta tim SIGAP mengirimkannya
-                      ulang.
-                    </p>
+                    {/* Kotak balas. Membaca cukup dengan nomor tiket, tapi
+                        MENULIS menuntut pelapor mengonfirmasi emailnya sekali
+                        per sesi — nomor tiket saja tidak membuktikan siapa
+                        yang mengetik, dan nomor itu lazim beredar di grup. */}
+                    {mintaEmail ? (
+                      <form
+                        onSubmit={konfirmasiEmail}
+                        className="space-y-2 rounded-xl border border-amber-400/30 bg-amber-400/5 p-3"
+                      >
+                        <div className="flex items-start gap-2">
+                          <Mail className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
+                          <div className="space-y-1">
+                            <div className="text-[13px] font-semibold">
+                              Konfirmasi email Anda
+                            </div>
+                            <p className="text-[11px] leading-relaxed text-slate-400">
+                              Sebelum membalas, masukkan email yang Anda pakai
+                              saat membuat tiket ini. Cukup sekali selama tab
+                              ini terbuka.
+                            </p>
+                          </div>
+                        </div>
+                        <Input
+                          type="email"
+                          value={emailKonfirmasi}
+                          onChange={(e) => setEmailKonfirmasi(e.target.value)}
+                          placeholder="nama@garudafood.co.id"
+                          className="h-10 rounded-xl"
+                          autoComplete="email"
+                          inputMode="email"
+                          required
+                          autoFocus
+                        />
+                        {balasError && (
+                          <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+                            {balasError}
+                          </div>
+                        )}
+                        <div className="flex items-center gap-2">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="rounded-xl"
+                            onClick={() => {
+                              setMintaEmail(false);
+                              setBalasError("");
+                            }}
+                          >
+                            Batal
+                          </Button>
+                          <Button
+                            type="submit"
+                            size="sm"
+                            className="ml-auto rounded-xl font-bold"
+                            disabled={memverifikasi || !emailKonfirmasi.trim()}
+                          >
+                            {memverifikasi ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <ShieldCheck className="h-4 w-4" />
+                            )}
+                            {memverifikasi ? "Memeriksa..." : "Konfirmasi"}
+                          </Button>
+                        </div>
+                      </form>
+                    ) : (
+                      <form onSubmit={kirimBalasanLacak} className="space-y-2">
+                        <Textarea
+                          value={balasDraft}
+                          onChange={(e) => setBalasDraft(e.target.value)}
+                          rows={2}
+                          placeholder="Tulis balasan untuk tim SIGAP..."
+                          className="min-h-[64px] rounded-xl bg-[#12263f]"
+                        />
+                        <PendingAttachments
+                          items={attachBalas.items}
+                          onRemove={attachBalas.remove}
+                          removeLabel="Hapus lampiran"
+                        />
+                        {(attachBalas.error || balasError) && (
+                          <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+                            {attachBalas.error || balasError}
+                          </div>
+                        )}
+                        <div className="flex items-center gap-2">
+                          <input
+                            ref={balasFileRef}
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp,image/gif"
+                            multiple
+                            hidden
+                            onChange={(e) => {
+                              void attachBalas.add(e.target.files);
+                              e.target.value = "";
+                            }}
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="rounded-xl"
+                            disabled={attachBalas.uploading}
+                            onClick={() => balasFileRef.current?.click()}
+                          >
+                            {attachBalas.uploading ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Paperclip className="h-4 w-4" />
+                            )}
+                            Lampiran
+                          </Button>
+                          <Button
+                            type="submit"
+                            size="sm"
+                            className="ml-auto rounded-xl font-bold"
+                            disabled={
+                              mengirimBalasan ||
+                              attachBalas.uploading ||
+                              (balasDraft.trim().length === 0 &&
+                                attachBalas.items.length === 0)
+                            }
+                          >
+                            {mengirimBalasan ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Send className="h-4 w-4" />
+                            )}
+                            {mengirimBalasan ? "Mengirim..." : "Kirim"}
+                          </Button>
+                        </div>
+                      </form>
+                    )}
                   </div>
                 )}
               </CardContent>
@@ -562,10 +848,11 @@ export default function LandingPage() {
                   Privasi pelapor
                 </div>
                 <p className="text-[11px] sm:text-xs text-slate-400 leading-relaxed">
-                  Halaman lacak menampilkan status dan percakapan tiket kepada
-                  siapa pun yang tahu nomornya — jadi bagikan nomor tiket
-                  seperlunya saja. Nama pelapor, email, nomor WhatsApp, dan
-                  catatan internal tim tidak pernah ditampilkan di sini.
+                  Halaman lacak menampilkan nama pelapor, status, dan percakapan
+                  kepada siapa pun yang tahu nomor tiketnya — jadi bagikan nomor
+                  tiket seperlunya saja. Email, nomor WhatsApp, dan catatan
+                  internal tim tidak pernah ditampilkan. Untuk membalas, Anda
+                  perlu mengonfirmasi email dulu.
                 </p>
               </div>
             </div>

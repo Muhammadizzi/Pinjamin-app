@@ -11,7 +11,8 @@ import { isPublicPage } from "./lib/public-paths";
  * API publik:
  *   POST /api/auth/login
  *   POST /api/tickets                 (buat tiket)
- *   GET  /api/tickets/track           (lacak status via nomor)
+ *   GET  /api/tickets/track           (lacak status + percakapan via nomor)
+ *   POST /api/tickets/track/verify    (tukar email pelapor dengan token)
  *   GET  /api/tickets/portal          (portal pelapor — butuh token tiket)
  *   POST /api/tickets/portal/reply    (pelapor membalas — butuh token tiket)
  *   POST /api/tickets/upload          (lampiran tiket)
@@ -48,6 +49,8 @@ function isPublicApi(pathname: string, method: string) {
   if (pathname === "/api/auth/login" && method === "POST") return true;
   if (pathname === "/api/tickets" && method === "POST") return true;
   if (pathname === "/api/tickets/track" && method === "GET") return true;
+  if (pathname === "/api/tickets/track/verify" && method === "POST")
+    return true;
   if (pathname === "/api/tickets/portal" && method === "GET") return true;
   if (pathname === "/api/tickets/portal/reply" && method === "POST")
     return true;

@@ -25,13 +25,16 @@ export const dynamic = "force-dynamic";
  *
  * - catatan internal admin  → disaring listMessages() (tanpa includeNotes)
  * - email & nomor WhatsApp  → tidak pernah masuk publicTicketView()
- * - nama pelapor            → sengaja tidak disertakan di sini; portal yang
- *                             dijaga token boleh menampilkannya, halaman
- *                             lacak tidak
+ * - nama pelapor            → IKUT ditampilkan, atas keputusan pemilik
+ *                             produk: percakapan tanpa nama terasa timpang
+ *                             ("Pelapor" berhadapan dengan "Admin SIGAP").
+ *                             Konsekuensinya nomor tiket ikut mengungkap
+ *                             nama karyawan
  * - hak MEMBALAS            → tetap butuh token portal. Tanpa itu, siapa pun
  *                             yang tahu nomor tiket bisa menulis atas nama
  *                             pelapor, dan itu lebih berbahaya daripada
- *                             sekadar membaca.
+ *                             sekadar membaca. Pelapor menukar emailnya
+ *                             dengan token lewat ./verify.
  *
  * Rate-limited: tanpa batas, endpoint ini bisa dipakai memanen percakapan
  * dengan menebak nomor tiket secara massal.
@@ -73,7 +76,7 @@ export async function GET(req: NextRequest) {
     }
     const messages = await listMessages(ticket.id);
     return NextResponse.json({
-      ticket: publicTicketView(ticket, { withReporterName: false }),
+      ticket: publicTicketView(ticket, { withReporterName: true }),
       messages: messages.map(publicMessageView),
     });
   } catch (e) {
