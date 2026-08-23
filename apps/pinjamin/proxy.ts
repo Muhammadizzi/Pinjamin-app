@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { AUTH_COOKIE } from "./lib/auth-types";
 import { verifySession } from "./lib/auth-edge";
+import { isPublicPage } from "./lib/public-paths";
 
 /**
  * Proteksi rute admin.
@@ -17,14 +18,6 @@ import { verifySession } from "./lib/auth-edge";
  *
  * API admin lainnya dicek lagi di handler (requireAuth + token version).
  */
-const PUBLIC_PAGES = new Set(["/", "/login"]);
-
-/**
- * Halaman portal pelapor: /tiket/TKT-XXXXXX?t=<token>.
- * Publik karena pelapor tidak punya akun — yang menjaganya adalah token di
- * URL, diverifikasi server saat halaman memanggil /api/tickets/portal.
- */
-const PUBLIC_PAGE_PREFIXES = ["/login", "/tiket/"];
 
 function isPublicAsset(pathname: string) {
   if (pathname.startsWith("/_next")) return true;
@@ -86,11 +79,7 @@ export default async function proxy(req: NextRequest) {
     return NextResponse.next();
   }
 
-  const isPublicPage =
-    PUBLIC_PAGES.has(pathname) ||
-    PUBLIC_PAGE_PREFIXES.some((p) => pathname.startsWith(p));
-
-  if (!session && !isPublicPage) {
+  if (!session && !isPublicPage(pathname)) {
     const url = req.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("next", pathname);

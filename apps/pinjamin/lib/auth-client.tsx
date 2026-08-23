@@ -11,6 +11,7 @@ import React, {
 import { usePathname, useRouter } from "next/navigation";
 import { useT } from "./i18n";
 import type { PublicAdmin } from "./auth-types";
+import { isPublicPage } from "./public-paths";
 
 type LoginResult = { ok: true } | { ok: false; error: string };
 
@@ -28,10 +29,6 @@ type AuthContextValue = {
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
-
-function isPublicPath(pathname: string) {
-  return pathname === "/" || pathname.startsWith("/login");
-}
 
 function cacheUsername(username: string) {
   try {
@@ -94,7 +91,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       router.replace("/dashboard");
       return;
     }
-    if (!user && !isPublicPath(pathname)) {
+    if (!user && !isPublicPage(pathname)) {
       router.replace("/login");
     }
   }, [loading, user, pathname, router]);

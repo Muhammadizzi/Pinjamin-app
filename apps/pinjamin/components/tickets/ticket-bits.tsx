@@ -219,17 +219,20 @@ export function MessageBubble({
   const isNote = message.kind === "NOTE";
   return (
     <div className={`flex ${mine ? "justify-end" : "justify-start"}`}>
+      {/* min-w-0 wajib: tanpanya anak flex menolak menyusut di bawah lebar
+          konten terpanjangnya, dan satu URL tanpa spasi cukup untuk membuat
+          gelembung melar melewati tepi kartu. */}
       <div
-        className={`max-w-[85%] rounded-2xl border px-3.5 py-2.5 ${
+        className={`min-w-0 max-w-[85%] rounded-2xl border px-3.5 py-2.5 ${
           isNote
-            ? "border-amber-400/25 bg-amber-400/5"
+            ? "border-amber-400/30 bg-amber-400/10"
             : mine
-            ? "border-[#CBA12C]/30 bg-[#CBA12C]/10"
+            ? "border-[#CBA12C]/40 bg-[#CBA12C]/15"
             : "border-[#243a5e] bg-[#0f1d33]"
         }`}
       >
-        <div className="mb-1 flex flex-wrap items-center gap-2">
-          <span className="text-[11px] font-semibold text-slate-300">
+        <div className="mb-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+          <span className="min-w-0 truncate text-[11px] font-semibold text-slate-300">
             {authorLabel}
           </span>
           {isNote && noteLabel && (
@@ -239,8 +242,15 @@ export function MessageBubble({
           )}
           <span className="text-[10px] text-slate-500">{timeLabel}</span>
         </div>
+        {/* overflow-wrap:anywhere, bukan break-words: tautan portal adalah satu
+            "kata" sepanjang 100+ karakter tanpa spasi, dan break-word saja
+            masih membiarkannya meluber di kolom sempit.
+
+            Tautan di dalam pesan sengaja TIDAK dijadikan anchor otomatis —
+            isi pesan datang dari pelapor, dan auto-link menjadikan thread
+            kendaraan phishing yang rapi ke arah admin. */}
         {message.body && (
-          <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-200">
+          <p className="whitespace-pre-wrap [overflow-wrap:anywhere] text-sm leading-relaxed text-slate-200">
             {message.body}
           </p>
         )}
