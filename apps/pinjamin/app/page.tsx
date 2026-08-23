@@ -9,16 +9,26 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatDateTime } from "@/lib/utils";
-import { PendingAttachments } from "@/components/tickets/ticket-bits";
+import {
+  MessageBubble,
+  PendingAttachments,
+  PriorityBadge,
+  SlaLine,
+  humanizeDuration,
+  type ThreadMessage,
+} from "@/components/tickets/ticket-bits";
 import { useAttachments } from "@/components/tickets/use-attachments";
 import {
   ATTACHMENTS_MAX,
   TICKET_CATEGORIES,
   TICKET_NUMBER_RE,
   TICKET_PRIORITIES,
+  slaState,
+  type TicketAttachment,
   type TicketPriority,
 } from "@/lib/ticket-shared";
 import {
+  DURATION_UNIT_ID,
   PRIORITY_HINT_ID,
   PRIORITY_LABEL_ID,
   statusMeta,
@@ -55,13 +65,25 @@ const FORM_KOSONG = {
   message: "",
 };
 
-interface TrackResult {
+interface TrackTicket {
   number: string;
   subject: string;
   category: string;
   status: string;
+  priority: TicketPriority;
+  message: string;
+  attachments: TicketAttachment[];
+  responseDueAt: string | null;
+  resolutionDueAt: string | null;
+  firstResponseAt: string | null;
+  resolvedAt: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+interface TrackResult {
+  ticket: TrackTicket;
+  messages: ThreadMessage[];
 }
 
 export default function LandingPage() {
@@ -135,7 +157,7 @@ export default function LandingPage() {
         return;
       }
       setTrackError("");
-      setTrackResult(j.ticket);
+      setTrackResult({ ticket: j.ticket, messages: j.messages || [] });
     } catch {
       setTrackResult(null);
       setTrackError("Tidak bisa terhubung ke server. Coba lagi.");
@@ -147,6 +169,24 @@ export default function LandingPage() {
   const submitTrack = (e: React.FormEvent) => {
     e.preventDefault();
     void runTrack(trackNumber);
+  };
+
+  // Jam dinding untuk sisa waktu SLA, disegarkan tiap menit. Dipanggil
+  // langsung saat render, badge "sisa 3 jam" akan membeku pada nilai render
+  // pertama sampai ada interaksi lain di halaman.
+  const [trackNow, setTrackNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setTrackNow(Date.now()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+
+  /** Teks sisa/telat untuk satu tenggat SLA di hasil lacak. */
+  const slaDetail = (dueAt: string | null, fulfilledAt: string | null) => {
+    if (!dueAt) return "—";
+    if (fulfilledAt) return formatDateTime(fulfilledAt);
+    const selisih = new Date(dueAt).getTime() - trackNow;
+    const teks = humanizeDuration(selisih, DURATION_UNIT_ID);
+    return selisih >= 0 ? `sisa ${teks}` : `telat ${teks}`;
   };
 
   // Dua tombol di navbar adalah SATU-SATUNYA jalan ke kedua bagian ini,
@@ -403,13 +443,13 @@ export default function LandingPage() {
                   </div>
                 )}
                 {trackResult && (
-                  <div className="rounded-2xl border border-[#243a5e] bg-[#0f1d33] p-3.5 sm:p-4 space-y-2">
+                  <div className="space-y-3 rounded-2xl border border-[#243a5e] bg-[#0f1d33] p-3.5 sm:p-4">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-mono font-bold text-amber-300">
-                        {trackResult.number}
+                        {trackResult.ticket.number}
                       </span>
                       {(() => {
-                        const meta = statusMeta(trackResult.status);
+                        const meta = statusMeta(trackResult.ticket.status);
                         return (
                           <span
                             className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${meta.cls}`}
@@ -421,20 +461,97 @@ export default function LandingPage() {
                           </span>
                         );
                       })()}
+                      <PriorityBadge
+                        priority={trackResult.ticket.priority}
+                        label={PRIORITY_LABEL_ID[trackResult.ticket.priority]}
+                      />
                     </div>
-                    <div className="font-semibold">{trackResult.subject}</div>
-                    <div className="text-xs text-slate-400">
-                      {trackResult.category} • dibuat{" "}
-                      {formatDateTime(trackResult.createdAt)} • update terakhir{" "}
-                      {formatDateTime(trackResult.updatedAt)}
+                    <div>
+                      <div className="font-semibold">
+                        {trackResult.ticket.subject}
+                      </div>
+                      <div className="text-xs text-slate-400">
+                        {trackResult.ticket.category} • dibuat{" "}
+                        {formatDateTime(trackResult.ticket.createdAt)}
+                      </div>
                     </div>
+
+                    {/* Target SLA — menjawab "kapan ini diurus?" tanpa perlu
+                        bertanya ke admin. */}
+                    <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+                      <SlaLine
+                        label="Target respons"
+                        state={slaState(
+                          trackResult.ticket.responseDueAt,
+                          trackResult.ticket.firstResponseAt,
+                          trackResult.ticket.createdAt,
+                          trackNow
+                        )}
+                        detail={slaDetail(
+                          trackResult.ticket.responseDueAt,
+                          trackResult.ticket.firstResponseAt
+                        )}
+                      />
+                      <SlaLine
+                        label="Target selesai"
+                        state={slaState(
+                          trackResult.ticket.resolutionDueAt,
+                          trackResult.ticket.resolvedAt,
+                          trackResult.ticket.createdAt,
+                          trackNow
+                        )}
+                        detail={slaDetail(
+                          trackResult.ticket.resolutionDueAt,
+                          trackResult.ticket.resolvedAt
+                        )}
+                      />
+                    </div>
+
+                    {/* Percakapan. Dibatasi tingginya karena kartu ini berbagi
+                        kolom dengan blok lain — thread panjang akan mendorong
+                        semuanya keluar layar. */}
+                    <div className="max-h-80 space-y-2.5 overflow-y-auto rounded-xl border border-[#243a5e] bg-[#12263f]/40 p-2.5">
+                      <MessageBubble
+                        message={{
+                          id: "awal",
+                          author: "USER",
+                          body: trackResult.ticket.message,
+                          attachments: trackResult.ticket.attachments,
+                          createdAt: trackResult.ticket.createdAt,
+                        }}
+                        mine
+                        authorLabel="Pelapor"
+                        timeLabel={formatDateTime(trackResult.ticket.createdAt)}
+                      />
+                      {trackResult.messages.map((m) => (
+                        <MessageBubble
+                          key={m.id}
+                          message={m}
+                          mine={m.author === "USER"}
+                          authorLabel={
+                            m.author === "USER" ? "Pelapor" : "Admin SIGAP"
+                          }
+                          timeLabel={formatDateTime(m.createdAt)}
+                        />
+                      ))}
+                    </div>
+
+                    {/* Membalas tetap butuh tautan pribadi: nomor tiket saja
+                        tidak membuktikan siapa yang mengetik. */}
+                    <p className="text-[11px] leading-relaxed text-slate-500">
+                      Ingin membalas? Buka tautan pribadi yang Anda terima saat
+                      membuat tiket. Bila hilang, minta tim SIGAP mengirimkannya
+                      ulang.
+                    </p>
                   </div>
                 )}
               </CardContent>
             </Card>
 
-            {/* Catatan privasi — akurat sesuai payload /api/tickets/track:
-                hanya nomor, subjek, kategori, status, dan waktu yang publik. */}
+            {/* Catatan privasi — HARUS cocok dengan payload
+                /api/tickets/track. Sejak halaman lacak menampilkan
+                percakapan, kalimat lama ("hanya nomor, subjek, kategori,
+                status, dan waktu") menjadi janji yang tidak lagi ditepati. */}
             <div className="rounded-2xl border border-[#243a5e] bg-[#12263f]/50 p-4 sm:p-5 flex gap-2.5 sm:gap-3">
               <ShieldCheck
                 className="h-5 w-5 text-emerald-400 shrink-0 mt-0.5"
@@ -445,9 +562,10 @@ export default function LandingPage() {
                   Privasi pelapor
                 </div>
                 <p className="text-[11px] sm:text-xs text-slate-400 leading-relaxed">
-                  Halaman lacak hanya menampilkan nomor, subjek, kategori,
-                  status, dan waktu update. Email, nomor WhatsApp, dan catatan
-                  internal tim tidak pernah ditampilkan ke publik.
+                  Halaman lacak menampilkan status dan percakapan tiket kepada
+                  siapa pun yang tahu nomornya — jadi bagikan nomor tiket
+                  seperlunya saja. Nama pelapor, email, nomor WhatsApp, dan
+                  catatan internal tim tidak pernah ditampilkan di sini.
                 </p>
               </div>
             </div>

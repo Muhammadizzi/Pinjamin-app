@@ -729,6 +729,60 @@ export async function loadDemoTickets(): Promise<Ticket[]> {
 }
 
 /* ------------------------------------------------------------------ */
+/* Payload publik                                                      */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Bentuk tiket yang boleh dilihat NON-ADMIN (halaman lacak & portal pelapor).
+ *
+ * Disusun eksplisit — bukan hasil menghapus field dari objek Ticket — supaya
+ * kolom baru di masa depan tidak ikut bocor hanya karena seseorang lupa
+ * menambahkannya ke daftar buangan. Yang TIDAK pernah masuk ke sini:
+ * accessToken, email, phone, adminNote, assetId.
+ *
+ * `withReporterName` dipisah karena kedua pemanggil punya syarat berbeda:
+ * portal dijaga token 256-bit sehingga wajar menyapa pelapor dengan namanya,
+ * sedangkan halaman lacak hanya bermodal nomor tiket 6 karakter — di sana
+ * nama pelapor adalah data pribadi yang tidak perlu ikut terbuka.
+ */
+export function publicTicketView(
+  t: Ticket,
+  opts: { withReporterName: boolean }
+) {
+  return {
+    number: t.number,
+    ...(opts.withReporterName ? { name: t.name } : {}),
+    subject: t.subject,
+    category: t.category,
+    status: t.status,
+    priority: t.priority,
+    message: t.message,
+    attachments: t.attachments,
+    responseDueAt: t.responseDueAt,
+    resolutionDueAt: t.resolutionDueAt,
+    firstResponseAt: t.firstResponseAt,
+    resolvedAt: t.resolvedAt,
+    createdAt: t.createdAt,
+    updatedAt: t.updatedAt,
+  };
+}
+
+/**
+ * Pesan tanpa id tiket internal. Catatan internal sudah tersaring lebih dulu
+ * di listMessages() — fungsi ini TIDAK menyaringnya, jadi jangan pernah
+ * memberinya hasil listMessages(id, true).
+ */
+export function publicMessageView(m: TicketMessage) {
+  return {
+    id: m.id,
+    author: m.author,
+    body: m.body,
+    attachments: m.attachments,
+    createdAt: m.createdAt,
+  };
+}
+
+/* ------------------------------------------------------------------ */
 /* Validasi                                                            */
 /* ------------------------------------------------------------------ */
 
@@ -799,12 +853,28 @@ export function validateNewTicket(
   };
 }
 
+/**
+ * Buang token portal yang tertulis di dalam isi pesan.
+ *
+ * Halaman lacak menampilkan percakapan kepada siapa pun yang tahu nomor
+ * tiket. Kalau admin menempelkan tautan portal ke dalam balasannya — hal
+ * yang sangat wajar dilakukan ("pantau di link ini ya") — maka tokennya
+ * ikut terbaca di sana, dan pembacanya bisa MEMBALAS atas nama pelapor.
+ *
+ * Token karena itu disensor saat pesan disimpan, bukan saat ditampilkan:
+ * yang sudah tersimpan utuh akan terus bocor di setiap tempat yang kelak
+ * menampilkannya.
+ */
+export function redactPortalTokens(text: string): string {
+  return text.replace(/([?&]t=)[a-f0-9]{32,}/gi, "$1***");
+}
+
 /** Validasi isi balasan (dipakai portal pelapor maupun panel admin). */
 export function validateMessageBody(
   body: unknown,
   attachments: TicketAttachment[]
 ): { error: string } | { text: string } {
-  const text = String(body ?? "").trim();
+  const text = redactPortalTokens(String(body ?? "").trim());
   if (text.length === 0 && attachments.length === 0)
     return { error: "Balasan tidak boleh kosong." };
   if (text.length > MESSAGE_MAX)
