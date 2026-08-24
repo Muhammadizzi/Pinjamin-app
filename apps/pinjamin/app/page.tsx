@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { formatDateTime } from "@/lib/utils";
+import { cn, formatDateTime } from "@/lib/utils";
 import {
   MessageBubble,
   PendingAttachments,
@@ -88,6 +88,57 @@ interface TrackTicket {
 interface TrackResult {
   ticket: TrackTicket;
   messages: ThreadMessage[];
+}
+
+/** Chip fitur SIGAP di kartu "Satu platform". */
+const SIGAP_FEATURES = [
+  { icon: Package, label: "Manajemen Aset" },
+  { icon: QrCode, label: "QR Scanner" },
+  { icon: CalendarRange, label: "Peminjaman" },
+  { icon: BarChart3, label: "Laporan" },
+  { icon: Headset, label: "Helpdesk" },
+];
+
+/**
+ * Kartu "Satu platform — SIGAP". Dirender dua kali dengan visibilitas yang
+ * saling meniadakan: di bawah lg muncul tepat setelah alur 3 langkah (jadi
+ * pembaca tahu tiket ini bagian dari sistem yang lebih besar sebelum mulai
+ * mengisi form), di lg kembali ke kolom kiri bersama Lacak Tiket. Dipisah
+ * jadi komponen supaya kolom kiri yang sticky tidak perlu dibongkar.
+ */
+function PlatformCard({ className }: { className?: string }) {
+  return (
+    <div
+      className={cn(
+        "rounded-2xl border border-[#243a5e] bg-[#12263f]/50 p-4 sm:p-5 space-y-2.5 sm:space-y-3",
+        className
+      )}
+    >
+      <div className="text-xs font-semibold tracking-widest uppercase text-slate-400">
+        Satu platform — SIGAP
+      </div>
+      {/* Kalimat penjelas disembunyikan di ponsel — chip fitur di
+          bawahnya sudah menyampaikan hal yang sama secara ringkas. */}
+      <p className="hidden sm:block text-xs text-slate-400 leading-relaxed">
+        Tiket Anda masuk ke sistem yang sama dengan katalog aset dan peminjaman,
+        jadi tim bisa langsung menautkannya ke aset terkait.
+      </p>
+      <div className="flex flex-wrap gap-1.5 sm:gap-2">
+        {SIGAP_FEATURES.map((f) => (
+          <span
+            key={f.label}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-[#243a5e] bg-[#0f1d33] px-2.5 py-1.5 text-[11px] font-medium text-slate-200 sm:gap-2 sm:px-3 sm:py-2 sm:text-xs"
+          >
+            <f.icon
+              className="h-3.5 w-3.5 text-amber-300 sm:h-4 sm:w-4"
+              strokeWidth={1.75}
+            />
+            {f.label}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export default function LandingPage() {
@@ -382,14 +433,6 @@ export default function LandingPage() {
     return () => clearTimeout(t);
   }, [trackNumber, runTrack]);
 
-  const sigapFeatures = [
-    { icon: Package, label: "Manajemen Aset" },
-    { icon: QrCode, label: "QR Scanner" },
-    { icon: CalendarRange, label: "Peminjaman" },
-    { icon: BarChart3, label: "Laporan" },
-    { icon: Headset, label: "Helpdesk" },
-  ];
-
   /** Alur helpdesk dalam 3 langkah — menjawab "habis kirim, terus apa?". */
   const steps = [
     {
@@ -541,36 +584,21 @@ export default function LandingPage() {
           </div>
         </section>
 
+        {/* Di bawah lg kartu platform naik ke sini — di grid utama kolom
+            kirinya ber-order-last (form didahulukan), sehingga kalau tetap
+            di sana kartu ini terlempar ke paling bawah halaman. */}
+        <section className="pb-8 sm:pb-12 lg:hidden">
+          <PlatformCard />
+        </section>
+
         {/* Grid utama: kiri = platform + lacak, kanan = form tiket.
             Di mobile form didahulukan (order-first) karena aksi utamanya. */}
         <section className="pb-10 sm:pb-14 flex flex-col lg:grid lg:grid-cols-2 gap-4 sm:gap-6 items-start">
-          <div className="space-y-4 sm:space-y-6 w-full order-last lg:order-none lg:sticky lg:top-6">
+          {/* flex+gap, bukan space-y: kartu platform di-hidden sampai lg dan
+              space-y tetap menempelkan margin-top ke Lacak Tiket. */}
+          <div className="flex flex-col gap-4 sm:gap-6 w-full order-last lg:order-none lg:sticky lg:top-6">
             {/* Satu platform: manajemen aset + Ticketing */}
-            <div className="rounded-2xl border border-[#243a5e] bg-[#12263f]/50 p-4 sm:p-5 space-y-2.5 sm:space-y-3">
-              <div className="text-xs font-semibold tracking-widest uppercase text-slate-400">
-                Satu platform — SIGAP
-              </div>
-              {/* Kalimat penjelas disembunyikan di ponsel — chip fitur di
-                  bawahnya sudah menyampaikan hal yang sama secara ringkas. */}
-              <p className="hidden sm:block text-xs text-slate-400 leading-relaxed">
-                Tiket Anda masuk ke sistem yang sama dengan katalog aset dan
-                peminjaman, jadi tim bisa langsung menautkannya ke aset terkait.
-              </p>
-              <div className="flex flex-wrap gap-1.5 sm:gap-2">
-                {sigapFeatures.map((f) => (
-                  <span
-                    key={f.label}
-                    className="inline-flex items-center gap-1.5 rounded-xl border border-[#243a5e] bg-[#0f1d33] px-2.5 py-1.5 text-[11px] font-medium text-slate-200 sm:gap-2 sm:px-3 sm:py-2 sm:text-xs"
-                  >
-                    <f.icon
-                      className="h-3.5 w-3.5 text-amber-300 sm:h-4 sm:w-4"
-                      strokeWidth={1.75}
-                    />
-                    {f.label}
-                  </span>
-                ))}
-              </div>
-            </div>
+            <PlatformCard className="hidden lg:block" />
 
             {/* Lacak tiket — status muncul otomatis */}
             <Card
