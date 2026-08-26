@@ -29,6 +29,9 @@ import {
   ChevronDown,
   UserCog,
   LifeBuoy,
+  Repeat2,
+  Loader2,
+  ArrowLeft,
 } from "lucide-react";
 
 interface AdminProfileInfo {
@@ -104,6 +107,182 @@ function AdminAvatar({
   );
 }
 
+interface AkunRingkas {
+  username: string;
+  fullName: string;
+  role: AdminRole;
+  workingOrder: string | null;
+}
+
+/**
+ * Panel "Ganti akun" — berpindah meja tanpa mengetik ulang nama pengguna.
+ *
+ * Ini TETAP login penuh, bukan jalan pintas: yang dipakai adalah endpoint
+ * /api/auth/login yang sama, lengkap dengan bcrypt, rate limit per IP, dan
+ * token version. Yang dihemat hanya pengetikan nama pengguna — kata sandi
+ * akun tujuan tetap wajib, dan sesi lama digantikan sepenuhnya oleh sesi
+ * akun baru. Tidak ada mekanisme "kembali tanpa sandi".
+ */
+function PanelGantiAkun({ onClose }: { onClose: () => void }) {
+  const { t } = useT();
+  const [akun, setAkun] = useState<AkunRingkas[]>([]);
+  const [current, setCurrent] = useState("");
+  const [memuat, setMemuat] = useState(true);
+  const [dipilih, setDipilih] = useState<AkunRingkas | null>(null);
+  const [sandi, setSandi] = useState("");
+  const [masuk, setMasuk] = useState(false);
+  const [galat, setGalat] = useState("");
+
+  useEffect(() => {
+    let batal = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/auth/accounts", { cache: "no-store" });
+        const j = await res.json().catch(() => ({}));
+        if (!batal && res.ok) {
+          setAkun(j.accounts || []);
+          setCurrent(j.current || "");
+        }
+      } catch {
+        /* daftar kosong ditangani di render */
+      } finally {
+        if (!batal) setMemuat(false);
+      }
+    })();
+    return () => {
+      batal = true;
+    };
+  }, []);
+
+  const kirim = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!dipilih) return;
+    setMasuk(true);
+    setGalat("");
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: dipilih.username,
+          password: sandi,
+          remember: true,
+        }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setGalat(j.error || t("loginFailed"));
+        return;
+      }
+      // Muat ulang penuh, bukan navigasi client-side: seluruh state di memori
+      // (store aset, profil, daftar tiket) milik akun LAMA, dan membawanya
+      // ke sesi baru akan menampilkan data meja yang bukan miliknya.
+      window.location.replace(
+        j.profile?.role === "HELPDESK" ? "/tickets" : "/dashboard"
+      );
+    } catch {
+      setGalat(t("serverUnreachableRetry"));
+    } finally {
+      setMasuk(false);
+    }
+  };
+
+  const lain = akun.filter((a) => a.username !== current);
+
+  return (
+    <div className="p-3 space-y-2.5">
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={onClose}
+          className="rounded-lg p-1 text-slate-400 transition-colors hover:bg-white/10 hover:text-white"
+          aria-label="Kembali"
+        >
+          <ArrowLeft className="h-4 w-4" />
+        </button>
+        <span className="text-sm font-semibold text-white">Ganti akun</span>
+      </div>
+
+      {memuat ? (
+        <div className="flex items-center justify-center gap-2 py-4 text-xs text-slate-400">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" /> Memuat…
+        </div>
+      ) : dipilih ? (
+        <form onSubmit={kirim} className="space-y-2">
+          <div className="rounded-lg border border-[#2a4a6b] bg-[#142a4a] px-2.5 py-2">
+            <div className="text-sm font-semibold text-white">
+              {dipilih.fullName}
+            </div>
+            <div className="text-[11px] text-amber-200/70">
+              @{dipilih.username}
+            </div>
+          </div>
+          <input
+            type="password"
+            value={sandi}
+            onChange={(e) => setSandi(e.target.value)}
+            placeholder="Kata sandi"
+            autoComplete="current-password"
+            autoFocus
+            className="h-10 w-full rounded-lg border border-[#2a4a6b] bg-[#0f1d33] px-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-[#CBA12C]"
+          />
+          {galat && (
+            <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-2.5 py-1.5 text-[11px] text-red-300">
+              {galat}
+            </div>
+          )}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setDipilih(null);
+                setSandi("");
+                setGalat("");
+              }}
+              className="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-300 transition-colors hover:bg-white/10"
+            >
+              Batal
+            </button>
+            <button
+              type="submit"
+              disabled={masuk || sandi.length === 0}
+              className="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-[#CBA12C] px-3 py-1.5 text-xs font-bold text-[#1a365d] transition-colors hover:bg-[#d4b44a] disabled:opacity-60"
+            >
+              {masuk && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              {masuk ? "Masuk…" : "Masuk"}
+            </button>
+          </div>
+        </form>
+      ) : lain.length === 0 ? (
+        <div className="py-3 text-center text-[11px] text-slate-500">
+          Tidak ada akun lain.
+        </div>
+      ) : (
+        <ul className="space-y-1">
+          {lain.map((a) => (
+            <li key={a.username}>
+              <button
+                type="button"
+                onClick={() => setDipilih(a)}
+                className="w-full rounded-lg border border-[#2a4a6b] px-2.5 py-2 text-left transition-colors hover:bg-[#243a5e]"
+              >
+                <div className="text-sm font-medium text-slate-100">
+                  {a.fullName}
+                </div>
+                <div className="text-[11px] text-slate-400">
+                  @{a.username}
+                  {a.workingOrder ? ` • ${a.workingOrder}` : " • Aset"}
+                </div>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const { t } = useT();
@@ -115,6 +294,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
     pathname.startsWith("/bookings")
   );
   const [acctOpen, setAcctOpen] = useState(false);
+  const [gantiAkun, setGantiAkun] = useState(false);
   const acctRef = useRef<HTMLDivElement>(null);
 
   // Tutup popover saat klik di luar / berpindah halaman
@@ -128,7 +308,10 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
     document.addEventListener("mousedown", onDown);
     return () => document.removeEventListener("mousedown", onDown);
   }, [acctOpen]);
-  useEffect(() => setAcctOpen(false), [pathname]);
+  useEffect(() => {
+    setAcctOpen(false);
+    setGantiAkun(false);
+  }, [pathname]);
 
   const handleLogout = async () => {
     setAcctOpen(false);
@@ -349,26 +532,47 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
         {/* Popover: klik blok administrator → Account Setting / Log Out */}
         {acctOpen && (
           <div className="absolute left-4 right-4 bottom-[calc(100%-0.75rem)] mb-1 rounded-xl bg-[#1e3250] border border-[#2a4a6b] shadow-2xl overflow-hidden z-30">
-            <Link
-              href="/settings"
-              onClick={() => {
-                setAcctOpen(false);
-                onNavigate?.();
-              }}
-              className="flex items-center gap-2.5 px-4 py-3 text-sm font-medium text-slate-200 hover:bg-[#243a5e] hover:text-white transition-colors"
-            >
-              <UserCog className="h-4 w-4 text-amber-300" strokeWidth={1.75} />
-              {t("accountSetting")}
-            </Link>
-            <div className="h-px bg-[#2a4a6b]" />
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="w-full flex items-center gap-2.5 px-4 py-3 text-sm font-medium text-red-300 hover:bg-[#243a5e] hover:text-red-200 transition-colors"
-            >
-              <LogOut className="h-4 w-4" strokeWidth={1.75} />
-              {t("logOut")}
-            </button>
+            {gantiAkun ? (
+              <PanelGantiAkun onClose={() => setGantiAkun(false)} />
+            ) : (
+              <>
+                <Link
+                  href="/settings"
+                  onClick={() => {
+                    setAcctOpen(false);
+                    onNavigate?.();
+                  }}
+                  className="flex items-center gap-2.5 px-4 py-3 text-sm font-medium text-slate-200 hover:bg-[#243a5e] hover:text-white transition-colors"
+                >
+                  <UserCog
+                    className="h-4 w-4 text-amber-300"
+                    strokeWidth={1.75}
+                  />
+                  {t("accountSetting")}
+                </Link>
+                <div className="h-px bg-[#2a4a6b]" />
+                <button
+                  type="button"
+                  onClick={() => setGantiAkun(true)}
+                  className="w-full flex items-center gap-2.5 px-4 py-3 text-sm font-medium text-slate-200 hover:bg-[#243a5e] hover:text-white transition-colors"
+                >
+                  <Repeat2
+                    className="h-4 w-4 text-amber-300"
+                    strokeWidth={1.75}
+                  />
+                  Ganti akun
+                </button>
+                <div className="h-px bg-[#2a4a6b]" />
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="w-full flex items-center gap-2.5 px-4 py-3 text-sm font-medium text-red-300 hover:bg-[#243a5e] hover:text-red-200 transition-colors"
+                >
+                  <LogOut className="h-4 w-4" strokeWidth={1.75} />
+                  {t("logOut")}
+                </button>
+              </>
+            )}
           </div>
         )}
         <button

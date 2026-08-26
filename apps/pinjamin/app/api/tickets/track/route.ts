@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { clientIp, trackLimiter } from "@/lib/auth";
-import { getTicketByNumber, publicTicketView } from "@/lib/tickets";
+import {
+  getTicketByNumber,
+  listMessages,
+  publicMessageView,
+  publicTicketView,
+} from "@/lib/tickets";
 import { TICKET_NUMBER_RE } from "@/lib/ticket-shared";
 
 export const runtime = "nodejs";
@@ -9,26 +14,31 @@ export const dynamic = "force-dynamic";
 /**
  * GET /api/tickets/track?number=GA-0001 — PUBLIK.
  *
- * Melacak STATUS sebuah tiket dengan nomornya saja. Percakapan TIDAK lagi
- * ikut dikirim: membalas dari halaman lacak sudah dihapus, dan mengirim
- * thread yang tidak dipakai siapa pun hanya memperlebar apa yang bocor dari
- * sekadar mengetahui sebuah nomor tiket. Balasan admin dibaca pelapor lewat
- * portal pribadinya (/tiket/<nomor>?t=<token>).
+ * Melacak sebuah tiket dengan nomornya saja: status, prioritas, isi pesan,
+ * DAN balasan admin. Percakapan kembali ikut atas keputusan pemilik produk —
+ * pelapor tidak lagi harus membuka tautan portal pribadinya hanya untuk
+ * membaca jawaban tim.
+ *
+ * Percakapannya BACA-SAJA. Menulis tetap tertutup rapat: satu-satunya jalur
+ * tulis ke thread adalah endpoint admin, dan endpoint balas pelapor sudah
+ * dihapus dari sistem.
  *
  * Yang TIDAK pernah keluar dari sini:
  *
- * - percakapan & catatan internal → tidak lagi dimuat sama sekali
- * - email & nomor WhatsApp        → tidak pernah masuk publicTicketView()
- * - token portal                  → satu-satunya sumbernya tetap respons
- *                                   POST /api/tickets
+ * - catatan internal      → listMessages() tanpa includeNotes; fiturnya pun
+ *                           sudah dihapus, tapi baris NOTE lama masih ada di
+ *                           database dan tidak boleh ikut terbawa
+ * - email & nomor WhatsApp → tidak pernah masuk publicTicketView()
+ * - token portal           → satu-satunya sumbernya tetap respons
+ *                            POST /api/tickets
  *
- * ⚠️ Yang MASIH keluar: nama pelapor, subjek, dan isi pesan pertama. Sejak
- * nomor tiket berjalan berurutan per working order (GA-0001, GA-0002, ...),
- * menebak nomor tiket orang lain tidak lagi butuh keberuntungan — cukup
- * menghitung. Rate limit di bawah memperlambat pemanenan massal, tapi tidak
- * menghentikannya; kalau kelak isi tiket dianggap rahasia, endpoint inilah
- * yang harus menuntut bukti kepemilikan (mis. email pelapor), bukan
- * nomornya yang dibuat sulit ditebak lagi.
+ * ⚠️ Yang terbuka lebar, dan itu disengaja: nomor tiket berjalan berurutan
+ * (GA-0001, GA-0002, ...) DAN dipampang di daftar publik landing page. Jadi
+ * siapa pun bisa menyalin sebuah nomor lalu membaca nama pelapor, isi
+ * keluhannya, serta seluruh balasan admin untuk tiket itu. Rate limit di
+ * bawah hanya menahan pemanenan massal, bukan pembacaan satu per satu.
+ * Kalau kelak isi tiket dianggap rahasia, endpoint INILAH yang harus
+ * menuntut bukti kepemilikan — bukan nomornya yang dibuat sulit ditebak lagi.
  */
 export async function GET(req: NextRequest) {
   const rate = trackLimiter.check(`track:${clientIp(req)}`);
@@ -65,8 +75,10 @@ export async function GET(req: NextRequest) {
         { status: 404 }
       );
     }
+    const messages = await listMessages(ticket.id);
     return NextResponse.json({
       ticket: publicTicketView(ticket, { withReporterName: true }),
+      messages: messages.map(publicMessageView),
     });
   } catch (e) {
     console.error("[tickets track]", e);

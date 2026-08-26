@@ -10,9 +10,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn, formatDateTime } from "@/lib/utils";
 import {
-  AttachmentList,
+  MessageBubble,
   PendingAttachments,
   PriorityBadge,
+  type ThreadMessage,
 } from "@/components/tickets/ticket-bits";
 import { useAttachments } from "@/components/tickets/use-attachments";
 import {
@@ -188,6 +189,8 @@ export default function LandingPage() {
   const [tracking, setTracking] = useState(false);
   const [trackError, setTrackError] = useState("");
   const [trackResult, setTrackResult] = useState<TrackTicket | null>(null);
+  /** Balasan admin untuk tiket yang sedang dilacak. Baca-saja. */
+  const [trackMessages, setTrackMessages] = useState<ThreadMessage[]>([]);
 
   const submitTicket = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -236,13 +239,16 @@ export default function LandingPage() {
       const j = await res.json().catch(() => ({}));
       if (!res.ok) {
         setTrackResult(null);
+        setTrackMessages([]);
         setTrackError(j.error || "Tiket tidak ditemukan.");
         return;
       }
       setTrackError("");
       setTrackResult(j.ticket);
+      setTrackMessages(j.messages || []);
     } catch {
       setTrackResult(null);
+      setTrackMessages([]);
       setTrackError("Tidak bisa terhubung ke server. Coba lagi.");
     } finally {
       setTracking(false);
@@ -279,6 +285,7 @@ export default function LandingPage() {
     const n = trackNumber.trim().toUpperCase();
     if (!n || !TICKET_NUMBER_RE.test(n)) {
       setTrackResult(null);
+      setTrackMessages([]);
       setTrackError("");
       return;
     }
@@ -516,26 +523,43 @@ export default function LandingPage() {
                       </div>
                     </div>
 
-                    {/* Isi tiket yang DIKIRIM pelapor — bukan percakapan.
-                        Balasan tim dibaca di portal pribadi, yang dijaga
-                        token; halaman ini cukup dengan nomor tiket, dan nomor
-                        tiket beredar di grup. */}
-                    <div className="rounded-xl border border-[#243a5e] bg-[#12263f]/40 p-3">
-                      <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-                        Pesan yang dikirim
-                      </div>
-                      <p className="mt-1.5 whitespace-pre-wrap [overflow-wrap:anywhere] text-sm leading-relaxed text-slate-300">
-                        {trackResult.message}
-                      </p>
-                      <AttachmentList
-                        items={trackResult.attachments}
-                        className="mt-2.5"
+                    {/* Percakapan — BACA-SAJA.
+                        Pesan pertama adalah isi tiket itu sendiri, sisanya
+                        balasan admin. Tidak ada kotak tulis di sini: menulis
+                        ke thread hanya bisa dari panel admin, dan halaman ini
+                        cukup dibuka dengan nomor tiket. */}
+                    <div className="max-h-80 space-y-2.5 overflow-y-auto rounded-xl border border-[#243a5e] bg-[#12263f]/40 p-2.5">
+                      <MessageBubble
+                        message={{
+                          id: "awal",
+                          author: "USER",
+                          body: trackResult.message,
+                          attachments: trackResult.attachments,
+                          createdAt: trackResult.createdAt,
+                        }}
+                        mine
+                        authorLabel={trackResult.name}
+                        timeLabel={formatDateTime(trackResult.createdAt)}
                       />
+                      {trackMessages.map((m) => (
+                        <MessageBubble
+                          key={m.id}
+                          message={m}
+                          mine={m.author === "USER"}
+                          authorLabel={
+                            m.author === "USER"
+                              ? trackResult.name
+                              : "Admin SIGAP"
+                          }
+                          timeLabel={formatDateTime(m.createdAt)}
+                        />
+                      ))}
                     </div>
 
                     <p className="text-[11px] leading-relaxed text-slate-500">
-                      Balasan dari tim SIGAP dibaca lewat tautan tiket pribadi
-                      yang Anda terima saat membuat tiket.
+                      {trackMessages.length === 0
+                        ? "Belum ada balasan dari tim SIGAP. Balasannya akan muncul di sini."
+                        : "Halaman ini hanya untuk membaca — balasan tim muncul otomatis, dan Anda tidak perlu menyimpan tautan apa pun."}
                     </p>
                   </div>
                 )}
@@ -561,8 +585,8 @@ export default function LandingPage() {
               <CardContent className="space-y-2.5">
                 <p className="text-[11px] leading-relaxed text-slate-500">
                   Tiket yang masuk {RECENT_TICKETS_DAYS} hari terakhir, dari
-                  seluruh pelapor. Untuk melihat detail sebuah tiket, masukkan
-                  nomornya di Lacak Tiket di atas.
+                  seluruh pelapor. Status dan perkembangannya hanya terlihat di
+                  Lacak Tiket — masukkan nomor tiketnya di atas.
                 </p>
                 {terbaruLoading ? (
                   <div className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-[#243a5e] px-3 py-4 text-xs text-slate-500">
@@ -576,7 +600,6 @@ export default function LandingPage() {
                 ) : (
                   <ul className="max-h-96 space-y-1.5 overflow-y-auto">
                     {terbaru.map((r) => {
-                      const meta = statusMeta(r.status);
                       return (
                         <li
                           key={r.number}
@@ -585,14 +608,6 @@ export default function LandingPage() {
                           <div className="flex items-center gap-2">
                             <span className="font-mono text-xs font-bold text-amber-300">
                               {r.number}
-                            </span>
-                            <span
-                              className={`inline-flex items-center gap-1 rounded-full border px-1.5 py-px text-[10px] font-semibold ${meta.cls}`}
-                            >
-                              <span
-                                className={`h-1 w-1 rounded-full ${meta.dot}`}
-                              />
-                              {meta.label}
                             </span>
                             <span className="ml-auto shrink-0 text-[10px] text-slate-500">
                               {formatDateTime(r.createdAt)}

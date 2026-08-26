@@ -517,6 +517,11 @@ export async function listRecentTickets(
  * Isi pesan TIDAK ikut: itu bagian yang paling mungkin memuat detail pribadi
  * atau rahasia operasional, dan pembaca yang memang berhak sudah bisa
  * membukanya lewat Lacak Tiket dengan nomornya.
+ *
+ * STATUS dan PRIORITAS juga tidak ikut, atas keputusan pemilik produk:
+ * keduanya hanya boleh dibaca lewat Lacak Tiket. Daftar ini menjawab "tiket
+ * apa saja yang masuk", bukan "sudah sampai mana" — kalau statusnya sudah
+ * terbaca di sini, tidak ada lagi alasan orang mengetik nomor tiketnya.
  */
 export function publicRecentView(t: Ticket) {
   return {
@@ -524,7 +529,6 @@ export function publicRecentView(t: Ticket) {
     name: t.name,
     subject: t.subject,
     workingOrder: t.workingOrder,
-    status: t.status,
     createdAt: t.createdAt,
   };
 }

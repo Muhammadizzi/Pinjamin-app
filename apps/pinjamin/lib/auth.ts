@@ -332,6 +332,38 @@ const isMissingColumn = (message: string) =>
     message
   );
 
+/**
+ * Semua akun admin, untuk pemilih akun saat berpindah meja.
+ *
+ * TIDAK mengembalikan hash — pemanggilnya wajib melewatkannya lewat
+ * toPublicAdmin(). Daftar ini hanya boleh keluar ke pemegang sesi admin yang
+ * sah: nama pengguna bukan rahasia besar, tapi memberikannya cuma-cuma ke
+ * publik berarti menyerahkan separuh kredensial kepada penebak sandi.
+ */
+export async function listAdminAccounts(): Promise<AdminProfile[]> {
+  const supa = getSupabaseAdmin();
+  if (supa) {
+    for (const columns of ADMIN_SELECTS) {
+      const { data, error } = await supa
+        .from("admins")
+        .select(columns)
+        .order("created_at", { ascending: true })
+        .limit(50);
+      if (!error) {
+        return ((data as unknown as Record<string, unknown>[]) || []).map(
+          mapDbAdmin
+        );
+      }
+      if (!isMissingColumn(error.message)) return [];
+    }
+    return [];
+  }
+
+  // Backend file / env hanya sanggup menampung satu admin.
+  const satu = (await loadFromFile()) || (await fallbackProfile());
+  return satu ? [satu] : [];
+}
+
 async function selectAdmin(
   build: (
     columns: string
