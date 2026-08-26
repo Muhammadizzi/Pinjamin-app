@@ -17,6 +17,7 @@ import {
 import { useAttachments } from "@/components/tickets/use-attachments";
 import {
   ATTACHMENTS_MAX,
+  RECENT_TICKETS_DAYS,
   TICKET_NUMBER_RE,
   WORKING_ORDERS,
   type TicketAttachment,
@@ -28,11 +29,7 @@ import {
   WORKING_ORDER_HINT_ID,
   statusMeta,
 } from "@/lib/ticket-labels-id";
-import {
-  bacaRiwayat,
-  catatRiwayat,
-  type RiwayatTiket,
-} from "@/lib/ticket-history";
+
 import {
   LifeBuoy,
   Send,
@@ -65,6 +62,16 @@ const FORM_KOSONG = {
   subject: "",
   message: "",
 };
+
+/** Satu baris di daftar tiket terbaru — lihat publicRecentView di server. */
+interface TiketTerbaru {
+  number: string;
+  name: string;
+  subject: string;
+  workingOrder: string;
+  status: string;
+  createdAt: string;
+}
 
 /**
  * Bentuk tiket di halaman lacak — sengaja lebih sempit dari yang dikirim
@@ -153,12 +160,28 @@ export default function LandingPage() {
     failed: "Gagal mengunggah lampiran.",
   });
 
-  // --- Riwayat tiket perangkat ini ---
-  // Dibaca setelah mount, bukan sebagai nilai awal useState: localStorage
-  // tidak ada saat render server, dan nilai awal yang berbeda antara server
-  // dan client memicu hydration mismatch.
-  const [riwayat, setRiwayat] = useState<RiwayatTiket[]>([]);
-  useEffect(() => setRiwayat(bacaRiwayat()), []);
+  // --- Tiket terbaru (daftar publik) ---
+  // Dulu riwayat per-peramban di localStorage. Diganti daftar dari server
+  // atas keputusan pemilik produk: riwayat lokal hilang begitu pelapor
+  // berganti perangkat, padahal tiketnya masih ada.
+  const [terbaru, setTerbaru] = useState<TiketTerbaru[]>([]);
+  const [terbaruLoading, setTerbaruLoading] = useState(true);
+
+  const muatTerbaru = useCallback(async () => {
+    try {
+      const res = await fetch("/api/tickets/recent", { cache: "no-store" });
+      const j = await res.json().catch(() => ({}));
+      if (res.ok) setTerbaru(j.tickets || []);
+    } catch {
+      /* daftar ini pelengkap — kegagalannya tidak boleh menahan halaman */
+    } finally {
+      setTerbaruLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void muatTerbaru();
+  }, [muatTerbaru]);
 
   // --- Lacak tiket ---
   const [trackNumber, setTrackNumber] = useState("");
@@ -183,15 +206,9 @@ export default function LandingPage() {
       }
       setCreated({ number: j.number, portalPath: j.portalPath });
       setTrackNumber(j.number);
-      setRiwayat(
-        catatRiwayat({
-          number: j.number,
-          name: form.name,
-          subject: form.subject,
-          workingOrder: form.workingOrder,
-          createdAt: j.createdAt || new Date().toISOString(),
-        })
-      );
+      // Tiket baru harus langsung terlihat di daftar, bukan menunggu muat
+      // ulang halaman — itu yang membuat orang mengira tiketnya gagal masuk.
+      void muatTerbaru();
       attach.reset();
     } catch {
       setFormError("Tidak bisa terhubung ke server. Coba lagi.");
@@ -525,67 +542,76 @@ export default function LandingPage() {
               </CardContent>
             </Card>
 
-            {/* Riwayat tiket perangkat ini.
-                SELALU dirender, termasuk saat masih kosong. Versi sebelumnya
-                menyembunyikan kartu ini sampai ada isinya — akibatnya orang
-                yang belum pernah mengirim tiket dari peramban ini tidak punya
-                cara tahu bahwa riwayat itu ada, dan menyimpulkan fiturnya
-                hilang. Keadaan kosong yang menjelaskan dirinya sendiri lebih
-                murah daripada fitur yang tak pernah ditemukan. */}
+            {/* Daftar tiket terbaru — PUBLIK.
+                Judulnya sengaja bukan lagi "Tiket Anda": isinya tiket semua
+                orang, dan label kepemilikan pada daftar milik bersama akan
+                menyesatkan pembacanya sendiri. */}
             <Card className="border-[#243a5e]">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-lg">
                   <History className="h-5 w-5 text-amber-300" />
-                  Tiket Anda
+                  Tiket Terbaru
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2.5">
                 <p className="text-[11px] leading-relaxed text-slate-500">
-                  Tiket yang dikirim dari perangkat ini. Tersimpan di peramban
-                  Anda selama 7 hari, lalu terhapus sendiri.
+                  Tiket yang masuk {RECENT_TICKETS_DAYS} hari terakhir, dari
+                  seluruh pelapor. Ketuk salah satu untuk melihat statusnya.
                 </p>
-                {riwayat.length === 0 ? (
+                {terbaruLoading ? (
+                  <div className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-[#243a5e] px-3 py-4 text-xs text-slate-500">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    Memuat…
+                  </div>
+                ) : terbaru.length === 0 ? (
                   <div className="rounded-xl border border-dashed border-[#243a5e] px-3 py-4 text-center text-xs text-slate-500">
-                    Belum ada tiket dari perangkat ini. Begitu Anda mengirim
-                    tiket, nomornya muncul di sini.
+                    Belum ada tiket dalam {RECENT_TICKETS_DAYS} hari terakhir.
                   </div>
                 ) : (
-                  <ul className="space-y-1.5">
-                    {riwayat.map((r) => (
-                      <li key={r.number}>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setTrackNumber(r.number);
-                            document
-                              .getElementById("lacak")
-                              ?.scrollIntoView({ block: "start" });
-                          }}
-                          className="w-full rounded-xl border border-[#243a5e] bg-[#0f1d33] px-3 py-2 text-left transition-colors hover:border-slate-500"
-                        >
-                          <div className="flex items-center gap-2">
-                            <span className="font-mono text-xs font-bold text-amber-300">
-                              {r.number}
-                            </span>
-                            <span className="ml-auto shrink-0 text-[10px] text-slate-500">
-                              {formatDateTime(r.createdAt)}
-                            </span>
-                          </div>
-                          <div className="mt-0.5 truncate text-[13px] text-slate-300">
-                            {r.subject}
-                          </div>
-                          {/* Nama pelapor. Riwayat lama tersimpan tanpa nama,
-                              jadi barisnya hilang seluruhnya alih-alih
-                              menyisakan ikon dengan teks kosong. */}
-                          {r.name && (
+                  <ul className="max-h-96 space-y-1.5 overflow-y-auto">
+                    {terbaru.map((r) => {
+                      const meta = statusMeta(r.status);
+                      return (
+                        <li key={r.number}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setTrackNumber(r.number);
+                              document
+                                .getElementById("lacak")
+                                ?.scrollIntoView({ block: "start" });
+                            }}
+                            className="w-full rounded-xl border border-[#243a5e] bg-[#0f1d33] px-3 py-2 text-left transition-colors hover:border-slate-500"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono text-xs font-bold text-amber-300">
+                                {r.number}
+                              </span>
+                              <span
+                                className={`inline-flex items-center gap-1 rounded-full border px-1.5 py-px text-[10px] font-semibold ${meta.cls}`}
+                              >
+                                <span
+                                  className={`h-1 w-1 rounded-full ${meta.dot}`}
+                                />
+                                {meta.label}
+                              </span>
+                              <span className="ml-auto shrink-0 text-[10px] text-slate-500">
+                                {formatDateTime(r.createdAt)}
+                              </span>
+                            </div>
+                            <div className="mt-0.5 truncate text-[13px] text-slate-300">
+                              {r.subject}
+                            </div>
                             <div className="mt-1 flex items-center gap-1.5 text-[11px] text-slate-500">
                               <UserRound className="h-3 w-3 shrink-0" />
                               <span className="truncate">{r.name}</span>
+                              <span className="shrink-0">•</span>
+                              <span className="shrink-0">{r.workingOrder}</span>
                             </div>
-                          )}
-                        </button>
-                      </li>
-                    ))}
+                          </button>
+                        </li>
+                      );
+                    })}
                   </ul>
                 )}
               </CardContent>
@@ -602,13 +628,16 @@ export default function LandingPage() {
               />
               <div className="space-y-1">
                 <div className="text-[13px] sm:text-sm font-semibold">
-                  Privasi pelapor
+                  Yang terlihat publik
                 </div>
                 <p className="text-[11px] sm:text-xs text-slate-400 leading-relaxed">
-                  Halaman lacak menampilkan nama pelapor, status, dan isi tiket
-                  kepada siapa pun yang tahu nomor tiketnya — jadi bagikan nomor
-                  tiket seperlunya saja. Email, nomor WhatsApp, balasan tim, dan
-                  catatan internal tidak pernah ditampilkan di sini.
+                  Daftar <span className="font-semibold">Tiket Terbaru</span> di
+                  halaman ini terbuka untuk siapa pun: nomor, nama pelapor,
+                  subjek, dan statusnya terbaca tanpa login. Isi pesan dan
+                  lampiran tidak ikut di daftar, tapi bisa dibuka lewat Lacak
+                  Tiket dengan nomornya. Email, nomor WhatsApp, dan balasan tim
+                  tidak pernah ditampilkan di sini — pertimbangkan itu saat
+                  menulis subjek tiket.
                 </p>
               </div>
             </div>

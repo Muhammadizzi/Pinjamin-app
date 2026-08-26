@@ -25,6 +25,8 @@ import { getSupabaseAdmin } from "./supabase-server";
 import {
   ATTACHMENTS_MAX,
   MESSAGE_MAX,
+  RECENT_TICKETS_DAYS,
+  RECENT_TICKETS_MAX,
   TICKET_TOKEN_RE,
   WORKING_ORDER_PREFIX,
   formatTicketNumber,
@@ -469,6 +471,62 @@ export async function getTicketById(id: string): Promise<Ticket | null> {
     return data ? rowToTicket(data) : null;
   }
   return loadFile().find((t) => t.id === id) || null;
+}
+
+/**
+ * Tiket yang dibuat dalam RECENT_TICKETS_DAYS hari terakhir.
+ *
+ * Dipakai daftar publik di landing page. Penyaring waktunya di level query
+ * supaya tiket lama tidak pernah ikut terbawa keluar database — daftar ini
+ * memang untuk dibaca siapa pun, jadi yang tidak diminta tidak boleh ikut
+ * terangkut hanya karena mudah.
+ */
+export async function listRecentTickets(
+  now: number = Date.now()
+): Promise<Ticket[]> {
+  const batas = new Date(
+    now - RECENT_TICKETS_DAYS * 24 * 60 * 60 * 1000
+  ).toISOString();
+
+  const supa = getSupabaseAdmin();
+  if (supa) {
+    const { data, error } = await supa
+      .from(TABLE)
+      .select("*")
+      .gte("created_at", batas)
+      .order("created_at", { ascending: false })
+      .limit(RECENT_TICKETS_MAX);
+    if (error) throw new Error(error.message);
+    return (data || []).map(rowToTicket);
+  }
+  return [...loadFile()]
+    .filter((t) => t.createdAt >= batas)
+    .sort(byNewest)
+    .slice(0, RECENT_TICKETS_MAX);
+}
+
+/**
+ * Bentuk satu baris di daftar publik landing page.
+ *
+ * Sengaja JAUH lebih sempit dari publicTicketView(): tanpa isi pesan, tanpa
+ * lampiran, tanpa email/telepon, tanpa token. Daftar ini tampil kepada siapa
+ * pun yang membuka landing page tanpa login — termasuk orang di luar
+ * Garudafood — jadi setiap kolom di sini adalah keputusan sadar untuk
+ * membukanya ke publik, bukan sisa dari objek yang kebetulan lewat.
+ *
+ * Isi pesan TIDAK ikut: itu bagian yang paling mungkin memuat detail pribadi
+ * atau rahasia operasional, dan pembaca yang memang berhak sudah bisa
+ * membukanya lewat Lacak Tiket dengan nomornya.
+ */
+export function publicRecentView(t: Ticket) {
+  return {
+    number: t.number,
+    name: t.name,
+    subject: t.subject,
+    workingOrder: t.workingOrder,
+    status: t.status,
+    createdAt: t.createdAt,
+  };
 }
 
 /**

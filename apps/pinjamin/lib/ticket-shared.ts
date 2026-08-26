@@ -134,6 +134,16 @@ export function slaDeadlines(createdAt: string, priority: TicketPriority) {
  */
 
 /* ------------------------------------------------------------------ */
+/* Daftar tiket terbaru (publik)                                       */
+/* ------------------------------------------------------------------ */
+
+/** Rentang daftar tiket terbaru di landing page. */
+export const RECENT_TICKETS_DAYS = 7;
+
+/** Batas jumlah baris yang dikirim ke landing page. */
+export const RECENT_TICKETS_MAX = 30;
+
+/* ------------------------------------------------------------------ */
 /* Nomor tiket & token portal                                          */
 /* ------------------------------------------------------------------ */
 
