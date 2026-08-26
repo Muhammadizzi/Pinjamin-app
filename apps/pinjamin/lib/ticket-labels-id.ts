@@ -9,7 +9,11 @@
  *
  * Teks panel ADMIN tetap di lib/messages.ts (ID/EN).
  */
-import type { TicketPriority, TicketStatus } from "./ticket-shared";
+import type {
+  TicketPriority,
+  TicketStatus,
+  WorkingOrder,
+} from "./ticket-shared";
 
 export const STATUS_LABEL_ID: Record<TicketStatus, string> = {
   OPEN: "Open",
@@ -50,19 +54,19 @@ export const PRIORITY_LABEL_ID: Record<TicketPriority, string> = {
   URGENT: "Mendesak",
 };
 
-/** Penjelasan singkat tiap prioritas di form tiket publik. */
-export const PRIORITY_HINT_ID: Record<TicketPriority, string> = {
-  LOW: "Tidak mengganggu pekerjaan",
-  MEDIUM: "Mengganggu, masih ada cara lain",
-  HIGH: "Pekerjaan terhambat",
-  URGENT: "Produksi/operasional berhenti",
-};
-
-/** Satuan durasi untuk humanizeDuration() di halaman publik. */
-export const DURATION_UNIT_ID = {
-  minutes: "{count} menit",
-  hours: "{count} jam",
-  days: "{count} hari",
+/**
+ * Penjelasan singkat tiap working order di form tiket publik.
+ *
+ * Menggantikan penjelasan prioritas yang dulu ada di sini: pelapor tidak lagi
+ * memilih prioritas, dan satu-satunya pilihan yang kini benar-benar
+ * menentukan nasib tiket adalah MEJA MANA yang menerimanya. Salah memilih di
+ * sini berarti tiket menunggu di antrean yang salah, jadi keterangannya
+ * memakai contoh barang, bukan definisi.
+ */
+export const WORKING_ORDER_HINT_ID: Record<WorkingOrder, string> = {
+  GA: "ATK, kendaraan dinas, kebersihan, perizinan",
+  Utility: "Listrik, air, AC, genset, mesin produksi",
+  IT: "Laptop, jaringan, akun, aplikasi",
 };
 
 /** Badge status siap pakai: kelas + label dalam satu panggilan. */

@@ -4,27 +4,16 @@ import Image from "next/image";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatDateTime } from "@/lib/utils";
 import {
   MessageBubble,
-  PendingAttachments,
   PriorityBadge,
-  SlaLine,
-  humanizeDuration,
   type ThreadMessage,
 } from "@/components/tickets/ticket-bits";
-import { useAttachments } from "@/components/tickets/use-attachments";
+import { PRIORITY_LABEL_ID, statusMeta } from "@/lib/ticket-labels-id";
 import {
-  DURATION_UNIT_ID,
-  PRIORITY_LABEL_ID,
-  statusMeta,
-} from "@/lib/ticket-labels-id";
-import {
-  ATTACHMENTS_MAX,
   TICKET_NUMBER_RE,
-  evaluateSla,
   type TicketAttachment,
   type TicketPriority,
   type TicketStatus,
@@ -35,13 +24,11 @@ import {
   Loader2,
   LifeBuoy,
   MessageSquare,
-  Paperclip,
-  Send,
   ShieldCheck,
 } from "lucide-react";
 
 /**
- * Portal pelapor — /tiket/TKT-XXXXXX?t=<token>.
+ * Portal pelapor — /tiket/GA-0001?t=<token>.
  *
  * Halaman publik: pelapor tidak punya akun. Yang menjaga isinya adalah token
  * 256-bit di query string, diverifikasi server pada tiap panggilan
@@ -54,7 +41,7 @@ interface PortalTicket {
   number: string;
   name: string;
   subject: string;
-  category: string;
+  workingOrder: string;
   status: TicketStatus;
   priority: TicketPriority;
   message: string;
@@ -120,25 +107,7 @@ function PortalInner() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
 
-  const [draft, setDraft] = useState("");
-  const [sending, setSending] = useState(false);
-  const [sendError, setSendError] = useState("");
-  const fileRef = useRef<HTMLInputElement>(null);
   const threadEndRef = useRef<HTMLDivElement>(null);
-
-  const attach = useAttachments({
-    tooMany: `Maksimal ${ATTACHMENTS_MAX} lampiran per pesan.`,
-    failed: "Gagal mengunggah lampiran.",
-  });
-
-  // Jam dinding untuk sisa waktu SLA, disegarkan tiap menit. Hook harus di
-  // sini — di atas semua early-return — agar urutan hook tetap sama pada
-  // render "memuat", "gagal", dan "berhasil".
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 60_000);
-    return () => clearInterval(id);
-  }, []);
 
   const load = useCallback(
     async (silent = false) => {
@@ -179,52 +148,17 @@ function PortalInner() {
   }, [load]);
 
   // Muat ulang senyap tiap 30 detik supaya balasan admin muncul tanpa perlu
-  // refresh manual. Dijeda saat pelapor sedang mengetik agar draft tidak
-  // bersaing dengan render ulang.
+  // refresh manual. Tidak ada lagi draft yang bisa tertimpa: halaman ini
+  // sekarang baca-saja.
   useEffect(() => {
-    if (!ticket || draft.length > 0) return;
+    if (!ticket) return;
     const id = setInterval(() => void load(true), 30000);
     return () => clearInterval(id);
-  }, [ticket, draft, load]);
+  }, [ticket, load]);
 
   useEffect(() => {
     threadEndRef.current?.scrollIntoView({ block: "nearest" });
   }, [messages.length]);
-
-  const sendReply = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!ticket) return;
-    const body = draft.trim();
-    if (!body && attach.items.length === 0) return;
-
-    setSending(true);
-    setSendError("");
-    try {
-      const res = await fetch("/api/tickets/portal/reply", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          number: ticket.number,
-          token,
-          body,
-          attachments: attach.items,
-        }),
-      });
-      const j = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setSendError(j.error || "Gagal mengirim balasan.");
-        return;
-      }
-      setMessages((prev) => [...prev, j.message]);
-      setTicket((prev) => (prev ? { ...prev, status: j.status } : prev));
-      setDraft("");
-      attach.reset();
-    } catch {
-      setSendError("Tidak bisa terhubung ke server. Coba lagi.");
-    } finally {
-      setSending(false);
-    }
-  };
 
   if (loading) {
     return (
@@ -262,18 +196,6 @@ function PortalInner() {
   const meta = statusMeta(ticket.status);
   const closed = ticket.status === "CLOSED";
 
-  const sla = evaluateSla(ticket, now);
-
-  /** Teks sisa/telat untuk satu tenggat, dalam bahasa pelapor. */
-  const slaDetail = (leg: {
-    remainingMs: number;
-    fulfilledAt: string | null;
-  }) => {
-    if (leg.fulfilledAt) return formatDateTime(leg.fulfilledAt);
-    const teks = humanizeDuration(leg.remainingMs, DURATION_UNIT_ID);
-    return leg.remainingMs >= 0 ? `sisa ${teks}` : `telat ${teks}`;
-  };
-
   return (
     <div className="space-y-4 py-6 sm:space-y-6 sm:py-10">
       {/* Ringkasan tiket */}
@@ -300,26 +222,8 @@ function PortalInner() {
               {ticket.subject}
             </h1>
             <p className="mt-1 text-xs text-slate-400">
-              {ticket.category} • dibuat {formatDateTime(ticket.createdAt)}
+              {ticket.workingOrder} • dibuat {formatDateTime(ticket.createdAt)}
             </p>
-          </div>
-
-          <div className="flex flex-wrap gap-x-4 gap-y-1.5 rounded-xl border border-[#243a5e] bg-[#0f1d33] px-3.5 py-2.5">
-            <SlaLine
-              label="Target respons"
-              state={sla.response.state}
-              detail={slaDetail(sla.response)}
-            />
-            <SlaLine
-              label="Target selesai"
-              state={sla.resolution.state}
-              detail={slaDetail(sla.resolution)}
-            />
-            {sla.paused && (
-              <span className="rounded-full border border-slate-500/40 bg-slate-500/10 px-2 py-0.5 text-[10px] font-semibold text-slate-400">
-                dijeda — menunggu balasan Anda
-              </span>
-            )}
           </div>
         </CardContent>
       </Card>
@@ -358,84 +262,26 @@ function PortalInner() {
           ))}
           <div ref={threadEndRef} />
 
-          {/* Form balas */}
-          {closed ? (
-            <div className="rounded-xl border border-[#243a5e] bg-[#0f1d33] px-3.5 py-3 text-center text-xs text-slate-400">
-              Tiket ini sudah ditutup. Bila kendalanya berulang, silakan{" "}
-              <Link href="/#buat-tiket" className="text-amber-300">
-                buat tiket baru
-              </Link>
-              .
-            </div>
-          ) : (
-            <form onSubmit={sendReply} className="space-y-2 pt-1">
-              <Textarea
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                rows={3}
-                placeholder="Tulis balasan untuk tim SIGAP..."
-                className="min-h-[84px] rounded-xl bg-[#0f1d33]"
-              />
-
-              <PendingAttachments
-                items={attach.items}
-                onRemove={attach.remove}
-                removeLabel="Hapus lampiran"
-              />
-
-              {(attach.error || sendError) && (
-                <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
-                  {attach.error || sendError}
-                </div>
-              )}
-
-              <div className="flex items-center gap-2">
-                <input
-                  ref={fileRef}
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp,image/gif"
-                  multiple
-                  hidden
-                  onChange={(e) => {
-                    void attach.add(e.target.files);
-                    e.target.value = "";
-                  }}
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="rounded-xl"
-                  disabled={attach.uploading}
-                  onClick={() => fileRef.current?.click()}
-                >
-                  {attach.uploading ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Paperclip className="h-4 w-4" />
-                  )}
-                  Lampiran
-                </Button>
-                <Button
-                  type="submit"
-                  size="sm"
-                  className="ml-auto rounded-xl font-bold"
-                  disabled={
-                    sending ||
-                    attach.uploading ||
-                    (draft.trim().length === 0 && attach.items.length === 0)
-                  }
-                >
-                  {sending ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Send className="h-4 w-4" />
-                  )}
-                  {sending ? "Mengirim..." : "Kirim"}
-                </Button>
-              </div>
-            </form>
-          )}
+          {/* Halaman ini BACA-SAJA. Percakapan tiket berjalan satu arah:
+              hanya admin yang menulis. Tanpa keterangan ini, pelapor akan
+              menunggu kotak balasan yang tidak akan pernah muncul. */}
+          <div className="rounded-xl border border-[#243a5e] bg-[#0f1d33] px-3.5 py-3 text-center text-xs text-slate-400">
+            {closed ? (
+              <>
+                Tiket ini sudah ditutup. Bila kendalanya berulang, silakan{" "}
+                <Link href="/#buat-tiket" className="text-amber-300">
+                  buat tiket baru
+                </Link>
+                .
+              </>
+            ) : (
+              <>
+                Balasan tim SIGAP muncul di sini. Bila ada yang perlu Anda
+                tambahkan, hubungi tim lewat kontak yang mereka berikan pada
+                balasan di atas.
+              </>
+            )}
+          </div>
         </CardContent>
       </Card>
 

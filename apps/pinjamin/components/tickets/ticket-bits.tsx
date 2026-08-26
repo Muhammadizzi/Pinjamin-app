@@ -1,10 +1,9 @@
 "use client";
 import { useState } from "react";
-import { Paperclip, ShieldAlert, Clock3, CheckCircle2, X } from "lucide-react";
+import { Paperclip, ShieldAlert, X } from "lucide-react";
 import type {
   MessageAuthor,
   MessageKind,
-  SlaState,
   TicketAttachment,
   TicketPriority,
 } from "@/lib/ticket-shared";
@@ -18,28 +17,6 @@ import type {
  * masuk lewat props. Yang dibagikan adalah bentuk & warnanya, supaya
  * "Mendesak" terlihat sama merahnya di kedua tempat.
  */
-
-/* ------------------------------------------------------------------ */
-/* Durasi                                                              */
-/* ------------------------------------------------------------------ */
-
-/**
- * Ubah selisih milidetik jadi satu satuan terbesar yang masih masuk akal:
- * "3 hari", "5 jam", "20 menit". Sengaja satu satuan — badge SLA di daftar
- * tiket hanya punya ruang beberapa karakter, dan "2 hari 7 jam 13 menit"
- * tidak membuat keputusan admin jadi lebih baik.
- */
-export function humanizeDuration(
-  ms: number,
-  unit: { minutes: string; hours: string; days: string }
-): string {
-  const abs = Math.abs(ms);
-  const minutes = Math.round(abs / 60_000);
-  if (minutes < 60) return unit.minutes.replace("{count}", String(minutes));
-  const hours = Math.round(abs / 3_600_000);
-  if (hours < 24) return unit.hours.replace("{count}", String(hours));
-  return unit.days.replace("{count}", String(Math.round(abs / 86_400_000)));
-}
 
 /* ------------------------------------------------------------------ */
 /* Prioritas                                                           */
@@ -65,48 +42,6 @@ export function PriorityBadge({
     >
       {priority === "URGENT" && <ShieldAlert className="h-3 w-3" />}
       {label}
-    </span>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* SLA                                                                 */
-/* ------------------------------------------------------------------ */
-
-const SLA_CLS: Record<SlaState, string> = {
-  MET: "text-emerald-400",
-  DUE: "text-slate-400",
-  WARNING: "text-amber-300",
-  BREACHED: "text-red-400",
-};
-
-/**
- * Satu baris SLA: "Respons · sisa 3 jam".
- * `state` sudah dihitung slaState() di lib/ticket-shared agar admin dan
- * pelapor tidak pernah melihat penilaian yang berbeda atas tiket yang sama.
- */
-export function SlaLine({
-  label,
-  state,
-  detail,
-}: {
-  label: string;
-  state: SlaState;
-  detail: string;
-}) {
-  const Icon =
-    state === "MET"
-      ? CheckCircle2
-      : state === "BREACHED"
-      ? ShieldAlert
-      : Clock3;
-  return (
-    <span
-      className={`inline-flex items-center gap-1.5 text-[11px] font-medium ${SLA_CLS[state]}`}
-    >
-      <Icon className="h-3.5 w-3.5 shrink-0" />
-      <span className="text-slate-500">{label}</span>
-      {detail}
     </span>
   );
 }

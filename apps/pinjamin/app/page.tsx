@@ -10,29 +10,29 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn, formatDateTime } from "@/lib/utils";
 import {
-  MessageBubble,
+  AttachmentList,
   PendingAttachments,
   PriorityBadge,
-  SlaLine,
-  humanizeDuration,
-  type ThreadMessage,
 } from "@/components/tickets/ticket-bits";
 import { useAttachments } from "@/components/tickets/use-attachments";
 import {
   ATTACHMENTS_MAX,
-  TICKET_CATEGORIES,
   TICKET_NUMBER_RE,
-  TICKET_PRIORITIES,
-  evaluateSla,
+  WORKING_ORDERS,
   type TicketAttachment,
   type TicketPriority,
+  type WorkingOrder,
 } from "@/lib/ticket-shared";
 import {
-  DURATION_UNIT_ID,
-  PRIORITY_HINT_ID,
   PRIORITY_LABEL_ID,
+  WORKING_ORDER_HINT_ID,
   statusMeta,
 } from "@/lib/ticket-labels-id";
+import {
+  bacaRiwayat,
+  catatRiwayat,
+  type RiwayatTiket,
+} from "@/lib/ticket-history";
 import {
   LifeBuoy,
   Send,
@@ -50,9 +50,10 @@ import {
   FileText,
   Hash,
   Paperclip,
-  Mail,
   ExternalLink,
   ShieldCheck,
+  History,
+  UserRound,
 } from "lucide-react";
 
 /** Nilai awal form — dipakai saat mula-mula dan saat "Buat Tiket Lain". */
@@ -60,34 +61,28 @@ const FORM_KOSONG = {
   name: "",
   email: "",
   phone: "",
-  category: TICKET_CATEGORIES[0] as string,
-  priority: "MEDIUM" as TicketPriority,
+  workingOrder: WORKING_ORDERS[0] as WorkingOrder,
   subject: "",
   message: "",
 };
 
+/**
+ * Bentuk tiket di halaman lacak — sengaja lebih sempit dari yang dikirim
+ * /api/tickets/track. Tenggat SLA memang ikut di payload (portal pelapor
+ * memakainya), tapi halaman ini TIDAK menampilkannya: pelapor tidak lagi
+ * memilih prioritas, jadi menampilkan "target selesai" yang lahir dari
+ * prioritas hanya memajang janji yang tidak ia mengerti asalnya.
+ */
 interface TrackTicket {
   number: string;
   name: string;
   subject: string;
-  category: string;
+  workingOrder: string;
   status: string;
   priority: TicketPriority;
   message: string;
   attachments: TicketAttachment[];
-  responseDueAt: string | null;
-  resolutionDueAt: string | null;
-  firstResponseAt: string | null;
-  resolvedAt: string | null;
-  slaPausedAt: string | null;
-  slaPausedMs: number;
   createdAt: string;
-  updatedAt: string;
-}
-
-interface TrackResult {
-  ticket: TrackTicket;
-  messages: ThreadMessage[];
 }
 
 /** Chip fitur SIGAP di kartu "Satu platform". */
@@ -158,11 +153,18 @@ export default function LandingPage() {
     failed: "Gagal mengunggah lampiran.",
   });
 
+  // --- Riwayat tiket perangkat ini ---
+  // Dibaca setelah mount, bukan sebagai nilai awal useState: localStorage
+  // tidak ada saat render server, dan nilai awal yang berbeda antara server
+  // dan client memicu hydration mismatch.
+  const [riwayat, setRiwayat] = useState<RiwayatTiket[]>([]);
+  useEffect(() => setRiwayat(bacaRiwayat()), []);
+
   // --- Lacak tiket ---
   const [trackNumber, setTrackNumber] = useState("");
   const [tracking, setTracking] = useState(false);
   const [trackError, setTrackError] = useState("");
-  const [trackResult, setTrackResult] = useState<TrackResult | null>(null);
+  const [trackResult, setTrackResult] = useState<TrackTicket | null>(null);
 
   const submitTicket = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -181,6 +183,15 @@ export default function LandingPage() {
       }
       setCreated({ number: j.number, portalPath: j.portalPath });
       setTrackNumber(j.number);
+      setRiwayat(
+        catatRiwayat({
+          number: j.number,
+          name: form.name,
+          subject: form.subject,
+          workingOrder: form.workingOrder,
+          createdAt: j.createdAt || new Date().toISOString(),
+        })
+      );
       attach.reset();
     } catch {
       setFormError("Tidak bisa terhubung ke server. Coba lagi.");
@@ -212,7 +223,7 @@ export default function LandingPage() {
         return;
       }
       setTrackError("");
-      setTrackResult({ ticket: j.ticket, messages: j.messages || [] });
+      setTrackResult(j.ticket);
     } catch {
       setTrackResult(null);
       setTrackError("Tidak bisa terhubung ke server. Coba lagi.");
@@ -224,181 +235,6 @@ export default function LandingPage() {
   const submitTrack = (e: React.FormEvent) => {
     e.preventDefault();
     void runTrack(trackNumber);
-  };
-
-  // Jam dinding untuk sisa waktu SLA, disegarkan tiap menit. Dipanggil
-  // langsung saat render, badge "sisa 3 jam" akan membeku pada nilai render
-  // pertama sampai ada interaksi lain di halaman.
-  const [trackNow, setTrackNow] = useState(() => Date.now());
-  useEffect(() => {
-    const id = setInterval(() => setTrackNow(Date.now()), 60_000);
-    return () => clearInterval(id);
-  }, []);
-
-  /* ---------------- Balas dari halaman lacak ---------------- */
-
-  const [balasDraft, setBalasDraft] = useState("");
-  const [mintaEmail, setMintaEmail] = useState(false);
-  const [emailKonfirmasi, setEmailKonfirmasi] = useState("");
-  const [memverifikasi, setMemverifikasi] = useState(false);
-  const [mengirimBalasan, setMengirimBalasan] = useState(false);
-  const [balasError, setBalasError] = useState("");
-  const balasFileRef = useRef<HTMLInputElement>(null);
-  const attachBalas = useAttachments({
-    tooMany: `Maksimal ${ATTACHMENTS_MAX} lampiran per balasan.`,
-    failed: "Gagal mengunggah lampiran.",
-  });
-
-  /**
-   * Token portal disimpan di sessionStorage, per nomor tiket.
-   *
-   * sessionStorage, bukan localStorage: ia ikut hilang saat tab ditutup,
-   * sehingga hak membalas tidak tertinggal di komputer bersama — dan di
-   * pabrik, satu PC dipakai bergantian antar shift. Konsekuensinya pelapor
-   * mengonfirmasi emailnya sekali per sesi, bukan sekali seumur hidup.
-   */
-  const kunciSesi = (number: string) => `sigap_tiket_token_${number}`;
-
-  const ambilToken = (number: string): string | null => {
-    try {
-      return sessionStorage.getItem(kunciSesi(number));
-    } catch {
-      return null;
-    }
-  };
-
-  const simpanToken = (number: string, token: string) => {
-    try {
-      sessionStorage.setItem(kunciSesi(number), token);
-    } catch {
-      /* mode privat / storage penuh — cukup tanya email lagi nanti */
-    }
-  };
-
-  /** Kirim balasan memakai token yang sudah dipegang. */
-  const kirimDenganToken = useCallback(
-    async (
-      number: string,
-      token: string,
-      isi: string,
-      lampiran: TicketAttachment[]
-    ) => {
-      const res = await fetch("/api/tickets/portal/reply", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          number,
-          token,
-          body: isi,
-          attachments: lampiran,
-        }),
-      });
-      const j = await res.json().catch(() => ({}));
-      return { ok: res.ok, status: res.status, j };
-    },
-    []
-  );
-
-  const kirimBalasanLacak = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!trackResult) return;
-    const number = trackResult.ticket.number;
-    const isi = balasDraft.trim();
-    if (!isi && attachBalas.items.length === 0) return;
-
-    setBalasError("");
-    const token = ambilToken(number);
-    // Belum pernah dikonfirmasi di sesi ini → minta emailnya dulu.
-    if (!token) {
-      setMintaEmail(true);
-      return;
-    }
-
-    setMengirimBalasan(true);
-    try {
-      const { ok, status, j } = await kirimDenganToken(
-        number,
-        token,
-        isi,
-        attachBalas.items
-      );
-      if (!ok) {
-        // Token tersimpan ternyata tidak berlaku (tiket dihapus & dibuat
-        // ulang, dsb.) — jangan buntu, minta konfirmasi email lagi.
-        if (status === 404) {
-          setMintaEmail(true);
-          return;
-        }
-        setBalasError(j.error || "Gagal mengirim balasan.");
-        return;
-      }
-      setBalasDraft("");
-      attachBalas.reset();
-      await runTrack(number);
-    } catch {
-      setBalasError("Tidak bisa terhubung ke server. Coba lagi.");
-    } finally {
-      setMengirimBalasan(false);
-    }
-  };
-
-  /** Tukar email dengan token, lalu langsung kirim balasan yang tertunda. */
-  const konfirmasiEmail = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!trackResult) return;
-    const number = trackResult.ticket.number;
-
-    setMemverifikasi(true);
-    setBalasError("");
-    try {
-      const res = await fetch("/api/tickets/track/verify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ number, email: emailKonfirmasi }),
-      });
-      const j = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setBalasError(j.error || "Email tidak cocok dengan tiket ini.");
-        return;
-      }
-
-      simpanToken(number, j.token);
-      setMintaEmail(false);
-      setEmailKonfirmasi("");
-
-      const isi = balasDraft.trim();
-      if (!isi && attachBalas.items.length === 0) return;
-
-      setMengirimBalasan(true);
-      const kirim = await kirimDenganToken(
-        number,
-        j.token,
-        isi,
-        attachBalas.items
-      );
-      if (!kirim.ok) {
-        setBalasError(kirim.j.error || "Gagal mengirim balasan.");
-        return;
-      }
-      setBalasDraft("");
-      attachBalas.reset();
-      await runTrack(number);
-    } catch {
-      setBalasError("Tidak bisa terhubung ke server. Coba lagi.");
-    } finally {
-      setMemverifikasi(false);
-      setMengirimBalasan(false);
-    }
-  };
-
-  /** Teks sisa/telat untuk satu tenggat SLA di hasil lacak. */
-  const slaDetail = (leg: {
-    remainingMs: number;
-    fulfilledAt: string | null;
-  }) => {
-    if (leg.fulfilledAt) return formatDateTime(leg.fulfilledAt);
-    const teks = humanizeDuration(leg.remainingMs, DURATION_UNIT_ID);
-    return leg.remainingMs >= 0 ? `sisa ${teks}` : `telat ${teks}`;
   };
 
   // Dua tombol di navbar adalah SATU-SATUNYA jalan ke kedua bagian ini,
@@ -443,12 +279,12 @@ export default function LandingPage() {
     {
       icon: Hash,
       title: "Simpan nomor",
-      desc: "Anda langsung dapat nomor tiket, mis. TKT-8F3K2A.",
+      desc: "Anda langsung dapat nomor tiket, mis. GA-0007 atau IT-0012.",
     },
     {
       icon: Search,
-      title: "Balas & pantau",
-      desc: "Tempel nomornya di Lacak Tiket untuk membaca dan membalas jawaban tim.",
+      title: "Pantau status",
+      desc: "Tempel nomornya di Lacak Tiket untuk melihat perkembangannya.",
     },
   ];
 
@@ -618,7 +454,7 @@ export default function LandingPage() {
                     ref={trackInputRef}
                     value={trackNumber}
                     onChange={(e) => setTrackNumber(e.target.value)}
-                    placeholder="TKT-XXXXXX"
+                    placeholder="GA-0001"
                     className="h-11 rounded-xl font-mono uppercase pl-10 pr-10"
                     autoComplete="off"
                   />
@@ -635,10 +471,10 @@ export default function LandingPage() {
                   <div className="space-y-3 rounded-2xl border border-[#243a5e] bg-[#0f1d33] p-3.5 sm:p-4">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-mono font-bold text-amber-300">
-                        {trackResult.ticket.number}
+                        {trackResult.number}
                       </span>
                       {(() => {
-                        const meta = statusMeta(trackResult.ticket.status);
+                        const meta = statusMeta(trackResult.status);
                         return (
                           <span
                             className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${meta.cls}`}
@@ -651,218 +487,114 @@ export default function LandingPage() {
                         );
                       })()}
                       <PriorityBadge
-                        priority={trackResult.ticket.priority}
-                        label={PRIORITY_LABEL_ID[trackResult.ticket.priority]}
+                        priority={trackResult.priority}
+                        label={PRIORITY_LABEL_ID[trackResult.priority]}
                       />
                     </div>
                     <div>
-                      <div className="font-semibold">
-                        {trackResult.ticket.subject}
-                      </div>
+                      <div className="font-semibold">{trackResult.subject}</div>
                       <div className="text-xs text-slate-400">
-                        {trackResult.ticket.category} • dibuat{" "}
-                        {formatDateTime(trackResult.ticket.createdAt)}
+                        {trackResult.workingOrder} • dibuat{" "}
+                        {formatDateTime(trackResult.createdAt)}
                       </div>
                     </div>
 
-                    {/* Target SLA — menjawab "kapan ini diurus?" tanpa perlu
-                        bertanya ke admin. */}
-                    {(() => {
-                      const sla = evaluateSla(trackResult.ticket, trackNow);
-                      return (
-                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
-                          <SlaLine
-                            label="Target respons"
-                            state={sla.response.state}
-                            detail={slaDetail(sla.response)}
-                          />
-                          <SlaLine
-                            label="Target selesai"
-                            state={sla.resolution.state}
-                            detail={slaDetail(sla.resolution)}
-                          />
-                          {sla.paused && (
-                            <span className="rounded-full border border-slate-500/40 bg-slate-500/10 px-2 py-0.5 text-[10px] font-semibold text-slate-400">
-                              dijeda — menunggu balasan Anda
-                            </span>
-                          )}
-                        </div>
-                      );
-                    })()}
-
-                    {/* Percakapan. Dibatasi tingginya karena kartu ini berbagi
-                        kolom dengan blok lain — thread panjang akan mendorong
-                        semuanya keluar layar. */}
-                    <div className="max-h-80 space-y-2.5 overflow-y-auto rounded-xl border border-[#243a5e] bg-[#12263f]/40 p-2.5">
-                      <MessageBubble
-                        message={{
-                          id: "awal",
-                          author: "USER",
-                          body: trackResult.ticket.message,
-                          attachments: trackResult.ticket.attachments,
-                          createdAt: trackResult.ticket.createdAt,
-                        }}
-                        mine
-                        authorLabel={trackResult.ticket.name}
-                        timeLabel={formatDateTime(trackResult.ticket.createdAt)}
+                    {/* Isi tiket yang DIKIRIM pelapor — bukan percakapan.
+                        Balasan tim dibaca di portal pribadi, yang dijaga
+                        token; halaman ini cukup dengan nomor tiket, dan nomor
+                        tiket beredar di grup. */}
+                    <div className="rounded-xl border border-[#243a5e] bg-[#12263f]/40 p-3">
+                      <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                        Pesan yang dikirim
+                      </div>
+                      <p className="mt-1.5 whitespace-pre-wrap [overflow-wrap:anywhere] text-sm leading-relaxed text-slate-300">
+                        {trackResult.message}
+                      </p>
+                      <AttachmentList
+                        items={trackResult.attachments}
+                        className="mt-2.5"
                       />
-                      {trackResult.messages.map((m) => (
-                        <MessageBubble
-                          key={m.id}
-                          message={m}
-                          mine={m.author === "USER"}
-                          authorLabel={
-                            m.author === "USER"
-                              ? trackResult.ticket.name
-                              : "Admin SIGAP"
-                          }
-                          timeLabel={formatDateTime(m.createdAt)}
-                        />
-                      ))}
                     </div>
 
-                    {/* Kotak balas. Membaca cukup dengan nomor tiket, tapi
-                        MENULIS menuntut pelapor mengonfirmasi emailnya sekali
-                        per sesi — nomor tiket saja tidak membuktikan siapa
-                        yang mengetik, dan nomor itu lazim beredar di grup. */}
-                    {mintaEmail ? (
-                      <form
-                        onSubmit={konfirmasiEmail}
-                        className="space-y-2 rounded-xl border border-amber-400/30 bg-amber-400/5 p-3"
-                      >
-                        <div className="flex items-start gap-2">
-                          <Mail className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
-                          <div className="space-y-1">
-                            <div className="text-[13px] font-semibold">
-                              Konfirmasi email Anda
-                            </div>
-                            <p className="text-[11px] leading-relaxed text-slate-400">
-                              Sebelum membalas, masukkan email yang Anda pakai
-                              saat membuat tiket ini. Cukup sekali selama tab
-                              ini terbuka.
-                            </p>
-                          </div>
-                        </div>
-                        <Input
-                          type="email"
-                          value={emailKonfirmasi}
-                          onChange={(e) => setEmailKonfirmasi(e.target.value)}
-                          placeholder="nama@garudafood.co.id"
-                          className="h-10 rounded-xl"
-                          autoComplete="email"
-                          inputMode="email"
-                          required
-                          autoFocus
-                        />
-                        {balasError && (
-                          <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
-                            {balasError}
-                          </div>
-                        )}
-                        <div className="flex items-center gap-2">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="rounded-xl"
-                            onClick={() => {
-                              setMintaEmail(false);
-                              setBalasError("");
-                            }}
-                          >
-                            Batal
-                          </Button>
-                          <Button
-                            type="submit"
-                            size="sm"
-                            className="ml-auto rounded-xl font-bold"
-                            disabled={memverifikasi || !emailKonfirmasi.trim()}
-                          >
-                            {memverifikasi ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <ShieldCheck className="h-4 w-4" />
-                            )}
-                            {memverifikasi ? "Memeriksa..." : "Konfirmasi"}
-                          </Button>
-                        </div>
-                      </form>
-                    ) : (
-                      <form onSubmit={kirimBalasanLacak} className="space-y-2">
-                        <Textarea
-                          value={balasDraft}
-                          onChange={(e) => setBalasDraft(e.target.value)}
-                          rows={2}
-                          placeholder="Tulis balasan untuk tim SIGAP..."
-                          className="min-h-[64px] rounded-xl bg-[#12263f]"
-                        />
-                        <PendingAttachments
-                          items={attachBalas.items}
-                          onRemove={attachBalas.remove}
-                          removeLabel="Hapus lampiran"
-                        />
-                        {(attachBalas.error || balasError) && (
-                          <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
-                            {attachBalas.error || balasError}
-                          </div>
-                        )}
-                        <div className="flex items-center gap-2">
-                          <input
-                            ref={balasFileRef}
-                            type="file"
-                            accept="image/jpeg,image/png,image/webp,image/gif"
-                            multiple
-                            hidden
-                            onChange={(e) => {
-                              void attachBalas.add(e.target.files);
-                              e.target.value = "";
-                            }}
-                          />
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="rounded-xl"
-                            disabled={attachBalas.uploading}
-                            onClick={() => balasFileRef.current?.click()}
-                          >
-                            {attachBalas.uploading ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <Paperclip className="h-4 w-4" />
-                            )}
-                            Lampiran
-                          </Button>
-                          <Button
-                            type="submit"
-                            size="sm"
-                            className="ml-auto rounded-xl font-bold"
-                            disabled={
-                              mengirimBalasan ||
-                              attachBalas.uploading ||
-                              (balasDraft.trim().length === 0 &&
-                                attachBalas.items.length === 0)
-                            }
-                          >
-                            {mengirimBalasan ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <Send className="h-4 w-4" />
-                            )}
-                            {mengirimBalasan ? "Mengirim..." : "Kirim"}
-                          </Button>
-                        </div>
-                      </form>
-                    )}
+                    <p className="text-[11px] leading-relaxed text-slate-500">
+                      Balasan dari tim SIGAP dibaca lewat tautan tiket pribadi
+                      yang Anda terima saat membuat tiket.
+                    </p>
                   </div>
                 )}
               </CardContent>
             </Card>
 
+            {/* Riwayat tiket perangkat ini.
+                SELALU dirender, termasuk saat masih kosong. Versi sebelumnya
+                menyembunyikan kartu ini sampai ada isinya — akibatnya orang
+                yang belum pernah mengirim tiket dari peramban ini tidak punya
+                cara tahu bahwa riwayat itu ada, dan menyimpulkan fiturnya
+                hilang. Keadaan kosong yang menjelaskan dirinya sendiri lebih
+                murah daripada fitur yang tak pernah ditemukan. */}
+            <Card className="border-[#243a5e]">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <History className="h-5 w-5 text-amber-300" />
+                  Tiket Anda
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2.5">
+                <p className="text-[11px] leading-relaxed text-slate-500">
+                  Tiket yang dikirim dari perangkat ini. Tersimpan di peramban
+                  Anda selama 7 hari, lalu terhapus sendiri.
+                </p>
+                {riwayat.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-[#243a5e] px-3 py-4 text-center text-xs text-slate-500">
+                    Belum ada tiket dari perangkat ini. Begitu Anda mengirim
+                    tiket, nomornya muncul di sini.
+                  </div>
+                ) : (
+                  <ul className="space-y-1.5">
+                    {riwayat.map((r) => (
+                      <li key={r.number}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setTrackNumber(r.number);
+                            document
+                              .getElementById("lacak")
+                              ?.scrollIntoView({ block: "start" });
+                          }}
+                          className="w-full rounded-xl border border-[#243a5e] bg-[#0f1d33] px-3 py-2 text-left transition-colors hover:border-slate-500"
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-xs font-bold text-amber-300">
+                              {r.number}
+                            </span>
+                            <span className="ml-auto shrink-0 text-[10px] text-slate-500">
+                              {formatDateTime(r.createdAt)}
+                            </span>
+                          </div>
+                          <div className="mt-0.5 truncate text-[13px] text-slate-300">
+                            {r.subject}
+                          </div>
+                          {/* Nama pelapor. Riwayat lama tersimpan tanpa nama,
+                              jadi barisnya hilang seluruhnya alih-alih
+                              menyisakan ikon dengan teks kosong. */}
+                          {r.name && (
+                            <div className="mt-1 flex items-center gap-1.5 text-[11px] text-slate-500">
+                              <UserRound className="h-3 w-3 shrink-0" />
+                              <span className="truncate">{r.name}</span>
+                            </div>
+                          )}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </CardContent>
+            </Card>
+
             {/* Catatan privasi — HARUS cocok dengan payload
-                /api/tickets/track. Sejak halaman lacak menampilkan
-                percakapan, kalimat lama ("hanya nomor, subjek, kategori,
-                status, dan waktu") menjadi janji yang tidak lagi ditepati. */}
+                /api/tickets/track. Kalimatnya ditulis ulang tiap kali payload
+                itu berubah; janji yang ketinggalan zaman lebih buruk daripada
+                tidak ada janji sama sekali. */}
             <div className="rounded-2xl border border-[#243a5e] bg-[#12263f]/50 p-4 sm:p-5 flex gap-2.5 sm:gap-3">
               <ShieldCheck
                 className="h-5 w-5 text-emerald-400 shrink-0 mt-0.5"
@@ -873,11 +605,10 @@ export default function LandingPage() {
                   Privasi pelapor
                 </div>
                 <p className="text-[11px] sm:text-xs text-slate-400 leading-relaxed">
-                  Halaman lacak menampilkan nama pelapor, status, dan percakapan
+                  Halaman lacak menampilkan nama pelapor, status, dan isi tiket
                   kepada siapa pun yang tahu nomor tiketnya — jadi bagikan nomor
-                  tiket seperlunya saja. Email, nomor WhatsApp, dan catatan
-                  internal tim tidak pernah ditampilkan. Untuk membalas, Anda
-                  perlu mengonfirmasi email dulu.
+                  tiket seperlunya saja. Email, nomor WhatsApp, balasan tim, dan
+                  catatan internal tidak pernah ditampilkan di sini.
                 </p>
               </div>
             </div>
@@ -1031,46 +762,32 @@ export default function LandingPage() {
                       />
                     </div>
                   </div>
-                  <div className="grid gap-3.5 sm:grid-cols-2 sm:gap-4">
-                    <div className="space-y-1.5">
-                      <Label>Kategori</Label>
-                      <Select
-                        value={form.category}
-                        onChange={(e) =>
-                          setForm({ ...form, category: e.target.value })
-                        }
-                        className="h-11 rounded-xl"
-                      >
-                        {TICKET_CATEGORIES.map((c) => (
-                          <option key={c} value={c}>
-                            {c}
-                          </option>
-                        ))}
-                      </Select>
-                    </div>
-                    {/* Prioritas dari pelapor adalah USULAN — admin bisa
-                        menggesernya. Tiap pilihan diberi keterangan dampak
-                        supaya "Mendesak" tidak jadi pilihan default semua
-                        orang. */}
-                    <div className="space-y-1.5">
-                      <Label>Prioritas</Label>
-                      <Select
-                        value={form.priority}
-                        onChange={(e) =>
-                          setForm({
-                            ...form,
-                            priority: e.target.value as TicketPriority,
-                          })
-                        }
-                        className="h-11 rounded-xl"
-                      >
-                        {TICKET_PRIORITIES.map((p) => (
-                          <option key={p} value={p}>
-                            {PRIORITY_LABEL_ID[p]} — {PRIORITY_HINT_ID[p]}
-                          </option>
-                        ))}
-                      </Select>
-                    </div>
+                  {/* Working order = meja yang akan mengerjakan tiket, dan
+                      sekaligus penentu prefix nomornya (GA-0001 / IT-0001).
+                      Pilihan prioritas sengaja TIDAK ada di sini: triase
+                      adalah pekerjaan admin ticketing. */}
+                  <div className="space-y-1.5">
+                    <Label>Working Order</Label>
+                    <Select
+                      value={form.workingOrder}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          workingOrder: e.target.value as WorkingOrder,
+                        })
+                      }
+                      className="h-11 rounded-xl"
+                    >
+                      {WORKING_ORDERS.map((w) => (
+                        <option key={w} value={w}>
+                          {w} — {WORKING_ORDER_HINT_ID[w]}
+                        </option>
+                      ))}
+                    </Select>
+                    <p className="text-[11px] text-slate-500">
+                      Menentukan tim yang menangani tiket Anda sekaligus awalan
+                      nomornya.
+                    </p>
                   </div>
                   <div className="space-y-1.5">
                     <Label>Subjek</Label>

@@ -14,7 +14,7 @@
   --card-foreground: #f8fafc;
   --popover: #1a2d4a;
   --popover-foreground: #f8fafc;
-  --primary: #CBA12C; /* gold */
+  --primary: #cba12c; /* gold */
   --primary-foreground: #1a365d;
   --secondary: #1a365d;
   --secondary-foreground: #f8fafc;
@@ -26,13 +26,13 @@
   --destructive-foreground: #ffffff;
   --border: #243a5e;
   --input: #243a5e;
-  --ring: #CBA12C;
+  --ring: #cba12c;
   --radius: 0.9rem;
   --sidebar: #0f2440;
   --sidebar-foreground: #f8fafc;
   --sidebar-accent: #1a365d;
   --sidebar-border: #243a5e;
-  --chart-1: #CBA12C;
+  --chart-1: #cba12c;
   --chart-2: #38a169;
   --chart-3: #4299e1;
   --chart-4: #805ad5;
@@ -77,7 +77,11 @@ html {
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Inter, system-ui, -apple-system, sans-serif;
+  font-family:
+    Inter,
+    system-ui,
+    -apple-system,
+    sans-serif;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
@@ -100,6 +104,80 @@ body {
   border-radius: 999px;
 }
 
+/* ------------------------------------------------------------------
+   Kontrol bawaan browser
+   ------------------------------------------------------------------
+   SIGAP hanya punya SATU tema: gelap. Yang berbeda antar perangkat bukan
+   halamannya, melainkan bagian yang digambar BROWSER dan bukan oleh CSS
+   halaman: popup <select>, latar autofill, scrollbar, dan ikon pemilih
+   tanggal. Semuanya memakai warna sistem, jadi di laptop atau ponsel yang
+   setelan OS-nya terang mereka muncul putih di atas form gelap.
+
+   `color-scheme: dark` di <html> saja tidak menutup semuanya — popup
+   <option> pada Chromium (Windows/Android) tetap memakai warna sistem
+   kecuali diberi warna sendiri. Karena itu tiap kontrol diwarnai eksplisit
+   di bawah ini, bukan dititipkan pada tebakan browser.
+   ------------------------------------------------------------------ */
+
+input,
+textarea,
+select,
+button {
+  color-scheme: dark;
+}
+
+select {
+  background-color: var(--background);
+  color: var(--foreground);
+  /* Panah dropdown. Ditulis sebagai CSS biasa, bukan lewat utility Tailwind —
+     lihat alasannya di components/ui/select.tsx. */
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%23cbd5e1' stroke-width='1.5' viewBox='0 0 24 24'><path d='m6 9 6 6 6-6'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 16px 16px;
+}
+
+/* Popup pilihan. Sedikit lebih terang dari latar select supaya batas
+   daftarnya terlihat, dan agar baris yang sedang disorot punya kontras. */
+select option,
+select optgroup {
+  background-color: #12263f;
+  color: var(--foreground);
+}
+
+/* Autofill Chrome mengecat latar input putih/kuning dan mengabaikan
+   background-color biasa. Yang ia hormati hanya box-shadow inset, dan
+   warna teksnya hanya lewat -webkit-text-fill-color. Transisi 9999s
+   menahan animasi kuning yang muncul sekejap sebelum aturan ini berlaku. */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+textarea:-webkit-autofill,
+select:-webkit-autofill {
+  -webkit-text-fill-color: var(--foreground);
+  -webkit-box-shadow: 0 0 0 1000px var(--background) inset;
+  box-shadow: 0 0 0 1000px var(--background) inset;
+  caret-color: var(--foreground);
+  transition: background-color 9999s ease-out 0s;
+}
+
+/* Ikon kalender & jam bawaan digambar hitam di perangkat terang —
+   tidak terlihat sama sekali di atas input gelap. */
+::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+  opacity: 0.55;
+  cursor: pointer;
+}
+::-webkit-calendar-picker-indicator:hover {
+  opacity: 0.9;
+}
+
+/* Scrollbar Firefox — ::-webkit-scrollbar di atas hanya untuk Chromium. */
+html {
+  scrollbar-color: #2a4365 transparent;
+  scrollbar-width: thin;
+}
+
 .touch-target {
   min-height: 44px;
   min-width: 44px;
@@ -110,7 +188,7 @@ body {
 }
 
 ::selection {
-  background: #CBA12C;
+  background: #cba12c;
   color: #1a365d;
 }
 

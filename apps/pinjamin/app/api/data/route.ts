@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth } from "@/lib/auth";
+import { gateAssetAdmin } from "@/lib/auth";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { fromDbRow } from "@/lib/resource-config";
 
@@ -8,9 +8,8 @@ type Row = Record<string, any>;
 // Single authenticated bulk-load endpoint. Replaces the old pattern of the
 // browser querying every Supabase table directly with the anon key.
 export async function GET(req: NextRequest) {
-  const session = await requireAuth(req);
-  if (!session)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const gate = await gateAssetAdmin(req);
+  if (!gate.ok) return gate.res;
 
   const supa = getSupabaseAdmin();
   if (!supa) return NextResponse.json({ configured: false });

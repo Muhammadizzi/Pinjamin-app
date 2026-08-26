@@ -13,8 +13,9 @@
  *
  * Semua fungsi async supaya kedua backend punya kontrak yang sama.
  *
- * Konstanta yang juga dipakai komponen client (status, prioritas, kategori,
- * target SLA) tinggal di lib/ticket-shared.ts — file ini me-re-export-nya.
+ * Konstanta yang juga dipakai komponen client (status, prioritas, working
+ * order, target SLA) tinggal di lib/ticket-shared.ts — file ini
+ * me-re-export-nya.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -24,27 +25,32 @@ import { getSupabaseAdmin } from "./supabase-server";
 import {
   ATTACHMENTS_MAX,
   MESSAGE_MAX,
-  TICKET_CATEGORIES,
   TICKET_TOKEN_RE,
+  WORKING_ORDER_PREFIX,
+  formatTicketNumber,
   isTicketPriority,
   isTicketDone,
+  isWorkingOrder,
   slaDeadlines,
+  ticketSeq,
   type MessageAuthor,
   type MessageKind,
   type TicketAttachment,
   type TicketMessage,
   type TicketPriority,
   type TicketStatus,
+  type WorkingOrder,
 } from "./ticket-shared";
 
 export {
-  TICKET_CATEGORIES,
+  WORKING_ORDERS,
   TICKET_STATUSES,
   TICKET_PRIORITIES,
 } from "./ticket-shared";
 export type {
   TicketStatus,
   TicketPriority,
+  WorkingOrder,
   TicketMessage,
   TicketAttachment,
   MessageAuthor,
@@ -53,12 +59,23 @@ export type {
 
 export interface Ticket {
   id: string;
-  /** Nomor tiket yang diberikan ke user, mis. TKT-8F3K2A */
+  /** Nomor tiket yang diberikan ke user, mis. GA-0007. */
   number: string;
   name: string;
   email: string;
   phone: string;
-  category: string;
+  /**
+   * Unit pelaksana yang menangani tiket (GA / Utility / IT).
+   *
+   * Tersimpan di kolom `category` — kolom itu SENGAJA tidak diganti nama.
+   * SIGAP tidak punya migration runner (lihat CLAUDE.md): rename kolom harus
+   * dijalankan tangan di Supabase, dan selama beberapa detik antara SQL dan
+   * deploy baru, deployment lama masih membaca `category` dan akan gagal
+   * menyimpan tiket. Nama kolom tidak terlihat pengguna; nama field ini yang
+   * terlihat programmer. Tiket lama tetap menyimpan nilai kategori lamanya
+   * dan hanya ditampilkan apa adanya.
+   */
+  workingOrder: string;
   subject: string;
   message: string;
   status: TicketStatus;
@@ -102,26 +119,23 @@ export type NewTicketInput = {
   name: string;
   email: string;
   phone: string;
-  category: string;
+  workingOrder: WorkingOrder;
   subject: string;
   message: string;
-  priority: TicketPriority;
   attachments: TicketAttachment[];
 };
+
+/**
+ * Prioritas tiket baru. Pelapor TIDAK lagi mengusulkannya — triase adalah
+ * pekerjaan admin ticketing, dan selama form publik menyediakan pilihannya
+ * "Mendesak" pelan-pelan jadi nilai default semua orang. Setiap tiket masuk
+ * di tengah, lalu digeser admin dari panel.
+ */
+const PRIORITAS_AWAL: TicketPriority = "MEDIUM";
 
 type TicketPatch = {
   status?: TicketStatus;
   priority?: TicketPriority;
-  /**
-   * Koreksi email pelapor.
-   *
-   * Bukan sekadar data kontak: email inilah yang dipakai pelapor untuk
-   * membuktikan dirinya saat membalas dari halaman lacak
-   * (app/api/tickets/track/verify). Salah ketik satu huruf saat membuat
-   * tiket = pelapor terkunci dari percakapannya sendiri, dan hanya admin
-   * yang bisa membukanya kembali.
-   */
-  email?: string;
 };
 
 /* ------------------------------------------------------------------ */
@@ -163,7 +177,7 @@ function rowToTicket(row: Row): Ticket {
     name: str(row.name),
     email: str(row.email),
     phone: str(row.phone),
-    category: str(row.category),
+    workingOrder: str(row.category),
     subject: str(row.subject),
     message: str(row.message),
     status: (row.status as TicketStatus) || "OPEN",
@@ -189,7 +203,7 @@ function ticketToRow(t: Ticket): Row {
     name: t.name,
     email: t.email,
     phone: t.phone,
-    category: t.category,
+    category: t.workingOrder,
     subject: t.subject,
     message: t.message,
     status: t.status,
@@ -290,7 +304,7 @@ function normalizeTicket(raw: Partial<Ticket> & { id: string }): Ticket {
     name: raw.name || "",
     email: raw.email || "",
     phone: raw.phone || "",
-    category: raw.category || "",
+    workingOrder: raw.workingOrder || "",
     subject: raw.subject || "",
     message: raw.message || "",
     status,
@@ -356,30 +370,44 @@ function persistMessagesFile(next: TicketMessage[]) {
 /* Id, nomor, token                                                    */
 /* ------------------------------------------------------------------ */
 
-const NUM_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"; // tanpa I/L/0/1 — anti salah baca
-
-function randomNumber(): string {
-  // randomInt (CSPRNG) alih-alih Math.random: nomor tiket adalah bagian dari
-  // apa yang dilihat orang lain, jadi tidak perlu bisa ditebak dari urutan.
-  let suffix = "";
-  for (let j = 0; j < 6; j++) {
-    suffix += NUM_ALPHABET[crypto.randomInt(NUM_ALPHABET.length)];
-  }
-  return `TKT-${suffix}`;
-}
-
 /** 64 hex char = 256 bit acak. Ini satu-satunya kunci portal pelapor. */
 function newToken(): string {
   return crypto.randomBytes(32).toString("hex");
 }
 
-async function generateNumber(): Promise<string> {
-  for (let i = 0; i < 20; i++) {
-    const number = randomNumber();
-    if (!(await getTicketByNumber(number))) return number;
+/**
+ * Nomor urut BERIKUTNYA untuk satu working order (GA-0001, GA-0002, ...).
+ *
+ * Diambil dari nomor TERTINGGI yang sudah ada, bukan dari jumlah tiket:
+ * menghapus satu tiket tidak boleh membuat penomoran mundur dan menerbitkan
+ * ulang nomor yang sudah dipegang pelapor lain.
+ *
+ * Perbandingannya numerik, bukan alfabetis. Begitu urutan melewati 9999,
+ * "GA-10000" berada SEBELUM "GA-9999" secara alfabetis — mengurutkan teks di
+ * database akan membuat penomoran berputar balik tanpa suara.
+ */
+async function nextSeq(wo: WorkingOrder): Promise<number> {
+  const prefix = WORKING_ORDER_PREFIX[wo];
+  const supa = getSupabaseAdmin();
+
+  let numbers: string[];
+  if (supa) {
+    const { data, error } = await supa
+      .from(TABLE)
+      .select("number")
+      .like("number", `${prefix}-%`);
+    if (error) throw new Error(error.message);
+    numbers = (data ?? []).map((r) => str((r as Row).number));
+  } else {
+    numbers = loadFile().map((t) => t.number);
   }
-  // praktis tidak akan pernah ke sini
-  return `TKT-${Date.now().toString(36).toUpperCase().slice(-6)}`;
+
+  let max = 0;
+  for (const n of numbers) {
+    const seq = ticketSeq(n, prefix);
+    if (seq !== null && seq > max) max = seq;
+  }
+  return max + 1;
 }
 
 function newTicketId() {
@@ -396,18 +424,37 @@ function newMessageId() {
 
 const byNewest = (a: Ticket, b: Ticket) => (a.createdAt < b.createdAt ? 1 : -1);
 
-export async function listTickets(): Promise<Ticket[]> {
+/**
+ * Daftar tiket, opsional DIBATASI ke satu working order.
+ *
+ * Penyaringnya sengaja di sini, bukan di route: dengan `.eq()` tiket milik
+ * meja lain tidak pernah meninggalkan database. Menyaring di route berarti
+ * baris-baris itu sempat singgah di memori proses dan di setiap log atau
+ * pesan error yang kebetulan membawa serta payload-nya.
+ *
+ * `workingOrder` tidak punya nilai default. Pemanggil harus menyatakan
+ * "semua" secara eksplisit, supaya lupa menyebut penyaring tidak diam-diam
+ * berarti membuka seluruh antrean.
+ */
+export async function listTickets(
+  workingOrder: string | null = null
+): Promise<Ticket[]> {
   const supa = getSupabaseAdmin();
   if (supa) {
-    const { data, error } = await supa
+    let q = supa
       .from(TABLE)
       .select("*")
       .order("created_at", { ascending: false })
       .limit(1000);
+    if (workingOrder) q = q.eq("category", workingOrder);
+    const { data, error } = await q;
     if (error) throw new Error(error.message);
     return (data || []).map(rowToTicket);
   }
-  return [...loadFile()].sort(byNewest);
+  const semua = [...loadFile()].sort(byNewest);
+  return workingOrder
+    ? semua.filter((t) => t.workingOrder === workingOrder)
+    : semua;
 }
 
 export async function getTicketById(id: string): Promise<Ticket | null> {
@@ -422,6 +469,23 @@ export async function getTicketById(id: string): Promise<Ticket | null> {
     return data ? rowToTicket(data) : null;
   }
   return loadFile().find((t) => t.id === id) || null;
+}
+
+/**
+ * Tiket berdasarkan id, HANYA bila ia milik antrean working order tersebut.
+ *
+ * Mengembalikan null untuk "bukan milikmu" — persis seperti untuk "tidak
+ * ada". Membedakan keduanya (403 vs 404) akan mengubah endpoint tiket jadi
+ * alat untuk memastikan id mana yang hidup di meja lain, dan admin GA tidak
+ * perlu tahu berapa banyak tiket yang sedang ditangani IT.
+ */
+export async function getTicketForDesk(
+  id: string,
+  workingOrder: string
+): Promise<Ticket | null> {
+  const ticket = await getTicketById(id);
+  if (!ticket || ticket.workingOrder !== workingOrder) return null;
+  return ticket;
 }
 
 export async function getTicketByNumber(
@@ -461,39 +525,67 @@ export async function getTicketForPortal(
   return crypto.timingSafeEqual(a, b) ? ticket : null;
 }
 
-export async function createTicket(data: NewTicketInput): Promise<Ticket> {
-  const now = new Date().toISOString();
-  const due = slaDeadlines(now, data.priority);
-  const ticket: Ticket = {
-    id: newTicketId(),
-    number: await generateNumber(),
-    ...data,
-    status: "OPEN",
-    accessToken: newToken(),
-    adminNote: "",
-    responseDueAt: due.responseDueAt,
-    resolutionDueAt: due.resolutionDueAt,
-    firstResponseAt: null,
-    resolvedAt: null,
-    slaPausedAt: null,
-    slaPausedMs: 0,
-    createdAt: now,
-    updatedAt: now,
-  };
+/** Kode error Postgres untuk pelanggaran UNIQUE. */
+const PG_UNIQUE_VIOLATION = "23505";
 
+/**
+ * Berapa kali penyimpanan diulang ketika nomor tiket bentrok.
+ *
+ * nextSeq() membaca nomor tertinggi lewat query terpisah dari INSERT-nya,
+ * jadi dua tiket yang dikirim pada saat yang sama bisa sama-sama menghitung
+ * GA-0008. Yang menangkapnya adalah UNIQUE pada kolom `number`
+ * (supabase/06-tickets.sql): insert yang kalah cepat ditolak database, lalu
+ * di sinilah nomornya dihitung ulang. Menentukan sendiri "siapa duluan" di
+ * sisi aplikasi tidak mungkin benar — hanya database yang tahu.
+ */
+const MAX_PERCOBAAN_NOMOR = 5;
+
+export async function createTicket(data: NewTicketInput): Promise<Ticket> {
   const supa = getSupabaseAdmin();
-  if (supa) {
+
+  for (let percobaan = 0; ; percobaan++) {
+    const now = new Date().toISOString();
+    const due = slaDeadlines(now, PRIORITAS_AWAL);
+    const ticket: Ticket = {
+      id: newTicketId(),
+      number: formatTicketNumber(
+        data.workingOrder,
+        await nextSeq(data.workingOrder)
+      ),
+      ...data,
+      status: "OPEN",
+      priority: PRIORITAS_AWAL,
+      accessToken: newToken(),
+      adminNote: "",
+      responseDueAt: due.responseDueAt,
+      resolutionDueAt: due.resolutionDueAt,
+      firstResponseAt: null,
+      resolvedAt: null,
+      slaPausedAt: null,
+      slaPausedMs: 0,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    // Backend file hanya hidup di satu proses dev — tidak ada balapan yang
+    // perlu diulang di sana.
+    if (!supa) {
+      persistFile([...loadFile(), ticket]);
+      return ticket;
+    }
+
     const { data: row, error } = await supa
       .from(TABLE)
       .insert(ticketToRow(ticket))
       .select()
       .single();
-    if (error) throw new Error(error.message);
-    return rowToTicket(row);
-  }
+    if (!error) return rowToTicket(row);
 
-  persistFile([...loadFile(), ticket]);
-  return ticket;
+    const bentrokNomor = error.code === PG_UNIQUE_VIOLATION;
+    if (!bentrokNomor || percobaan >= MAX_PERCOBAAN_NOMOR - 1) {
+      throw new Error(error.message);
+    }
+  }
 }
 
 /**
@@ -565,7 +657,6 @@ function applyPatch(current: Ticket, patch: TicketPatch, now: string): Ticket {
       next.resolvedAt = null;
     }
   }
-  if (patch.email !== undefined) next.email = patch.email;
 
   return next;
 }
@@ -824,7 +915,7 @@ export function publicTicketView(
     number: t.number,
     ...(opts.withReporterName ? { name: t.name } : {}),
     subject: t.subject,
-    category: t.category,
+    workingOrder: t.workingOrder,
     status: t.status,
     priority: t.priority,
     message: t.message,
@@ -891,7 +982,7 @@ export function validateNewTicket(
   const phone = String(b.phone ?? "")
     .trim()
     .replace(/[\s-]/g, "");
-  const category = String(b.category ?? "").trim();
+  const workingOrder = String(b.workingOrder ?? "").trim();
   const subject = String(b.subject ?? "").trim();
   const message = String(b.message ?? "").trim();
 
@@ -901,28 +992,26 @@ export function validateNewTicket(
     return { error: "Format email tidak valid." };
   if (!/^\+?\d{9,15}$/.test(phone))
     return { error: "Nomor WhatsApp tidak valid (9–15 digit)." };
-  if (!(TICKET_CATEGORIES as readonly string[]).includes(category))
-    return { error: "Kategori tidak dikenal." };
+  if (!isWorkingOrder(workingOrder))
+    return { error: "Working order tidak dikenal." };
   if (subject.length < 4 || subject.length > 120)
     return { error: "Subjek wajib diisi (4–120 karakter)." };
   if (message.length < 10 || message.length > 2000)
     return { error: "Pesan wajib diisi (10–2000 karakter)." };
 
-  // Prioritas dari form publik hanya usulan pelapor — admin bisa menggeser.
-  // Nilai asing tidak ditolak, cukup jatuh ke MEDIUM.
-  const priority: TicketPriority = isTicketPriority(b.priority)
-    ? b.priority
-    : "MEDIUM";
-
+  // `priority` yang ikut terkirim SENGAJA diabaikan, bukan sekadar tidak
+  // dibaca: sejak triase jadi wewenang admin, form publik tidak lagi
+  // menampilkan pilihannya — dan endpoint ini publik, jadi siapa pun masih
+  // bisa menyelipkan "priority":"URGENT" ke dalam body. Prioritas awal
+  // ditetapkan createTicket(), bukan pemanggil.
   return {
     data: {
       name,
       email,
       phone,
-      category,
+      workingOrder,
       subject,
       message,
-      priority,
       attachments: validateAttachments(b.attachments),
     },
   };
@@ -944,24 +1033,7 @@ export function redactPortalTokens(text: string): string {
   return text.replace(/([?&]t=)[a-f0-9]{32,}/gi, "$1***");
 }
 
-/**
- * Normalisasi + validasi email pelapor. Aturannya sengaja sama persis dengan
- * validateNewTicket agar email hasil koreksi admin tidak bisa berbentuk lain
- * daripada email yang lolos lewat form publik.
- */
-export function validateReporterEmail(
-  v: unknown
-): { error: string } | { email: string } {
-  const email = String(v ?? "")
-    .trim()
-    .toLowerCase();
-  if (email.length > 150 || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
-    return { error: "Format email tidak valid." };
-  }
-  return { email };
-}
-
-/** Validasi isi balasan (dipakai portal pelapor maupun panel admin). */
+/** Validasi isi balasan admin. */
 export function validateMessageBody(
   body: unknown,
   attachments: TicketAttachment[]

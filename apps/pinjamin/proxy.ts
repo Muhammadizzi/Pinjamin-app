@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { AUTH_COOKIE } from "./lib/auth-types";
 import { verifySession } from "./lib/auth-edge";
-import { isPublicPage } from "./lib/public-paths";
+import { isPublicPage, homeFor, isPageAllowedFor } from "./lib/public-paths";
 
 /**
  * Proteksi rute admin.
@@ -11,13 +11,16 @@ import { isPublicPage } from "./lib/public-paths";
  * API publik:
  *   POST /api/auth/login
  *   POST /api/tickets                 (buat tiket)
- *   GET  /api/tickets/track           (lacak status + percakapan via nomor)
- *   POST /api/tickets/track/verify    (tukar email pelapor dengan token)
+ *   GET  /api/tickets/track           (lacak status tiket via nomor)
  *   GET  /api/tickets/portal          (portal pelapor — butuh token tiket)
- *   POST /api/tickets/portal/reply    (pelapor membalas — butuh token tiket)
  *   POST /api/tickets/upload          (lampiran tiket)
  *
- * API admin lainnya dicek lagi di handler (requireAuth + token version).
+ * API admin lainnya dicek lagi di handler (gerbang peran + token version).
+ *
+ * Peran: proxy ini hanya mengalihkan HALAMAN berdasarkan `role` di dalam JWT.
+ * Ia bukan penjaga data — token dibekukan saat login, jadi peran yang dicabut
+ * masih terbaca lama di sini. Yang menjaga data adalah gerbang di
+ * lib/auth.ts, yang membaca ulang baris admin dari database pada tiap request.
  */
 
 function isPublicAsset(pathname: string) {
@@ -49,11 +52,7 @@ function isPublicApi(pathname: string, method: string) {
   if (pathname === "/api/auth/login" && method === "POST") return true;
   if (pathname === "/api/tickets" && method === "POST") return true;
   if (pathname === "/api/tickets/track" && method === "GET") return true;
-  if (pathname === "/api/tickets/track/verify" && method === "POST")
-    return true;
   if (pathname === "/api/tickets/portal" && method === "GET") return true;
-  if (pathname === "/api/tickets/portal/reply" && method === "POST")
-    return true;
   if (pathname === "/api/tickets/upload" && method === "POST") return true;
   return false;
 }
@@ -90,7 +89,15 @@ export default async function proxy(req: NextRequest) {
   }
 
   if (session && pathname.startsWith("/login")) {
-    return NextResponse.redirect(new URL("/dashboard", req.url));
+    return NextResponse.redirect(new URL(homeFor(session.role), req.url));
+  }
+
+  // Halaman milik peran lain: dialihkan ke beranda perannya sendiri, bukan
+  // dijawab 403. Admin helpdesk yang membuka /assets (mis. dari bookmark
+  // lama) mendarat di panel tiketnya, bukan di halaman kosong yang membuatnya
+  // mengira aplikasinya rusak.
+  if (session && !isPageAllowedFor(pathname, session.role)) {
+    return NextResponse.redirect(new URL(homeFor(session.role), req.url));
   }
 
   return NextResponse.next();

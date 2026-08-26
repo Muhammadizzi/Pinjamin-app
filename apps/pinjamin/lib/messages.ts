@@ -349,29 +349,16 @@ export const messages = {
   ],
   reporterLabel: ["Pelapor", "Reporter"],
   adminLabel: ["Admin SIGAP", "SIGAP Admin"],
-  internalNoteLabel: ["Catatan internal", "Internal note"],
-  replyTab: ["Balas ke pelapor", "Reply to reporter"],
-  noteTab: ["Catatan internal", "Internal note"],
   replyPlaceholder: [
     "Tulis balasan yang akan dibaca pelapor...",
     "Write a reply the reporter will read...",
   ],
-  internalNotePlaceholder: [
-    "Catatan tindak lanjut — tidak terlihat oleh pelapor...",
-    "Follow-up notes — not visible to the reporter...",
-  ],
   sendReply: ["Kirim Balasan", "Send Reply"],
-  saveInternalNote: ["Simpan Catatan", "Save Note"],
   replySent: ["Balasan terkirim ✓", "Reply sent ✓"],
-  noteAdded: ["Catatan ditambahkan ✓", "Note added ✓"],
   messageFailed: ["Gagal mengirim pesan.", "Failed to send the message."],
   replyVisibleHint: [
     "Balasan ini tampil di portal pelapor dan mengubah status tiket menjadi Dibalas.",
     "This reply appears in the reporter's portal and moves the ticket to Replied.",
-  ],
-  noteVisibleHint: [
-    "Catatan internal tidak pernah tampil ke pelapor dan tidak mengubah status.",
-    "Internal notes are never shown to the reporter and don't change the status.",
   ],
   attachmentsLabel: ["Lampiran", "Attachments"],
   addAttachment: ["Tambah lampiran", "Add attachment"],
@@ -383,36 +370,11 @@ export const messages = {
   ],
   removeAttachment: ["Hapus lampiran", "Remove attachment"],
   changePriority: ["Prioritas", "Priority"],
-  editReporterEmail: ["Perbaiki email pelapor", "Fix reporter email"],
-  reporterEmailHint: [
-    "Pelapor memakai email ini untuk membuktikan dirinya saat membalas dari halaman lacak. Perbaiki bila salah ketik — tanpa email yang benar, ia tidak bisa membalas tiketnya sendiri.",
-    "The reporter proves their identity with this email when replying from the tracking page. Fix it if mistyped — without the right email they cannot reply to their own ticket.",
-  ],
-  reporterEmailSaved: [
-    "Email pelapor diperbarui ✓",
-    "Reporter email updated ✓",
-  ],
-  saveEmail: ["Simpan email", "Save email"],
   prioritySaved: ["Prioritas diperbarui ✓", "Priority updated ✓"],
-  slaResponse: ["Respons", "Response"],
-  slaResolution: ["Penyelesaian", "Resolution"],
-  slaOnTime: ["tepat waktu", "on time"],
-  slaBreached: ["lewat batas", "breached"],
-  slaDueIn: ["sisa {time}", "{time} left"],
-  slaLateBy: ["telat {time}", "{time} late"],
-  slaPaused: ["dijeda", "paused"],
-  slaPausedHint: [
-    "Jam penyelesaian berhenti selama tiket menunggu balasan pelapor, dan jalan lagi begitu ia menjawab.",
-    "The resolution clock stops while the ticket waits on the reporter, and resumes once they reply.",
+  priorityHint: [
+    "Prioritas dipakai tim untuk mengurutkan pekerjaan. Pelapor tidak memilihnya dan tidak melihatnya berubah.",
+    "Priority is how the team orders its work. Reporters neither set it nor see it change.",
   ],
-  slaTargetHint: [
-    "Target SLA dihitung dari prioritas tiket. Mengubah prioritas menggeser kedua tenggat.",
-    "SLA targets follow the ticket priority. Changing the priority shifts both deadlines.",
-  ],
-  overdueTickets: ["Lewat SLA", "SLA breached"],
-  hoursShort: ["{count} jam", "{count}h"],
-  daysShort: ["{count} hari", "{count}d"],
-  minutesShort: ["{count} menit", "{count}m"],
 
   // ---------- Daftar aset ----------
   assetsCountSummary: [

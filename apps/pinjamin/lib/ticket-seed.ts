@@ -29,7 +29,7 @@ type Seed = {
   name: string;
   email: string;
   phone: string;
-  category: string;
+  workingOrder: string;
   subject: string;
   message: string;
   status: TicketStatus;
@@ -47,11 +47,11 @@ type Seed = {
 const SEEDS: Seed[] = [
   {
     id: "tck_gf_001",
-    number: "TKT-GF8K2A",
+    number: "IT-0005",
     name: "Budi Santoso",
     email: "budi.santoso@garudafood.co.id",
     phone: "081234567890",
-    category: "Aset & IT",
+    workingOrder: "IT",
     subject: "ThinkPad X1 sering blue screen saat cutover SAP",
     message:
       "Laptop IT 02 (ThinkPad X1) restart sendiri 3x sejak kemarin saat buka SAP GUI. Sudah restart & update Windows. Mohon dicek sebelum go-live MM hari Jumat.",
@@ -63,11 +63,11 @@ const SEEDS: Seed[] = [
   },
   {
     id: "tck_gf_002",
-    number: "TKT-GF3N7P",
+    number: "IT-0010",
     name: "Siti Aminah",
     email: "siti.aminah@garudafood.co.id",
     phone: "081298765432",
-    category: "Aset & IT",
+    workingOrder: "IT",
     subject: "Proyektor Ruang Garuda tidak nyala",
     message:
       "Mau rapat campaign Gery jam 14.00. Proyektor Epson di Ruang Meeting Garuda lampu oranye, tidak ada sinyal HDMI dari laptop agency.",
@@ -79,11 +79,11 @@ const SEEDS: Seed[] = [
   },
   {
     id: "tck_gf_003",
-    number: "TKT-GF9Q4C",
+    number: "IT-0006",
     name: "Joko Prasetyo",
     email: "joko.prasetyo@garudafood.co.id",
     phone: "081233445566",
-    category: "Aset & IT",
+    workingOrder: "IT",
     subject: "Packing machine Line 1 error sealer temperature",
     message:
       "VFFS Gery Saluut Line 1 Pati alarm suhu sealer. Produksi tertahan sejak shift 1. Engineering sudah lihat, mohon tiket resmi + status aset di SIGAP.",
@@ -95,11 +95,11 @@ const SEEDS: Seed[] = [
   },
   {
     id: "tck_gf_004",
-    number: "TKT-GF2H8M",
+    number: "IT-0007",
     name: "Ahmad Fauzi",
     email: "ahmad.fauzi@garudafood.co.id",
     phone: "081276543210",
-    category: "Aset & IT",
+    workingOrder: "IT",
     subject: "Timbangan analitik Ohaus perlu kalibrasi ulang",
     message:
       "Hasil uji kadar air lot tepung Australia tidak konsisten vs lab Rembang. Mohon jadwalkan kalibrasi Ohaus PX224 di Lab QC Pati sebelum audit HACCP.",
@@ -110,11 +110,11 @@ const SEEDS: Seed[] = [
   },
   {
     id: "tck_gf_005",
-    number: "TKT-GF5R1D",
+    number: "IT-0002",
     name: "Hendra Wijaya",
     email: "hendra.wijaya@garudafood.co.id",
     phone: "081244556677",
-    category: "Aset & IT",
+    workingOrder: "IT",
     subject: "Printer Zebra gudang FG tidak cetak label pallet",
     message:
       "Zebra ZT411 di Gudang Finished Goods Pati error ribbon. Stok label masih ada. Butuh ganti ribbon + cek driver SAP EWM.",
@@ -126,11 +126,11 @@ const SEEDS: Seed[] = [
   },
   {
     id: "tck_gf_006",
-    number: "TKT-GF7W3B",
+    number: "IT-0004",
     name: "Maya Putri",
     email: "maya.putri@garudafood.co.id",
     phone: "081233221100",
-    category: "Aset & IT",
+    workingOrder: "IT",
     subject: "Tidak bisa akses folder share tender kemasan",
     message:
       "Folder \\\\gf-file\\procurement\\tender-bopp tidak bisa dibuka dari laptop EliteBook. Error access denied. Butuh akses read/write untuk tender film BOPP minggu ini.",
@@ -141,11 +141,11 @@ const SEEDS: Seed[] = [
   },
   {
     id: "tck_gf_007",
-    number: "TKT-GF4P6K",
+    number: "UTILITY-0003",
     name: "Rina Kusuma",
     email: "rina.kusuma@garudafood.co.id",
     phone: "081255667788",
-    category: "Fasilitas / Gedung",
+    workingOrder: "Utility",
     subject: "AC lantai 3 Marketing tidak dingin",
     message:
       "Ruang Marketing HQ Lt.3 panas sejak Senin. Suhu sekitar 29°C. Tim sudah 18 orang, meeting agency jadi tidak nyaman.",
@@ -157,11 +157,11 @@ const SEEDS: Seed[] = [
   },
   {
     id: "tck_gf_008",
-    number: "TKT-GF6T2F",
+    number: "UTILITY-0001",
     name: "Dewi Lestari",
     email: "dewi.lestari@garudafood.co.id",
     phone: "081212345678",
-    category: "Fasilitas / Gedung",
+    workingOrder: "Utility",
     subject: "Kartu akses basement mobil direksi error",
     message:
       "Kartu tap Innova B 88 GF tidak membuka palang basement HQ. Security minta tiket ke GA/IT akses.",
@@ -172,11 +172,11 @@ const SEEDS: Seed[] = [
   },
   {
     id: "tck_gf_009",
-    number: "TKT-GF1J9S",
+    number: "UTILITY-0002",
     name: "Andi Saputra",
     email: "andi.saputra@garudafood.co.id",
     phone: "081288990011",
-    category: "Fasilitas / Gedung",
+    workingOrder: "Utility",
     subject: "Lampu emergency Line 1 Pati beberapa titik mati",
     message:
       "Audit safety minggu depan. 4 titik emergency lamp di area oven tunnel tidak nyala saat tes. Mohon penggantian baterai/unit.",
@@ -188,11 +188,11 @@ const SEEDS: Seed[] = [
   },
   {
     id: "tck_gf_010",
-    number: "TKT-GF8C5V",
+    number: "IT-0009",
     name: "Lina Hartati",
     email: "lina.hartati@garudafood.co.id",
     phone: "081277889900",
-    category: "Aset & IT",
+    workingOrder: "IT",
     subject: "L300 Surabaya servis — minta mobil pengganti",
     message:
       "Pickup L300 bunyi aneh di bagian kopling saat tour Indomaret Jatim. Bisa diservis di bengkel resmi? Sales butuh unit cadangan 3 hari.",
@@ -203,11 +203,11 @@ const SEEDS: Seed[] = [
   },
   {
     id: "tck_gf_011",
-    number: "TKT-GF2M8Y",
+    number: "IT-0003",
     name: "Budi Santoso",
     email: "budi.santoso@garudafood.co.id",
     phone: "081234567890",
-    category: "Aset & IT",
+    workingOrder: "IT",
     subject: "Meja standing desk IT macet — tidak naik",
     message:
       "Meja listrik ruang IT HQ tidak bisa dinaikkan. Motor bunyi klik. Mohon teknisi furniture / ganti unit.",
@@ -218,11 +218,11 @@ const SEEDS: Seed[] = [
   },
   {
     id: "tck_gf_012",
-    number: "TKT-GF9D3H",
+    number: "GA-0003",
     name: "Siti Aminah",
     email: "siti.aminah@garudafood.co.id",
     phone: "081298765432",
-    category: "Umum",
+    workingOrder: "GA",
     subject: "Request konsumsi rapat launching Chocolatos",
     message:
       "Rapat agency + internal marketing Kamis, 12 orang. Mohon snack Gery + air mineral di Ruang Garuda jam 13.30.",
@@ -234,11 +234,11 @@ const SEEDS: Seed[] = [
   },
   {
     id: "tck_gf_013",
-    number: "TKT-GF4K7N",
+    number: "UTILITY-0004",
     name: "Hendra Wijaya",
     email: "hendra.wijaya@garudafood.co.id",
     phone: "081244556677",
-    category: "Fasilitas / Gedung",
+    workingOrder: "Utility",
     subject: "Atap kanopi loading dock Pati bocor",
     message:
       "Hujan semalam, area loading dock FG basah. Karton kemasan rawan lembap. Mohon perbaikan kanopi segera.",
@@ -250,11 +250,11 @@ const SEEDS: Seed[] = [
   },
   {
     id: "tck_gf_014",
-    number: "TKT-GF6B2Q",
+    number: "IT-0008",
     name: "Ahmad Fauzi",
     email: "ahmad.fauzi@garudafood.co.id",
     phone: "081276543210",
-    category: "Aset & IT",
+    workingOrder: "IT",
     subject: "Metal detector Line 1 false reject tinggi",
     message:
       "Metal detector PIN-MTD026 reject 8% kemasan tanpa kontaminan. Produksi Gery terganggu. Mohon kalibrasi + cek coil.",
@@ -266,11 +266,11 @@ const SEEDS: Seed[] = [
   },
   {
     id: "tck_gf_015",
-    number: "TKT-GF3F8W",
+    number: "GA-0001",
     name: "Rina Kusuma",
     email: "rina.kusuma@garudafood.co.id",
     phone: "081255667788",
-    category: "Umum",
+    workingOrder: "GA",
     subject: "Onboarding karyawan baru — akun email & VPN",
     message:
       "3 karyawan baru Produksi Pati mulai Senin. Mohon buatkan email @garudafood.co.id, akun SAP display, dan VPN. Nama sudah di email HRD kemarin.",
@@ -281,11 +281,11 @@ const SEEDS: Seed[] = [
   },
   {
     id: "tck_gf_016",
-    number: "TKT-GF8P5T",
+    number: "GA-0004",
     name: "Andi Saputra",
     email: "andi.saputra@garudafood.co.id",
     phone: "081288990011",
-    category: "Lainnya",
+    workingOrder: "GA",
     subject: "Radio HT shift malam beberapa unit tidak charge",
     message:
       "Dari set 12 HT safety Pati, 3 unit tidak mau ngecas di docking. Shift malam kesulitan komunikasi ke security.",
@@ -296,11 +296,11 @@ const SEEDS: Seed[] = [
   },
   {
     id: "tck_gf_017",
-    number: "TKT-GF1V4E",
+    number: "GA-0002",
     name: "Lina Hartati",
     email: "lina.hartati@garudafood.co.id",
     phone: "081277889900",
-    category: "Umum",
+    workingOrder: "GA",
     subject: "Request sample POSM untuk toko modern Surabaya",
     message:
       "Butuh 20 pack dummy Chocolatos + standing banner untuk display Indomaret Rungkut. Bisa diambil di DC atau dikirim ekspedisi?",
@@ -312,11 +312,11 @@ const SEEDS: Seed[] = [
   },
   {
     id: "tck_gf_018",
-    number: "TKT-GF7N9A",
+    number: "IT-0001",
     name: "Dewi Lestari",
     email: "dewi.lestari@garudafood.co.id",
     phone: "081212345678",
-    category: "Aset & IT",
+    workingOrder: "IT",
     subject: "VPN putus saat approve pembayaran vendor",
     message:
       "VPN HQ sering disconnect sejak kemarin sore. Gagal approve Fiori. Mohon cek gateway.",
@@ -424,22 +424,19 @@ const DEMO_THREADS: Record<string, ThreadEntry[]> = {
   ],
 };
 
-/** Semua pesan demo: catatan internal dari adminNote + thread di atas. */
+/**
+ * Semua pesan demo — hanya balasan yang dibaca pelapor.
+ *
+ * `seed.adminNote` dulu ikut diterbitkan sebagai pesan kind=NOTE. Catatan
+ * internal sudah dihapus dari sistem dan tidak lagi ditampilkan di mana pun,
+ * jadi menerbitkannya hanya menanam baris yang tak pernah terlihat lalu
+ * membuat data demo tampak lebih sedikit dari yang tertulis di berkas ini.
+ * Kolom adminNote-nya sendiri tetap ada sebagai catatan tim di source.
+ */
 export function buildDemoMessages(): TicketMessage[] {
   const out: TicketMessage[] = [];
 
   for (const seed of SEEDS) {
-    if (seed.adminNote) {
-      out.push({
-        id: `msg_demo_${seed.id}_note`,
-        ticketId: seed.id,
-        author: "ADMIN",
-        kind: "NOTE" as MessageKind,
-        body: seed.adminNote,
-        attachments: [],
-        createdAt: seed.updatedAt,
-      });
-    }
     (DEMO_THREADS[seed.id] || []).forEach((entry, i) => {
       out.push({
         id: `msg_demo_${seed.id}_${i}`,
@@ -474,7 +471,7 @@ function lengkapi(seed: Seed): Ticket {
     name: seed.name,
     email: seed.email,
     phone: seed.phone,
-    category: seed.category,
+    workingOrder: seed.workingOrder,
     subject: seed.subject,
     message: seed.message,
     status: seed.status,

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { requireAuth, unauthorized } from "@/lib/auth";
+import { gateAssetAdmin } from "@/lib/auth";
 
 /**
  * Shared server-side store (lintas-browser) untuk data SIGAP.
@@ -101,7 +101,8 @@ async function writeStoreFile(payload: StoreFilePayload) {
 }
 
 export async function GET(req: NextRequest) {
-  if (!(await requireAuth(req))) return unauthorized();
+  const gate = await gateAssetAdmin(req);
+  if (!gate.ok) return gate.res;
   warnIfServerless();
   const file = await readStoreFile();
   if (!file) {
@@ -112,7 +113,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
-  if (!(await requireAuth(req))) return unauthorized();
+  const gate = await gateAssetAdmin(req);
+  if (!gate.ok) return gate.res;
   warnIfServerless();
 
   let body: any;

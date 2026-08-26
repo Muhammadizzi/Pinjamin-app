@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   attachSessionCookie,
-  getAdminProfile,
   profileSchema,
-  requireAuth,
+  requireAdmin,
   toPublicAdmin,
   unauthorized,
   updateAdminProfile,
@@ -12,16 +11,22 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+/**
+ * GET /api/auth/me — profil pemilik sesi INI.
+ *
+ * Dulu mengembalikan getAdminProfile() alias baris admin pertama, sehingga
+ * dengan empat admin setiap orang akan melihat nama dan peran orang lain di
+ * sidebar-nya sendiri.
+ */
 export async function GET(req: NextRequest) {
-  const session = await requireAuth(req);
-  if (!session) return unauthorized();
-  const profile = toPublicAdmin(await getAdminProfile());
-  return NextResponse.json({ profile });
+  const admin = await requireAdmin(req);
+  if (!admin) return unauthorized();
+  return NextResponse.json({ profile: toPublicAdmin(admin) });
 }
 
 export async function PUT(req: NextRequest) {
-  const session = await requireAuth(req);
-  if (!session) return unauthorized();
+  const admin = await requireAdmin(req);
+  if (!admin) return unauthorized();
 
   let body: unknown;
   try {
@@ -37,16 +42,17 @@ export async function PUT(req: NextRequest) {
   }
 
   const { fullName, username, avatar } = parsed.data;
-  const next = await updateAdminProfile({
+  const next = await updateAdminProfile(admin, {
     fullName,
     username,
     ...(avatar !== undefined ? { avatar } : {}),
   });
 
   const res = NextResponse.json({ ok: true, profile: toPublicAdmin(next) });
-  if (username !== session.username) {
-    const remaining = Math.max(60, session.exp - Math.floor(Date.now() / 1000));
-    await attachSessionCookie(res, next, remaining);
+  if (username !== admin.username) {
+    // Username ada di dalam JWT dan dipakai memuat profil pada request
+    // berikutnya — tanpa cookie baru, admin langsung kehilangan sesinya.
+    await attachSessionCookie(res, next);
   }
   return res;
 }

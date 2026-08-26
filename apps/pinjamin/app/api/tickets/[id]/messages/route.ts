@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth, unauthorized } from "@/lib/auth";
+import { gateHelpdeskAdmin } from "@/lib/auth";
 import {
   addMessage,
+  getTicketForDesk,
   listMessages,
   validateAttachments,
   validateMessageBody,
 } from "@/lib/tickets";
-import type { MessageKind } from "@/lib/ticket-shared";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,14 +14,26 @@ export const dynamic = "force-dynamic";
 type Ctx = { params: Promise<{ id: string }> };
 
 /**
- * GET /api/tickets/:id/messages — thread LENGKAP termasuk catatan internal.
- * Khusus admin: pelapor memakai /api/tickets/portal yang membuang NOTE.
+ * GET /api/tickets/:id/messages — percakapan tiket (khusus admin).
+ *
+ * Catatan internal TIDAK ikut, walau baris NOTE lama masih ada di database:
+ * fiturnya sudah dihapus, dan menampilkan jenis pesan yang tidak bisa lagi
+ * dibuat hanya menyisakan lencana yang tak punya penjelasan. Yang dilihat
+ * admin di sini kini persis sama dengan yang dilihat pelapor.
  */
 export async function GET(req: NextRequest, ctx: Ctx) {
-  if (!(await requireAuth(req))) return unauthorized();
+  const gate = await gateHelpdeskAdmin(req);
+  if (!gate.ok) return gate.res;
   const { id } = await ctx.params;
+
+  if (!(await getTicketForDesk(id, gate.admin.workingOrder))) {
+    return NextResponse.json(
+      { error: "Tiket tidak ditemukan." },
+      { status: 404 }
+    );
+  }
   try {
-    return NextResponse.json({ messages: await listMessages(id, true) });
+    return NextResponse.json({ messages: await listMessages(id) });
   } catch (e) {
     console.error("[messages GET]", e);
     return NextResponse.json(
@@ -32,16 +44,25 @@ export async function GET(req: NextRequest, ctx: Ctx) {
 }
 
 /**
- * POST /api/tickets/:id/messages — admin membalas pelapor (kind REPLY) atau
- * menulis catatan internal (kind NOTE).
+ * POST /api/tickets/:id/messages — admin membalas pelapor.
  *
- * Perbedaan keduanya menentukan apa yang dilihat pelapor, jadi `kind` tidak
- * punya nilai default yang "aman-aman saja": tanpa kind yang jelas request
- * ditolak, alih-alih diam-diam menerbitkan catatan internal ke portal.
+ * Satu-satunya jalur menulis ke percakapan tiket di seluruh sistem, dan
+ * satu-satunya jenis pesan yang dihasilkannya adalah REPLY. `kind` dari body
+ * SENGAJA diabaikan: endpoint ini publik hanya bagi admin, tapi membiarkan
+ * pemanggil memilih jenis pesan berarti "NOTE" bisa dihidupkan kembali lewat
+ * curl setelah UI-nya dihapus.
  */
 export async function POST(req: NextRequest, ctx: Ctx) {
-  if (!(await requireAuth(req))) return unauthorized();
+  const gate = await gateHelpdeskAdmin(req);
+  if (!gate.ok) return gate.res;
   const { id } = await ctx.params;
+
+  if (!(await getTicketForDesk(id, gate.admin.workingOrder))) {
+    return NextResponse.json(
+      { error: "Tiket tidak ditemukan." },
+      { status: 404 }
+    );
+  }
 
   let body: Record<string, unknown> = {};
   try {
@@ -49,14 +70,6 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   } catch {
     return NextResponse.json({ error: "Body tidak valid." }, { status: 400 });
   }
-
-  if (body.kind !== "REPLY" && body.kind !== "NOTE") {
-    return NextResponse.json(
-      { error: "Jenis pesan harus REPLY atau NOTE." },
-      { status: 400 }
-    );
-  }
-  const kind = body.kind as MessageKind;
 
   const attachments = validateAttachments(body.attachments);
   const checked = validateMessageBody(body.body, attachments);
@@ -68,7 +81,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     const saved = await addMessage({
       ticketId: id,
       author: "ADMIN",
-      kind,
+      kind: "REPLY",
       body: checked.text,
       attachments,
     });

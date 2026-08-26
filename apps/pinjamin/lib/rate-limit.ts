@@ -75,13 +75,45 @@ export const trackLimiter = createRateLimiter({
   windowMs: 5 * 60 * 1000,
 });
 
+/**
+ * Berapa proxy tepercaya yang berada TEPAT di depan aplikasi. Di Vercel = 1
+ * (Vercel menimpa X-Forwarded-For kiriman klien, jadi hanya entri yang ia
+ * tambahkan yang bisa dipercaya). Diubah lewat env bila di belakang reverse
+ * proxy lain (mis. Cloudflare → Vercel = 2), supaya kunci rate-limit tetap
+ * benar setelah pindah host — pertahanan tidak boleh bergantung pada satu
+ * platform tertentu.
+ */
+const TRUSTED_PROXIES = Math.max(
+  1,
+  Number(process.env.RATE_LIMIT_TRUSTED_PROXIES) || 1
+);
+
+/**
+ * IP klien untuk kunci rate-limit.
+ *
+ * SIGAP-01: JANGAN memakai entri paling KIRI X-Forwarded-For. XFF disusun
+ * `klien, proxy1, proxy2, ...` dan tiap proxy MENAMBAH di sisi kanan, jadi
+ * entri kiri adalah nilai yang ditulis pemanggil asli — bisa dipalsukan untuk
+ * mereset kuota. Yang tepercaya adalah entri yang ditambahkan proxy tepercaya
+ * terakhir, yaitu dihitung dari KANAN (TRUSTED_PROXIES entri dari belakang).
+ *
+ * Kalau header tidak ada atau lebih pendek dari yang diharapkan, jatuh ke
+ * x-real-ip lalu "unknown" — semua klien berbagi satu keranjang, artinya
+ * over-limit (aman), bukan bypass.
+ */
 export function clientIp(req: {
   headers: { get(name: string): string | null };
 }): string {
   const forwarded = req.headers.get("x-forwarded-for");
   if (forwarded) {
-    const first = forwarded.split(",")[0]?.trim();
-    if (first) return first;
+    const parts = forwarded
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (parts.length) {
+      const ip = parts[parts.length - TRUSTED_PROXIES];
+      if (ip) return ip;
+    }
   }
   return req.headers.get("x-real-ip")?.trim() || "unknown";
 }

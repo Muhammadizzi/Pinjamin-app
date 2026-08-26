@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth } from "@/lib/auth";
+import { gateAssetAdmin } from "@/lib/auth";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import {
   BOOKING_UPDATE_FIELDS,
@@ -21,9 +21,9 @@ export async function PATCH(
   req: NextRequest,
   ctx: { params: Promise<{ id: string }> }
 ) {
-  const session = await requireAuth(req);
-  if (!session)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const gate = await gateAssetAdmin(req);
+  if (!gate.ok) return gate.res;
+  const session = gate.admin;
 
   const { id } = await ctx.params;
   if (!isUuid(id))
@@ -101,9 +101,8 @@ export async function DELETE(
   req: NextRequest,
   ctx: { params: Promise<{ id: string }> }
 ) {
-  const session = await requireAuth(req);
-  if (!session)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const gate = await gateAssetAdmin(req);
+  if (!gate.ok) return gate.res;
 
   const { id } = await ctx.params;
   if (!isUuid(id))

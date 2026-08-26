@@ -11,8 +11,6 @@ import {
   MessageBubble,
   PendingAttachments,
   PriorityBadge,
-  SlaLine,
-  humanizeDuration,
   type ThreadMessage,
 } from "@/components/tickets/ticket-bits";
 import { useAttachments } from "@/components/tickets/use-attachments";
@@ -20,8 +18,6 @@ import {
   ATTACHMENTS_MAX,
   TICKET_PRIORITIES,
   TICKET_STATUSES,
-  evaluateSla,
-  isSlaBreached,
   type TicketAttachment,
   type TicketPriority,
   type TicketStatus,
@@ -44,7 +40,6 @@ import {
   MessageSquare,
   Paperclip,
   Send,
-  StickyNote,
   Copy,
   Check,
   ShieldAlert,
@@ -57,19 +52,13 @@ interface Ticket {
   name: string;
   email: string;
   phone: string;
-  category: string;
+  workingOrder: string;
   subject: string;
   message: string;
   status: TicketStatus;
   priority: TicketPriority;
   accessToken: string;
   attachments: TicketAttachment[];
-  responseDueAt: string | null;
-  resolutionDueAt: string | null;
-  firstResponseAt: string | null;
-  resolvedAt: string | null;
-  slaPausedAt: string | null;
-  slaPausedMs: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -98,8 +87,8 @@ const STATUS_META: Record<TicketStatus, { badge: string; dot: string }> = {
   },
 };
 
-/** Filter daftar: per status, semua, atau khusus tiket yang melanggar SLA. */
-type Filter = TicketStatus | "ALL" | "OVERDUE";
+/** Filter daftar: per status, atau semua. */
+type Filter = TicketStatus | "ALL";
 
 function StatusBadge({
   status,
@@ -123,18 +112,23 @@ export default function TicketsPage() {
   const { ask, confirmDialog } = useConfirmDialog();
   const { t, ticketStatus, ticketPriority, formatDateTime } = useT();
   const [tickets, setTickets] = useState<Ticket[]>([]);
+  /**
+   * Working order milik admin ini, dari respons server — BUKAN dari sesi di
+   * client. Yang menyaring daftarnya memang server, jadi label di layar harus
+   * mengutip sumber yang sama; kalau tidak, ia bisa mengklaim "GA" sementara
+   * yang tampil adalah antrean lain.
+   */
+  const [workingOrder, setWorkingOrder] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<Filter>("ALL");
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Ticket | null>(null);
   const [saving, setSaving] = useState(false);
-  const [emailDraft, setEmailDraft] = useState("");
 
   // --- Percakapan ---
   const [messages, setMessages] = useState<ThreadMessage[]>([]);
   const [messagesLoading, setMessagesLoading] = useState(false);
-  const [composerMode, setComposerMode] = useState<"REPLY" | "NOTE">("REPLY");
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
 
@@ -166,6 +160,7 @@ export default function TicketsPage() {
       if (res.ok) {
         const j = await res.json();
         setTickets(j.tickets || []);
+        setWorkingOrder(j.workingOrder || "");
       }
     } catch {
       /* biarkan UI menampilkan state kosong */
@@ -209,23 +204,14 @@ export default function TicketsPage() {
     return () => window.removeEventListener("keydown", onKey);
   }, [selected]);
 
-  // Jam dinding untuk penilaian SLA. Disimpan di state dan disegarkan tiap
-  // menit: dipanggil langsung saat render, badge "sisa 2 jam" akan membeku
-  // pada nilai render pertama sampai ada interaksi lain.
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 60_000);
-    return () => clearInterval(id);
-  }, []);
-
   const stats = useMemo(
     () => ({
       open: tickets.filter((x) => x.status === "OPEN").length,
       inProgress: tickets.filter((x) => x.status === "IN_PROGRESS").length,
       replied: tickets.filter((x) => x.status === "REPLIED").length,
-      overdue: tickets.filter((x) => isSlaBreached(x, now)).length,
+      resolved: tickets.filter((x) => x.status === "RESOLVED").length,
     }),
-    [tickets, now]
+    [tickets]
   );
 
   const filters = useMemo<Array<{ key: Filter; label: string }>>(
@@ -235,7 +221,6 @@ export default function TicketsPage() {
         key: k as Filter,
         label: ticketStatus(k),
       })),
-      { key: "OVERDUE", label: t("overdueTickets") },
     ],
     [t, ticketStatus]
   );
@@ -243,11 +228,7 @@ export default function TicketsPage() {
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
     return tickets.filter((x) => {
-      if (filter === "OVERDUE") {
-        if (!isSlaBreached(x, now)) return false;
-      } else if (filter !== "ALL" && x.status !== filter) {
-        return false;
-      }
+      if (filter !== "ALL" && x.status !== filter) return false;
       if (!q) return true;
       return (
         x.number.toLowerCase().includes(q) ||
@@ -256,7 +237,7 @@ export default function TicketsPage() {
         x.email.toLowerCase().includes(q)
       );
     });
-  }, [tickets, filter, search, now]);
+  }, [tickets, filter, search]);
 
   /** Ambil thread lengkap (termasuk catatan internal) untuk satu tiket. */
   const loadMessages = useCallback(async (id: string) => {
@@ -278,8 +259,6 @@ export default function TicketsPage() {
 
   const openDetail = (ticket: Ticket) => {
     setSelected(ticket);
-    setEmailDraft(ticket.email);
-    setComposerMode("REPLY");
     setDraft("");
     attach.reset();
     setMessages([]);
@@ -291,7 +270,6 @@ export default function TicketsPage() {
     patch: {
       status?: TicketStatus;
       priority?: TicketPriority;
-      email?: string;
     }
   ) => {
     setSaving(true);
@@ -309,11 +287,7 @@ export default function TicketsPage() {
       const updated: Ticket = j.ticket;
       setTickets((prev) => prev.map((x) => (x.id === id ? updated : x)));
       setSelected((prev) => (prev && prev.id === id ? updated : prev));
-      if (patch.priority) {
-        showNotice("ok", t("prioritySaved"));
-      } else if (patch.email) {
-        showNotice("ok", t("reporterEmailSaved"));
-      }
+      if (patch.priority) showNotice("ok", t("prioritySaved"));
       // Perubahan status sengaja TANPA toast — sudah terlihat langsung pada
       // pill status yang aktif.
     } finally {
@@ -321,7 +295,7 @@ export default function TicketsPage() {
     }
   };
 
-  /** Kirim balasan ke pelapor (REPLY) atau simpan catatan internal (NOTE). */
+  /** Kirim balasan yang akan dibaca pelapor. Tidak ada jenis pesan lain. */
   const sendMessage = async () => {
     if (!selected) return;
     const body = draft.trim();
@@ -333,7 +307,7 @@ export default function TicketsPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          kind: composerMode,
+          kind: "REPLY",
           body,
           attachments: attach.items,
         }),
@@ -351,10 +325,7 @@ export default function TicketsPage() {
       setSelected(updated);
       setDraft("");
       attach.reset();
-      showNotice(
-        "ok",
-        composerMode === "REPLY" ? t("replySent") : t("noteAdded")
-      );
+      showNotice("ok", t("replySent"));
     } catch {
       showNotice("err", t("messageFailed"));
     } finally {
@@ -394,35 +365,6 @@ export default function TicketsPage() {
     } catch {}
   };
 
-  /** Satuan durasi dari kamus — {count} diisi humanizeDuration. */
-  const durationUnit = useMemo(
-    () => ({
-      minutes: t("minutesShort"),
-      hours: t("hoursShort"),
-      days: t("daysShort"),
-    }),
-    [t]
-  );
-
-  /**
-   * Teks pendek untuk satu tenggat SLA: waktu pemenuhan, sisa, atau telat.
-   * `remainingMs` datang dari evaluateSla — yang sudah memperhitungkan jeda
-   * pada tenggat penyelesaian.
-   */
-  const slaDetail = (leg: {
-    remainingMs: number;
-    fulfilledAt: string | null;
-    state: string;
-  }) => {
-    if (leg.fulfilledAt) {
-      return leg.state === "MET" ? t("slaOnTime") : t("slaBreached");
-    }
-    const teks = humanizeDuration(leg.remainingMs, durationUnit);
-    return leg.remainingMs >= 0
-      ? t("slaDueIn", { time: teks })
-      : t("slaLateBy", { time: teks });
-  };
-
   const statCards: Array<{
     key: Filter;
     label: string;
@@ -451,15 +393,12 @@ export default function TicketsPage() {
       icon: MessageSquare,
       cls: "from-sky-500/20 to-sky-500/5 text-sky-300",
     },
-    // Kartu keempat sengaja BUKAN status: tiket selesai tidak butuh perhatian,
-    // sedangkan tiket yang lewat SLA justru hal pertama yang harus dilihat
-    // admin saat membuka halaman ini.
     {
-      key: "OVERDUE",
-      label: t("overdueTickets"),
-      value: stats.overdue,
+      key: "RESOLVED",
+      label: ticketStatus("RESOLVED"),
+      value: stats.resolved,
       icon: ShieldAlert,
-      cls: "from-red-500/25 to-red-500/5 text-red-300",
+      cls: "from-emerald-500/20 to-emerald-500/5 text-emerald-300",
     },
   ];
 
@@ -471,6 +410,11 @@ export default function TicketsPage() {
             <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white flex items-center gap-2">
               <LifeBuoy className="h-5 w-5 sm:h-6 sm:w-6 text-amber-300" />
               {t("helpdeskTickets")}
+              {workingOrder && (
+                <span className="rounded-full border border-[#CBA12C]/40 bg-[#CBA12C]/15 px-2.5 py-0.5 text-xs font-bold text-[#CBA12C]">
+                  {workingOrder}
+                </span>
+              )}
             </h1>
             {/* Deskripsi panjang disembunyikan di ponsel — memakan 3 baris
                 sebelum konten yang sebenarnya dicari. */}
@@ -617,10 +561,7 @@ export default function TicketsPage() {
                 {filter === "ALL"
                   ? t("noTicketsHintAll")
                   : t("noTicketsHintFiltered", {
-                      status:
-                        filter === "OVERDUE"
-                          ? t("overdueTickets")
-                          : ticketStatus(filter),
+                      status: ticketStatus(filter),
                     })}
               </div>
             </CardContent>
@@ -660,34 +601,12 @@ export default function TicketsPage() {
                 <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
                   <span className="font-semibold text-white">{tk.subject}</span>
                   <span className="text-xs text-slate-400">
-                    {tk.name} • {tk.category}
+                    {tk.name} • {tk.workingOrder}
                   </span>
                 </div>
                 <p className="mt-1 text-sm text-slate-400 line-clamp-1">
                   {tk.message}
                 </p>
-                {/* Tenggat penyelesaian ikut di daftar: memilih tiket mana yang
-                    dikerjakan lebih dulu tidak seharusnya menuntut membuka
-                    satu per satu. */}
-                <div className="mt-2 flex flex-wrap items-center gap-2">
-                  {(() => {
-                    const sla = evaluateSla(tk, now);
-                    return (
-                      <>
-                        <SlaLine
-                          label={t("slaResolution")}
-                          state={sla.resolution.state}
-                          detail={slaDetail(sla.resolution)}
-                        />
-                        {sla.paused && (
-                          <span className="rounded-full border border-slate-500/40 bg-slate-500/10 px-1.5 py-px text-[10px] font-semibold text-slate-400">
-                            {t("slaPaused")}
-                          </span>
-                        )}
-                      </>
-                    );
-                  })()}
-                </div>
               </button>
             ))}
           </div>
@@ -756,7 +675,7 @@ export default function TicketsPage() {
                 </div>
                 <div className="flex items-center gap-2 text-slate-300">
                   <TagIcon className="h-4 w-4 text-slate-500 shrink-0" />
-                  {selected.category}
+                  {selected.workingOrder}
                 </div>
                 <div className="flex items-center gap-2 text-slate-300">
                   <Calendar className="h-4 w-4 text-slate-500 shrink-0" />
@@ -771,37 +690,6 @@ export default function TicketsPage() {
                   })}
                 </div>
               </div>
-
-              {/* SLA */}
-              {(() => {
-                const sla = evaluateSla(selected, now);
-                return (
-                  <div className="space-y-1.5 rounded-xl border border-[#243a5e] bg-[#0f1d33] px-3.5 py-2.5">
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
-                      <SlaLine
-                        label={t("slaResponse")}
-                        state={sla.response.state}
-                        detail={slaDetail(sla.response)}
-                      />
-                      <SlaLine
-                        label={t("slaResolution")}
-                        state={sla.resolution.state}
-                        detail={slaDetail(sla.resolution)}
-                      />
-                      {sla.paused && (
-                        <span className="rounded-full border border-slate-500/40 bg-slate-500/10 px-2 py-0.5 text-[10px] font-semibold text-slate-400">
-                          {t("slaPaused")}
-                        </span>
-                      )}
-                    </div>
-                    {sla.paused && (
-                      <p className="text-[11px] leading-relaxed text-slate-500">
-                        {t("slaPausedHint")}
-                      </p>
-                    )}
-                  </div>
-                );
-              })()}
 
               {/* Percakapan */}
               <div className="space-y-3">
@@ -839,7 +727,6 @@ export default function TicketsPage() {
                         authorLabel={
                           m.author === "ADMIN" ? t("adminLabel") : selected.name
                         }
-                        noteLabel={t("internalNoteLabel")}
                         timeLabel={formatDateTime(m.createdAt)}
                       />
                     ))
@@ -852,46 +739,21 @@ export default function TicketsPage() {
                   )}
                 </div>
 
-                {/* Penulis pesan: balasan ke pelapor vs catatan internal.
-                    Dipisah sebagai tab, bukan checkbox, supaya bedanya tidak
-                    bisa terlewat — keduanya berakhir di tempat yang sangat
-                    berbeda bagi pelapor. */}
+                {/* Hanya satu jenis tulisan: balasan yang dibaca pelapor.
+                    Tab "catatan internal" dihapus — dengan dua jenis pesan
+                    dalam satu kotak, salah tab berarti catatan internal
+                    terkirim ke pelapor, dan itu tidak bisa ditarik kembali. */}
                 <div className="rounded-xl border border-[#243a5e] bg-[#0f1d33] p-3 space-y-2.5">
-                  <div className="flex gap-2">
-                    {(["REPLY", "NOTE"] as const).map((mode) => (
-                      <button
-                        key={mode}
-                        type="button"
-                        onClick={() => setComposerMode(mode)}
-                        className={`rounded-full px-3 py-1.5 text-xs font-semibold border transition-all ${
-                          composerMode === mode
-                            ? mode === "REPLY"
-                              ? "bg-[#CBA12C] text-[#1a365d] border-[#CBA12C]"
-                              : "bg-amber-400/15 text-amber-200 border-amber-400/40"
-                            : "text-slate-300 border-[#243a5e] hover:border-slate-500"
-                        }`}
-                      >
-                        {mode === "REPLY" ? t("replyTab") : t("noteTab")}
-                      </button>
-                    ))}
-                  </div>
-
                   <Textarea
                     value={draft}
                     onChange={(e) => setDraft(e.target.value)}
                     rows={3}
-                    placeholder={
-                      composerMode === "REPLY"
-                        ? t("replyPlaceholder")
-                        : t("internalNotePlaceholder")
-                    }
+                    placeholder={t("replyPlaceholder")}
                     className="rounded-xl bg-[#12263f]"
                   />
 
                   <p className="text-[11px] text-slate-500">
-                    {composerMode === "REPLY"
-                      ? t("replyVisibleHint")
-                      : t("noteVisibleHint")}
+                    {t("replyVisibleHint")}
                   </p>
 
                   <PendingAttachments
@@ -946,14 +808,10 @@ export default function TicketsPage() {
                     >
                       {sending ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : composerMode === "REPLY" ? (
-                        <Send className="h-4 w-4" />
                       ) : (
-                        <StickyNote className="h-4 w-4" />
+                        <Send className="h-4 w-4" />
                       )}
-                      {composerMode === "REPLY"
-                        ? t("sendReply")
-                        : t("saveInternalNote")}
+                      {t("sendReply")}
                     </Button>
                   </div>
                 </div>
@@ -981,7 +839,7 @@ export default function TicketsPage() {
                   ))}
                 </div>
                 <p className="text-[11px] text-slate-500">
-                  {t("slaTargetHint")}
+                  {t("priorityHint")}
                 </p>
               </div>
 
@@ -1006,48 +864,6 @@ export default function TicketsPage() {
                     </button>
                   ))}
                 </div>
-              </div>
-
-              {/* Email pelapor — menggantikan kolom "Link portal pelapor".
-                  Tautan berkunci itu memberi hak membalas permanen kepada
-                  siapa pun yang memegangnya; sejak percakapan bisa diakses
-                  lewat halaman lacak, menyebarkannya jadi jalur yang lebih
-                  lemah daripada konfirmasi email. Yang tersisa hanyalah kasus
-                  pelapor salah mengetik emailnya sendiri — dan itu
-                  diselesaikan di sini, bukan dengan membagikan kunci. */}
-              <div className="space-y-2">
-                <div className="text-sm font-semibold text-white">
-                  {t("editReporterEmail")}
-                </div>
-                <div className="flex gap-2">
-                  <Input
-                    type="email"
-                    value={emailDraft}
-                    onChange={(e) => setEmailDraft(e.target.value)}
-                    placeholder="nama@garudafood.co.id"
-                    className="flex-1 rounded-xl bg-[#0f1d33]"
-                  />
-                  <Button
-                    variant="outline"
-                    className="shrink-0 rounded-xl"
-                    disabled={
-                      saving ||
-                      emailDraft.trim().length === 0 ||
-                      emailDraft.trim().toLowerCase() ===
-                        selected.email.toLowerCase()
-                    }
-                    onClick={() =>
-                      patchTicket(selected.id, {
-                        email: emailDraft.trim().toLowerCase(),
-                      })
-                    }
-                  >
-                    {t("saveEmail")}
-                  </Button>
-                </div>
-                <p className="text-[11px] text-slate-500">
-                  {t("reporterEmailHint")}
-                </p>
               </div>
 
               <div className="flex items-center gap-2 pt-1">

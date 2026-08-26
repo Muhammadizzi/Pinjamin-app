@@ -33,3 +33,35 @@ export function isPublicPage(pathname: string): boolean {
     PUBLIC_PAGE_PREFIXES.some((p) => pathname.startsWith(p))
   );
 }
+
+/* ------------------------------------------------------------------ */
+/* Halaman per peran                                                   */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Halaman milik admin HELPDESK. Sisanya — dashboard, aset, peminjaman,
+ * audit, laporan, scanner — milik admin ASET.
+ *
+ * Daftar ini memakai pola "milik helpdesk", bukan "milik aset", dan itu
+ * disengaja: halaman baru yang lupa didaftarkan akan jatuh ke sisi aset,
+ * yaitu sisi yang TIDAK boleh disentuh admin helpdesk. Kelalaian berujung
+ * pada terlalu sedikit akses, bukan terlalu banyak.
+ */
+const HELPDESK_PAGE_PREFIXES = ["/tickets"];
+
+/** Halaman yang dipakai SEMUA peran — profil & ganti password sendiri. */
+const SHARED_PAGE_PREFIXES = ["/settings"];
+
+/** Beranda tiap peran: ke mana admin dilempar setelah login atau salah alamat. */
+export function homeFor(role: string): string {
+  return role === "HELPDESK" ? "/tickets" : "/dashboard";
+}
+
+export function isPageAllowedFor(pathname: string, role: string): boolean {
+  if (isPublicPage(pathname)) return true;
+  if (SHARED_PAGE_PREFIXES.some((p) => pathname.startsWith(p))) return true;
+  const helpdeskPage = HELPDESK_PAGE_PREFIXES.some((p) =>
+    pathname.startsWith(p)
+  );
+  return role === "HELPDESK" ? helpdeskPage : !helpdeskPage;
+}

@@ -5,6 +5,7 @@
 import {
   AUTH_COOKIE,
   SESSION_MAX_AGE_LONG,
+  isAdminRole,
   type SessionPayload,
 } from "./auth-types";
 
@@ -101,6 +102,12 @@ export async function verifySession(
     ) as SessionPayload;
     if (!payload?.username || !payload.exp) return null;
     if (payload.exp * 1000 < Date.now()) return null;
+    // Sesi tanpa `role` adalah cookie yang diterbitkan SEBELUM peran admin
+    // ada. Ditolak, bukan dianggap peran termudah: menebak di sini berarti
+    // memilih antara mengunci admin aset dari aplikasinya sendiri atau
+    // memberi cookie lama akses yang tidak pernah diberikan kepadanya.
+    // Ditolak = admin login ulang sekali, lalu tokennya lengkap.
+    if (!isAdminRole(payload.role)) return null;
     return payload;
   } catch {
     return null;

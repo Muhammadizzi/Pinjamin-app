@@ -9,6 +9,7 @@ import { LanguageToggle } from "@/components/language-toggle";
 import { useT } from "@/lib/i18n";
 import { useStore } from "@/lib/store";
 import { useAuth } from "@/lib/auth-client";
+import type { AdminRole } from "@/lib/auth-types";
 import {
   LayoutDashboard,
   Package,
@@ -34,35 +35,30 @@ interface AdminProfileInfo {
   username: string;
   fullName: string;
   avatar: string;
+  role: AdminRole;
+  /** "GA" | "Utility" | "IT" untuk helpdesk; null untuk admin aset. */
+  workingOrder: string | null;
 }
 
 /**
- * Mode admin: "assets" (manajemen aset) atau "tickets" (Helpdesk).
- * Disimpan di localStorage + disiarkan lewat event `pinjamin:mode` supaya
- * TopBar & Sidebar selalu sinkron. Rute /tickets otomatis memaksa mode
- * tickets agar tampilan konsisten walau masuk lewat URL langsung.
+ * Wilayah kerja admin: "assets" (manajemen aset) atau "tickets" (Helpdesk).
+ *
+ * Dulu pilihan bebas yang disimpan di localStorage. Sekarang TURUNAN dari
+ * peran akun, jadi tidak ada lagi keadaan di mana tampilan mengklaim satu
+ * wilayah sementara servernya menolak wilayah itu.
  */
 type AdminMode = "assets" | "tickets";
 
-function useAdminMode(): [AdminMode, (m: AdminMode) => void] {
-  const pathname = usePathname();
-  const [stored, setStored] = useState<AdminMode>("assets");
-  useEffect(() => {
-    const saved = localStorage.getItem("pinjamin_mode");
-    if (saved === "assets" || saved === "tickets") setStored(saved);
-    const onMode = (e: Event) => {
-      const d = (e as CustomEvent).detail;
-      if (d === "assets" || d === "tickets") setStored(d);
-    };
-    window.addEventListener("pinjamin:mode", onMode);
-    return () => window.removeEventListener("pinjamin:mode", onMode);
-  }, []);
-  const setMode = (m: AdminMode) => {
-    localStorage.setItem("pinjamin_mode", m);
-    window.dispatchEvent(new CustomEvent("pinjamin:mode", { detail: m }));
-  };
-  const mode: AdminMode = pathname.startsWith("/tickets") ? "tickets" : stored;
-  return [mode, setMode];
+/**
+ * Peran menentukan mode mana yang BOLEH dibuka.
+ *
+ * Admin helpdesk tidak punya pilihan sama sekali: satu-satunya wilayahnya
+ * adalah panel tiket. Admin aset juga tidak — Ticketing bukan miliknya.
+ * Switcher hanya masuk akal kalau ada lebih dari satu tujuan, dan sejak
+ * peran dipisah tidak ada akun yang punya dua.
+ */
+function modeFor(role: AdminRole): AdminMode {
+  return role === "HELPDESK" ? "tickets" : "assets";
 }
 
 function useAdminProfile(): AdminProfileInfo {
@@ -71,6 +67,8 @@ function useAdminProfile(): AdminProfileInfo {
     username: user?.username || "admin",
     fullName: user?.fullName || "Administrator",
     avatar: user?.avatar || "",
+    role: user?.role || "ASSET",
+    workingOrder: user?.workingOrder || null,
   };
 }
 
@@ -112,7 +110,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const { assets } = useStore();
   const profile = useAdminProfile();
   const { logout } = useAuth();
-  const [mode] = useAdminMode();
+  const mode = modeFor(profile.role);
   const [bookingsOpen, setBookingsOpen] = useState(
     pathname.startsWith("/bookings")
   );
@@ -206,7 +204,11 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
       <div className="flex-1 overflow-y-auto px-3 py-4 space-y-6">
         <div className="space-y-1">
           <div className="px-3 py-2 text-[11px] font-semibold tracking-widest text-slate-400 uppercase">
-            {mode === "tickets" ? t("helpdesk") : t("assetManagement")}
+            {mode === "tickets"
+              ? `${t("helpdesk")}${
+                  profile.workingOrder ? ` — ${profile.workingOrder}` : ""
+                }`
+              : t("assetManagement")}
           </div>
           {navItems.map((item) => {
             const isActive =
@@ -402,11 +404,7 @@ export function TopBar({ onMenu }: { onMenu: () => void }) {
   const router = useRouter();
   const { t } = useT();
   const profile = useAdminProfile();
-  const [mode, setMode] = useAdminMode();
-  const switchMode = (m: AdminMode) => {
-    setMode(m);
-    router.push(m === "tickets" ? "/tickets" : "/dashboard");
-  };
+  const mode = modeFor(profile.role);
   return (
     <header className="sticky top-0 z-20 flex h-[56px] sm:h-[64px] items-center gap-1.5 sm:gap-3 border-b bg-[#0f1d33]/95 backdrop-blur-xl px-2 sm:px-4 border-[#243a5e] shadow-sm">
       <Button
@@ -457,36 +455,30 @@ export function TopBar({ onMenu }: { onMenu: () => void }) {
         </span>
       </div>
       <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
-        {/* Switcher Mode Admin: Aset vs Ticketing (helpdesk) */}
-        <div className="flex items-center rounded-xl border border-[#243a5e] bg-[#142a4a] p-0.5">
-          <button
-            type="button"
-            onClick={() => switchMode("assets")}
-            title={t("modeAdminAssets")}
-            className={cn(
-              "flex items-center gap-1.5 rounded-lg px-2 sm:px-2.5 py-1.5 text-xs font-semibold transition-all",
-              mode === "assets"
-                ? "bg-[#CBA12C] text-[#1a365d] shadow"
-                : "text-slate-400 hover:text-white"
-            )}
-          >
-            <Package className="h-4 w-4" strokeWidth={1.75} />
-            <span className="hidden md:inline">Aset</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => switchMode("tickets")}
-            title={t("modeAdminTickets")}
-            className={cn(
-              "flex items-center gap-1.5 rounded-lg px-2 sm:px-2.5 py-1.5 text-xs font-semibold transition-all",
-              mode === "tickets"
-                ? "bg-[#CBA12C] text-[#1a365d] shadow"
-                : "text-slate-400 hover:text-white"
-            )}
-          >
-            <LifeBuoy className="h-4 w-4" strokeWidth={1.75} />
-            <span className="hidden md:inline">Ticketing</span>
-          </button>
+        {/* Lencana wilayah kerja — BUKAN switcher lagi.
+            Dulu dua tombol Aset / Ticketing yang bisa ditekan siapa saja.
+            Sejak tiap akun terkunci pada satu peran, tombol kedua hanya akan
+            melempar admin ke halaman yang pasti memantulkannya kembali. Yang
+            tersisa adalah keterangan: Anda sedang berada di wilayah mana. */}
+        <div className="flex items-center gap-1.5 rounded-xl border border-[#243a5e] bg-[#142a4a] px-2 py-1.5 sm:px-2.5">
+          {mode === "tickets" ? (
+            <LifeBuoy
+              className="h-4 w-4 shrink-0 text-[#CBA12C]"
+              strokeWidth={1.75}
+            />
+          ) : (
+            <Package
+              className="h-4 w-4 shrink-0 text-[#CBA12C]"
+              strokeWidth={1.75}
+            />
+          )}
+          <span className="hidden text-xs font-semibold text-slate-200 md:inline">
+            {mode === "tickets"
+              ? profile.workingOrder
+                ? `Ticketing · ${profile.workingOrder}`
+                : "Ticketing"
+              : "Aset"}
+          </span>
         </div>
         <LanguageToggle />
         {mode === "assets" && (

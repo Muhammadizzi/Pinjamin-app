@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth } from "@/lib/auth";
+import { gateAssetAdmin } from "@/lib/auth";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { clientIdRow, fromDbRow, isUuid } from "@/lib/resource-config";
 
@@ -14,9 +14,9 @@ type ExistingBooking = {
 };
 
 export async function POST(req: NextRequest) {
-  const session = await requireAuth(req);
-  if (!session)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const gate = await gateAssetAdmin(req);
+  if (!gate.ok) return gate.res;
+  const session = gate.admin;
 
   const body = await req.json().catch(() => null);
   if (!body || typeof body !== "object") {

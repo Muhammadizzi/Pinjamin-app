@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth, unauthorized } from "@/lib/auth";
+import { gateAssetAdmin, unauthorized } from "@/lib/auth";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import {
   ASSET_FIELDS,
@@ -17,8 +17,9 @@ export async function PATCH(
   req: NextRequest,
   ctx: { params: Promise<{ id: string }> }
 ) {
-  const session = await requireAuth(req);
-  if (!session) return unauthorized();
+  const gate = await gateAssetAdmin(req);
+  if (!gate.ok) return gate.res;
+  const session = gate.admin;
 
   const { id } = await ctx.params;
   if (!isUuid(id))
@@ -110,8 +111,8 @@ export async function DELETE(
   req: NextRequest,
   ctx: { params: Promise<{ id: string }> }
 ) {
-  const session = await requireAuth(req);
-  if (!session) return unauthorized();
+  const gate = await gateAssetAdmin(req);
+  if (!gate.ok) return gate.res;
 
   const { id } = await ctx.params;
   if (!isUuid(id))

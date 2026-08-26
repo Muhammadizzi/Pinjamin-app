@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth, unauthorized } from "@/lib/auth";
+import { gateAssetAdmin, unauthorized } from "@/lib/auth";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import {
   ASSET_FIELDS,
@@ -16,8 +16,8 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
-  const session = await requireAuth(req);
-  if (!session) return unauthorized();
+  const gate = await gateAssetAdmin(req);
+  if (!gate.ok) return gate.res;
 
   const body = await req.json().catch(() => null);
   if (!body || typeof body !== "object") {

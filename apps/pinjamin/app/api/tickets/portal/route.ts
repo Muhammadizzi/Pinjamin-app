@@ -20,7 +20,8 @@ export const dynamic = "force-dynamic";
  * Sejak halaman lacak ikut menampilkan percakapan, isi yang dikembalikan
  * kedua endpoint nyaris sama. Bedanya tinggal dua, dan keduanya bergantung
  * pada token: portal boleh menyebut nama pelapor, dan hanya portal yang
- * memberi hak MEMBALAS (lihat portal/reply).
+ * memberi hak MEMBALAS — percakapan tiket kini satu arah, hanya admin
+ * yang menulis.
  */
 
 export async function GET(req: NextRequest) {

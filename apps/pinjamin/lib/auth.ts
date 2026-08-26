@@ -7,6 +7,13 @@
  * - Token version: ganti password mematikan sesi lama.
  * - Sumber kredensial: Supabase `admins` (jika service role ada) →
  *   data/admin.json → fallback env / default demo (hanya non-production).
+ *
+ * SIGAP punya BANYAK admin dengan peran berbeda (lihat AdminRole di
+ * auth-types.ts). Karena itu tidak ada lagi "profil admin" tunggal di modul
+ * ini: setiap profil selalu diresolusi dari sesi pemanggil. Versi sebelumnya
+ * memakai satu cache global berisi baris admin PERTAMA — begitu ada admin
+ * kedua, cache itu akan menyajikan profil orang lain kepada siapa pun yang
+ * kebetulan dilayani instance yang sama.
  */
 import { promises as fs } from "node:fs";
 import path from "node:path";
@@ -18,10 +25,13 @@ import { getSupabaseAdmin } from "./supabase-server";
 import {
   AUTH_COOKIE,
   SESSION_MAX_AGE_LONG,
+  isAdminRole,
   type AdminProfile,
+  type AdminRole,
   type PublicAdmin,
   type SessionPayload,
 } from "./auth-types";
+import { isWorkingOrder } from "./ticket-shared";
 import {
   clearCookieOptions,
   sessionCookieOptions,
@@ -39,8 +49,16 @@ export {
   AUTH_COOKIE,
   SESSION_MAX_AGE_LONG,
   SESSION_MAX_AGE_SHORT,
+  ADMIN_ROLES,
+  isAdminRole,
+  isHelpdesk,
 } from "./auth-types";
-export type { AdminProfile, PublicAdmin, SessionPayload } from "./auth-types";
+export type {
+  AdminProfile,
+  AdminRole,
+  PublicAdmin,
+  SessionPayload,
+} from "./auth-types";
 export {
   signSession,
   verifySession,
@@ -99,8 +117,15 @@ export const passwordSchema = z.object({
     }),
 });
 
-let profileCache: AdminProfile | null = null;
-let profileCachedAt = 0;
+/**
+ * Cache profil admin, DIKUNCI PER USERNAME.
+ *
+ * Dulu satu variabel global. Dengan empat admin, request admin GA dan admin
+ * IT dilayani proses yang sama, dan siapa pun yang menulis terakhir menang —
+ * artinya seorang admin bisa menerima profil, peran, dan working order milik
+ * orang lain. Kunci per username membuat itu mustahil.
+ */
+const profileCache = new Map<string, { profile: AdminProfile; at: number }>();
 
 /**
  * Umur cache profil admin.
@@ -110,18 +135,23 @@ let profileCachedAt = 0;
  * menolak cookie baru dengan tv yang sudah naik — user seperti ter-logout
  * acak tergantung instance mana yang melayani. TTL pendek membuat semua
  * instance menyusul dalam hitungan detik.
+ *
+ * TTL ini juga membatasi berapa lama peran yang dicabut di database masih
+ * dihormati proses ini.
  */
 const PROFILE_CACHE_TTL_MS = 30_000;
 
-function cachedProfile(): AdminProfile | null {
-  if (!profileCache) return null;
-  if (Date.now() - profileCachedAt > PROFILE_CACHE_TTL_MS) return null;
-  return profileCache;
+const cacheKey = (username: string) => username.trim().toLowerCase();
+
+function cachedProfile(username: string): AdminProfile | null {
+  const hit = profileCache.get(cacheKey(username));
+  if (!hit) return null;
+  if (Date.now() - hit.at > PROFILE_CACHE_TTL_MS) return null;
+  return hit.profile;
 }
 
 function setProfileCache(p: AdminProfile) {
-  profileCache = p;
-  profileCachedAt = Date.now();
+  profileCache.set(cacheKey(p.username), { profile: p, at: Date.now() });
   return p;
 }
 
@@ -134,12 +164,22 @@ const isProduction = () => process.env.NODE_ENV === "production";
 /** Hash dari ADMIN_PASSWORD (plaintext env) — dihitung sekali, di-cache. */
 let envPlainHashCache: string | null = null;
 
+/**
+ * Admin darurat dari env / demo. SELALU berperan ASSET.
+ *
+ * Jalur ini tidak punya cara menyatakan working order, dan admin helpdesk
+ * tanpa working order akan berhadapan dengan antrean kosong sambil mengira
+ * tidak ada tiket masuk. Akun helpdesk hanya boleh lahir dari tabel `admins`,
+ * tempat constraint database memaksa keduanya terisi bersamaan.
+ */
 function baseProfile(hash: string): AdminProfile {
   return {
     id: DEFAULT_ADMIN_ID,
     username: envUsername(),
     fullName: process.env.ADMIN_NAME?.trim() || "Administrator",
     avatar: "",
+    role: "ASSET",
+    workingOrder: null,
     hash,
     tokenVersion: 1,
   };
@@ -165,11 +205,6 @@ async function fallbackProfile(): Promise<AdminProfile | null> {
 
   if (isProduction()) return null;
   return baseProfile(DEFAULT_PASSWORD_HASH);
-}
-
-/** Profil "terkunci": bentuk lengkap tapi hash kosong → tidak pernah cocok. */
-function lockedProfile(): AdminProfile {
-  return baseProfile("");
 }
 
 /**
@@ -209,6 +244,7 @@ function normalizeProfile(raw: unknown): AdminProfile | null {
         : typeof p.avatar_url === "string"
         ? p.avatar_url
         : "",
+    ...readRole(p.role, p.workingOrder ?? p.working_order),
     hash,
     tokenVersion:
       typeof p.tokenVersion === "number"
@@ -219,12 +255,44 @@ function normalizeProfile(raw: unknown): AdminProfile | null {
   };
 }
 
+/**
+ * Baca peran + working order dari sumber apa pun (baris DB atau admin.json).
+ *
+ * Peran yang tidak dikenal — termasuk yang HILANG, seperti pada database yang
+ * belum menjalankan supabase/11-admin-roles.sql — jatuh ke ASSET, bukan
+ * HELPDESK. Itu memang menjaga perilaku lama tetap utuh sebelum migrasi
+ * dijalankan, tapi alasan utamanya: HELPDESK adalah peran yang menyaring, dan
+ * peran menyaring yang lahir dari data rusak akan menyaring ke wilayah yang
+ * tidak pernah diberikan kepada siapa pun.
+ *
+ * HELPDESK tanpa working order yang sah juga diturunkan ke ASSET, karena
+ * admin helpdesk tanpa antrean tidak punya arti yang bisa dipertahankan.
+ */
+function readRole(
+  rawRole: unknown,
+  rawWo: unknown
+): Pick<AdminProfile, "role" | "workingOrder"> {
+  const role: AdminRole = isAdminRole(rawRole) ? rawRole : "ASSET";
+  if (role !== "HELPDESK") return { role: "ASSET", workingOrder: null };
+  const wo = typeof rawWo === "string" ? rawWo.trim() : "";
+  if (!isWorkingOrder(wo)) {
+    console.warn(
+      `[auth] admin berperan HELPDESK tanpa working order sah (${JSON.stringify(
+        rawWo
+      )}); diturunkan ke ASSET. Perbaiki barisnya di tabel admins.`
+    );
+    return { role: "ASSET", workingOrder: null };
+  }
+  return { role: "HELPDESK", workingOrder: wo };
+}
+
 function mapDbAdmin(row: Record<string, unknown>): AdminProfile {
   return {
     id: String(row.id || DEFAULT_ADMIN_ID),
     username: String(row.username),
     fullName: String(row.name || "Administrator"),
     avatar: typeof row.avatar_url === "string" ? row.avatar_url : "",
+    ...readRole(row.role, row.working_order),
     hash: String(row.password_hash),
     tokenVersion: typeof row.token_version === "number" ? row.token_version : 1,
   };
@@ -246,21 +314,36 @@ async function saveToFile(profile: AdminProfile) {
   await fs.rename(tmp, ADMIN_FILE);
 }
 
-const ADMIN_SELECT =
-  "id, username, password_hash, name, avatar_url, token_version";
-const ADMIN_SELECT_LEGACY = "id, username, password_hash, name, avatar_url";
+/**
+ * Daftar kolom, dari terlengkap ke paling lama. Dicoba berurutan supaya
+ * aplikasi baru tetap bisa login pada database yang SQL-nya belum dijalankan
+ * — di SIGAP kolom ditambahkan manual, jadi jeda antara deploy dan migrasi
+ * adalah keadaan normal, bukan kecelakaan.
+ */
+const ADMIN_SELECTS = [
+  "id, username, password_hash, name, avatar_url, token_version, role, working_order",
+  "id, username, password_hash, name, avatar_url, token_version",
+  "id, username, password_hash, name, avatar_url",
+];
+
+/** Error Postgres saat kolom yang diminta belum ada. */
+const isMissingColumn = (message: string) =>
+  /column .* does not exist|token_version|working_order|\brole\b/i.test(
+    message
+  );
 
 async function selectAdmin(
   build: (
     columns: string
   ) => PromiseLike<{ data: unknown; error: { message: string } | null }>
 ): Promise<AdminProfile | null> {
-  let { data, error } = await build(ADMIN_SELECT);
-  if (error && /token_version/i.test(error.message)) {
-    ({ data, error } = await build(ADMIN_SELECT_LEGACY));
+  for (const columns of ADMIN_SELECTS) {
+    const { data, error } = await build(columns);
+    if (!error)
+      return data ? mapDbAdmin(data as Record<string, unknown>) : null;
+    if (!isMissingColumn(error.message)) return null;
   }
-  if (error || !data) return null;
-  return mapDbAdmin(data as Record<string, unknown>);
+  return null;
 }
 
 async function loadFromSupabaseByUsername(
@@ -299,11 +382,15 @@ async function saveToSupabase(profile: AdminProfile) {
     name: profile.fullName,
     avatar_url: profile.avatar || null,
     token_version: profile.tokenVersion,
+    role: profile.role,
+    working_order: profile.workingOrder,
   };
   const { error } = await supa.from("admins").upsert(row, { onConflict: "id" });
   if (error) {
-    // token_version mungkin belum ada di schema lama — coba tanpa kolom itu.
-    const { token_version: _tv, ...rest } = row;
+    // Kolom peran / token_version mungkin belum ada di schema lama. Yang
+    // dibuang hanya kolom, bukan barisnya — admin tetap bisa ganti nama dan
+    // password sebelum supabase/11-admin-roles.sql dijalankan.
+    const { role: _r, working_order: _w, token_version: _tv, ...rest } = row;
     const retry = await supa.from("admins").upsert(rest, { onConflict: "id" });
     if (retry.error) {
       console.warn(
@@ -314,24 +401,48 @@ async function saveToSupabase(profile: AdminProfile) {
   }
 }
 
-export async function getAdminProfile(): Promise<AdminProfile> {
-  const cached = cachedProfile();
+/**
+ * Profil satu admin berdasarkan username-nya.
+ *
+ * Ini pengganti getAdminProfile() lama yang selalu mengembalikan baris admin
+ * PERTAMA. Fungsi lama tidak sekadar kurang tepat dengan banyak admin — ia
+ * memberi profil, peran, dan working order orang lain kepada siapa pun yang
+ * bertanya, sehingga admin GA yang membuka Ticketing bisa melihat antrean IT.
+ *
+ * Mengembalikan null bila username-nya tidak dikenal, supaya pemanggil bisa
+ * memperlakukan sesi itu sebagai tidak sah alih-alih menerima profil pengganti.
+ */
+export async function getAdminByUsername(
+  username: string
+): Promise<AdminProfile | null> {
+  if (!username) return null;
+  const cached = cachedProfile(username);
   if (cached) return cached;
-  const fromDb = await loadFirstFromSupabase();
+
+  const fromDb = await loadFromSupabaseByUsername(username);
   if (fromDb) return setProfileCache(fromDb);
-  const fromFile = await loadFromFile();
+
+  const cocok = (p: AdminProfile | null) =>
+    p && p.username.toLowerCase() === username.toLowerCase() ? p : null;
+
+  const fromFile = cocok(await loadFromFile());
   if (fromFile) return setProfileCache(fromFile);
-  return setProfileCache((await fallbackProfile()) || lockedProfile());
+
+  return cocok(await fallbackProfile());
 }
 
 async function persistProfile(next: AdminProfile): Promise<AdminProfile> {
   setProfileCache(next);
-  await Promise.all([
-    saveToFile(next).catch((e) =>
+  // admin.json hanya sanggup menampung SATU admin. Selama Supabase ada, ia
+  // yang jadi sumber kebenaran dan menulis ke file hanya akan menimpa
+  // admin.json dengan siapa pun yang terakhir mengubah profilnya.
+  if (getSupabaseAdmin()) {
+    await saveToSupabase(next);
+  } else {
+    await saveToFile(next).catch((e) =>
       console.warn("[auth] gagal tulis admin.json:", (e as Error).message)
-    ),
-    saveToSupabase(next),
-  ]);
+    );
+  }
   return next;
 }
 
@@ -341,6 +452,8 @@ export function toPublicAdmin(p: AdminProfile): PublicAdmin {
     username: p.username,
     fullName: p.fullName,
     avatar: p.avatar,
+    role: p.role,
+    workingOrder: p.workingOrder,
   };
 }
 
@@ -394,17 +507,26 @@ export async function bootstrapAdminFromEnv(): Promise<void> {
   });
 }
 
+/**
+ * Ubah profil SATU admin. `current` datang dari sesi pemanggil, bukan dari
+ * pencarian di dalam fungsi ini — supaya mustahil menyunting profil orang
+ * lain hanya karena barisnya kebetulan yang pertama di tabel.
+ *
+ * `role` dan `workingOrder` sengaja TIDAK ikut dalam patch: seorang admin
+ * tidak boleh memindahkan dirinya sendiri ke working order lain, apalagi
+ * mengangkat dirinya jadi admin aset. Perpindahan peran dilakukan di database.
+ */
 export async function updateAdminProfile(
+  current: AdminProfile,
   patch: Partial<Pick<AdminProfile, "fullName" | "username" | "avatar">>
 ): Promise<AdminProfile> {
-  const current = await getAdminProfile();
   return persistProfile({ ...current, ...patch });
 }
 
 export async function setAdminPassword(
+  current: AdminProfile,
   newPlain: string
 ): Promise<AdminProfile> {
-  const current = await getAdminProfile();
   return persistProfile({
     ...current,
     hash: await hashPassword(newPlain),
@@ -412,37 +534,127 @@ export async function setAdminPassword(
   });
 }
 
-/** @deprecated pakai getAdminProfile — tetap diekspor agar import lama aman. */
-export async function getAdminCredentials() {
-  const p = await getAdminProfile();
-  return { username: p.username, hash: p.hash };
-}
+/* ------------------------------------------------------------------ */
+/* Gerbang: sesi -> profil -> peran                                    */
+/* ------------------------------------------------------------------ */
 
-export async function requireAuth(
+/**
+ * Profil admin pemilik request, dibaca ULANG dari database.
+ *
+ * Peran di dalam JWT hanya petunjuk rute untuk proxy Edge; ia dibekukan saat
+ * login. Yang menentukan data apa yang boleh disentuh adalah baris admin saat
+ * ini, jadi peran yang dicabut berhenti berlaku dalam hitungan detik
+ * (PROFILE_CACHE_TTL_MS) tanpa menunggu admin login ulang.
+ */
+export async function requireAdmin(
   req: NextRequest
-): Promise<SessionPayload | null> {
+): Promise<AdminProfile | null> {
   const token = req.cookies.get(AUTH_COOKIE)?.value;
   if (!token) return null;
   const session = await verifySession(token);
   if (!session) return null;
-  try {
-    const admin = await getAdminProfile();
-    if (session.username.toLowerCase() !== admin.username.toLowerCase()) {
-      return null;
-    }
-    if (typeof session.tv === "number" && session.tv !== admin.tokenVersion) {
-      return null;
-    }
-    return session;
-  } catch {
-    // Kalau store admin gagal dibaca, tetap hormati JWT yang valid
-    // (mis. disk ephemeral) — username sudah di dalam token.
-    return session;
+
+  const admin = await getAdminByUsername(session.username);
+  if (!admin || !admin.hash) return null;
+  if (typeof session.tv === "number" && session.tv !== admin.tokenVersion) {
+    return null;
   }
+  return admin;
+}
+
+/**
+ * Gerbang aplikasi ASET.
+ *
+ * Admin helpdesk berhenti di sini — inilah yang membuat "admin GA tidak bisa
+ * masuk jadi admin aset" berlaku sungguhan. Menyembunyikan menu di sidebar
+ * saja tidak cukup: endpoint /api/data/** bisa dipanggil langsung dengan
+ * cookie helpdesk yang sah.
+ */
+export async function requireAssetAdmin(
+  req: NextRequest
+): Promise<AdminProfile | null> {
+  const admin = await requireAdmin(req);
+  return admin && admin.role === "ASSET" ? admin : null;
+}
+
+/**
+ * Gerbang aplikasi HELPDESK. Yang lolos dijamin punya working order, sehingga
+ * pemanggil tidak perlu menangani kemungkinan "admin tanpa antrean".
+ */
+export async function requireHelpdeskAdmin(
+  req: NextRequest
+): Promise<(AdminProfile & { workingOrder: string }) | null> {
+  const admin = await requireAdmin(req);
+  if (!admin || admin.role !== "HELPDESK" || !admin.workingOrder) return null;
+  return admin as AdminProfile & { workingOrder: string };
 }
 
 export function unauthorized(message = "Unauthorized") {
   return NextResponse.json({ error: message }, { status: 401 });
+}
+
+/** 403 — sesi sah, tapi perannya bukan yang dituntut endpoint ini. */
+export function forbidden(
+  message = "Akun Anda tidak punya akses ke bagian ini."
+) {
+  return NextResponse.json({ error: message }, { status: 403 });
+}
+
+/**
+ * Hasil gerbang peran: profil yang lolos, atau respons penolakan siap pakai.
+ *
+ * Bentuk ini ada supaya route bisa membedakan 401 dari 403 tanpa mengulang
+ * logikanya belasan kali. Bedanya bukan kosmetik: 401 berarti "tidak ada
+ * sesi", dan client memperlakukannya sebagai ter-logout lalu melempar ke
+ * /login. Membalas 401 kepada admin helpdesk yang sesinya sah akan
+ * menendangnya keluar dari aplikasinya sendiri hanya karena ia menyentuh
+ * endpoint milik peran lain.
+ */
+export type RoleGate<T> =
+  | { ok: true; admin: T }
+  | { ok: false; res: NextResponse };
+
+export async function gateAssetAdmin(
+  req: NextRequest
+): Promise<RoleGate<AdminProfile>> {
+  const admin = await requireAdmin(req);
+  if (!admin) return { ok: false, res: unauthorized() };
+  if (admin.role !== "ASSET") {
+    return {
+      ok: false,
+      res: forbidden("Akun helpdesk tidak punya akses ke manajemen aset."),
+    };
+  }
+  return { ok: true, admin };
+}
+
+export async function gateHelpdeskAdmin(
+  req: NextRequest
+): Promise<RoleGate<AdminProfile & { workingOrder: string }>> {
+  const admin = await requireAdmin(req);
+  if (!admin) return { ok: false, res: unauthorized() };
+  if (admin.role !== "HELPDESK" || !admin.workingOrder) {
+    return {
+      ok: false,
+      res: forbidden("Akun ini tidak punya akses ke panel Tiket Bantuan."),
+    };
+  }
+  return { ok: true, admin: admin as AdminProfile & { workingOrder: string } };
+}
+
+/**
+ * Tiket ini milik antrean admin tersebut?
+ *
+ * Dipakai SETIAP endpoint tiket yang menyentuh satu tiket berdasarkan id.
+ * Menyaring daftar saja tidak cukup: id tiket muncul di respons dan mudah
+ * ditebak, jadi tanpa pemeriksaan ini admin GA masih bisa menutup atau
+ * menghapus tiket IT dengan memanggil endpointnya langsung.
+ */
+export function ownsTicket(
+  admin: { workingOrder: string },
+  ticket: { workingOrder: string }
+): boolean {
+  return ticket.workingOrder === admin.workingOrder;
 }
 
 export async function attachSessionCookie(
@@ -451,7 +663,13 @@ export async function attachSessionCookie(
   maxAge = SESSION_MAX_AGE_LONG
 ) {
   const token = await signSession(
-    { sub: admin.id, username: admin.username, tv: admin.tokenVersion },
+    {
+      sub: admin.id,
+      username: admin.username,
+      tv: admin.tokenVersion,
+      role: admin.role,
+      wo: admin.workingOrder,
+    },
     maxAge
   );
   res.cookies.set(AUTH_COOKIE, token, sessionCookieOptions(maxAge));

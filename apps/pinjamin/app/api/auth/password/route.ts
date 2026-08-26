@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   attachSessionCookie,
-  getAdminProfile,
   passwordSchema,
-  requireAuth,
+  requireAdmin,
   setAdminPassword,
   unauthorized,
   verifyPassword,
@@ -13,8 +12,8 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
-  const session = await requireAuth(req);
-  if (!session) return unauthorized();
+  const admin = await requireAdmin(req);
+  if (!admin) return unauthorized();
 
   let body: unknown;
   try {
@@ -33,7 +32,7 @@ export async function POST(req: NextRequest) {
   }
 
   const { currentPassword, newPassword } = parsed.data;
-  const current = await getAdminProfile();
+  const current = admin;
   const ok = await verifyPassword(currentPassword, current.hash);
   if (!ok) {
     return NextResponse.json(
@@ -51,10 +50,11 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const next = await setAdminPassword(newPassword);
-  // Token version naik → sesi lain mati. Sesi ini diterbitkan ulang.
-  const remaining = Math.max(60, session.exp - Math.floor(Date.now() / 1000));
+  const next = await setAdminPassword(current, newPassword);
+  // Token version naik → sesi lain milik admin INI mati. Sesi ini
+  // diterbitkan ulang. Admin lain tidak tersentuh: token_version dibaca
+  // per baris admin, bukan global.
   const res = NextResponse.json({ ok: true });
-  await attachSessionCookie(res, next, remaining);
+  await attachSessionCookie(res, next);
   return res;
 }

@@ -11,7 +11,7 @@ import React, {
 import { usePathname, useRouter } from "next/navigation";
 import { useT } from "./i18n";
 import type { PublicAdmin } from "./auth-types";
-import { isPublicPage } from "./public-paths";
+import { homeFor, isPageAllowedFor, isPublicPage } from "./public-paths";
 
 type LoginResult = { ok: true } | { ok: false; error: string };
 
@@ -88,11 +88,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (loading) return;
     if (user && pathname.startsWith("/login")) {
-      router.replace("/dashboard");
+      router.replace(homeFor(user.role));
       return;
     }
     if (!user && !isPublicPage(pathname)) {
       router.replace("/login");
+      return;
+    }
+    // Halaman milik peran lain. Proxy Edge sudah mengalihkannya lebih dulu;
+    // guard ini menutup jalur yang TIDAK lewat proxy — navigasi client-side
+    // antar halaman, yang tidak pernah menyentuh middleware.
+    if (user && !isPageAllowedFor(pathname, user.role)) {
+      router.replace(homeFor(user.role));
     }
   }, [loading, user, pathname, router]);
 

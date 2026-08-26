@@ -48,14 +48,39 @@ export function isTicketPriority(v: unknown): v is TicketPriority {
   return typeof v === "string" && (TICKET_PRIORITIES as string[]).includes(v);
 }
 
-export const TICKET_CATEGORIES = [
-  "Aset & IT",
-  "Fasilitas / Gedung",
-  "Umum",
-  "Lainnya",
-] as const;
+/* ------------------------------------------------------------------ */
+/* Working order                                                       */
+/* ------------------------------------------------------------------ */
 
-export type TicketCategory = (typeof TICKET_CATEGORIES)[number];
+/**
+ * Unit pelaksana yang menangani tiket. Menggantikan "kategori" bebas yang
+ * dulu dipilih pelapor: yang benar-benar dibutuhkan saat tiket masuk bukan
+ * jenis masalahnya, melainkan MEJA MANA yang harus mengerjakannya.
+ */
+export const WORKING_ORDERS = ["GA", "Utility", "IT"] as const;
+
+export type WorkingOrder = (typeof WORKING_ORDERS)[number];
+
+export function isWorkingOrder(v: unknown): v is WorkingOrder {
+  return (
+    typeof v === "string" && (WORKING_ORDERS as readonly string[]).includes(v)
+  );
+}
+
+/**
+ * Prefix nomor tiket per working order.
+ *
+ * Sengaja tabel terpisah, bukan `workingOrder.toUpperCase()`: prefix ini ikut
+ * tercetak di nomor tiket yang dipegang pelapor selamanya. Kalau kelak nama
+ * working order-nya diperhalus ("Utility" → "Utilitas"), nomor tiket yang
+ * sudah beredar tidak boleh ikut berubah artinya — jadi yang boleh berubah
+ * hanya label di kiri, prefix di kanan tetap.
+ */
+export const WORKING_ORDER_PREFIX: Record<WorkingOrder, string> = {
+  GA: "GA",
+  Utility: "UTILITY",
+  IT: "IT",
+};
 
 /* ------------------------------------------------------------------ */
 /* SLA                                                                 */
@@ -92,135 +117,73 @@ export function slaDeadlines(createdAt: string, priority: TicketPriority) {
   };
 }
 
-export type SlaState = "MET" | "DUE" | "WARNING" | "BREACHED";
-
-/**
- * Status satu deadline SLA.
- *
- * - `MET`       — sudah dipenuhi (ada waktu pemenuhan, dan tepat waktu)
- * - `BREACHED`  — lewat deadline (baik belum dipenuhi maupun dipenuhi telat)
- * - `WARNING`   — belum dipenuhi, sisa waktu < 25% dari total tenggat
- * - `DUE`       — belum dipenuhi, masih lapang
- *
- * `now` bisa disuntik agar hasilnya deterministik saat diuji.
- */
-export function slaState(
-  dueAt: string | null | undefined,
-  fulfilledAt: string | null | undefined,
-  createdAt: string,
-  now: number = Date.now()
-): SlaState {
-  if (!dueAt) return "DUE";
-  const due = new Date(dueAt).getTime();
-  if (fulfilledAt) {
-    return new Date(fulfilledAt).getTime() <= due ? "MET" : "BREACHED";
-  }
-  if (now > due) return "BREACHED";
-  const total = due - new Date(createdAt).getTime();
-  if (total > 0 && due - now < total * 0.25) return "WARNING";
-  return "DUE";
-}
-
 /* ------------------------------------------------------------------ */
-/* Jeda SLA                                                            */
+/* Catatan: penilaian SLA sudah dihapus                                */
 /* ------------------------------------------------------------------ */
-
-/** Bagian tiket yang dibutuhkan untuk menilai SLA. */
-export interface SlaSource {
-  createdAt: string;
-  responseDueAt: string | null;
-  resolutionDueAt: string | null;
-  firstResponseAt: string | null;
-  resolvedAt: string | null;
-  /** Awal jeda yang sedang berjalan (status REPLIED). null = jam berjalan. */
-  slaPausedAt: string | null;
-  /** Akumulasi jeda yang sudah selesai, dalam milidetik. */
-  slaPausedMs: number;
-}
-
-export interface SlaLeg {
-  state: SlaState;
-  /** Sisa waktu (positif) atau keterlambatan (negatif), dalam milidetik. */
-  remainingMs: number;
-  /** Waktu pemenuhan, bila tenggat ini sudah terpenuhi. */
-  fulfilledAt: string | null;
-}
-
-export interface SlaVerdict {
-  response: SlaLeg;
-  resolution: SlaLeg;
-  /** Jam penyelesaian sedang berhenti karena menunggu pelapor. */
-  paused: boolean;
-  /** Total waktu yang tidak dihitung, termasuk jeda yang sedang berjalan. */
-  pausedMs: number;
-}
-
-/**
- * Nilai KEDUA tenggat sekaligus.
+/*
+ * evaluateSla(), slaState(), isSlaBreached() dan tipe pendampingnya dulu
+ * tinggal di sini. Semuanya dibuang bersama tampilan SLA di panel admin dan
+ * portal pelapor — tidak ada lagi satu pun pemanggilnya, dan kode tanpa
+ * pemanggil hanya melenceng diam-diam sampai ada yang telanjur memercayainya.
+ * Riwayatnya tetap ada di git bila kelak SLA dihidupkan lagi.
  *
- * Sengaja satu pintu, bukan dua fungsi terpisah: hanya tenggat penyelesaian
- * yang dijeda, dan memisahkannya berarti tiap pemanggil harus mengingat
- * sendiri mana yang boleh memakai jam yang mana. Di berkas ini saja ada tiga
- * pemanggil (panel admin, halaman lacak, portal pelapor) — cukup satu yang
- * lupa untuk membuat pelapor dan admin melihat angka berbeda pada tiket yang
- * sama.
- *
- * Target respons TIDAK pernah dijeda: status REPLIED baru mungkin terjadi
- * setelah admin membalas, jadi tenggat respons sudah tuntas lebih dulu.
+ * Yang SENGAJA ditinggal: SLA_TARGETS, addHours(), dan slaDeadlines(). Tiket
+ * baru masih membekukan tenggatnya ke kolom response_due_at /
+ * resolution_due_at, jadi datanya terus terisi meski belum ada yang
+ * membacanya.
  */
-export function evaluateSla(
-  t: SlaSource,
-  now: number = Date.now()
-): SlaVerdict {
-  // Tanggal yang tidak bisa diurai menghasilkan NaN, dan NaN merambat ke
-  // SELURUH perhitungan — sisa waktu, warna badge, sampai kartu "Lewat SLA"
-  // ikut jadi tak berarti. Satu baris rusak di database tidak boleh
-  // menjatuhkan tampilan seluruh daftar tiket.
-  const mulaiJeda = t.slaPausedAt ? new Date(t.slaPausedAt).getTime() : NaN;
-  const jedaBerjalan = Number.isFinite(mulaiJeda)
-    ? Math.max(0, now - mulaiJeda)
-    : 0;
-  const akumulasi = Number.isFinite(t.slaPausedMs)
-    ? Math.max(0, t.slaPausedMs)
-    : 0;
-  const pausedMs = akumulasi + jedaBerjalan;
-
-  // Jam untuk tenggat penyelesaian: waktu nyata dikurangi seluruh jeda.
-  const nowResolusi = now - pausedMs;
-
-  const leg = (
-    dueAt: string | null,
-    fulfilledAt: string | null,
-    jam: number
-  ): SlaLeg => ({
-    state: slaState(dueAt, fulfilledAt, t.createdAt, jam),
-    remainingMs: dueAt
-      ? new Date(dueAt).getTime() -
-        (fulfilledAt ? new Date(fulfilledAt).getTime() : jam)
-      : 0,
-    fulfilledAt: fulfilledAt ?? null,
-  });
-
-  return {
-    response: leg(t.responseDueAt, t.firstResponseAt, now),
-    resolution: leg(t.resolutionDueAt, t.resolvedAt, nowResolusi),
-    paused: Number.isFinite(mulaiJeda),
-    pausedMs,
-  };
-}
-
-/** Salah satu tenggat terlewat — dasar kartu "Lewat SLA" di panel admin. */
-export function isSlaBreached(t: SlaSource, now: number = Date.now()): boolean {
-  const v = evaluateSla(t, now);
-  return v.response.state === "BREACHED" || v.resolution.state === "BREACHED";
-}
 
 /* ------------------------------------------------------------------ */
 /* Nomor tiket & token portal                                          */
 /* ------------------------------------------------------------------ */
 
-/** Nomor tiket selalu TKT-XXXXXX (6 char alfanumerik). */
-export const TICKET_NUMBER_RE = /^TKT-[A-Z0-9]{6}$/;
+/** Lebar minimum urutan: GA-0001. Nomor melar sendiri setelah 9999. */
+export const TICKET_SEQ_PAD = 4;
+
+/** Bentuk nomor lama, dipakai sebelum penomoran per working order. */
+const LEGACY_NUMBER = "TKT-[A-Z0-9]{6}";
+
+/**
+ * Nomor tiket. DUA bentuk yang sama-sama sah:
+ *
+ * - **Baru**  — `<PREFIX>-0001`, prefix mengikuti working order yang dipilih
+ *   pelapor (GA / UTILITY / IT) dan urutannya berjalan per prefix.
+ * - **Lama**  — `TKT-XXXXXX`, 6 karakter acak.
+ *
+ * Bentuk lama TETAP diterima, bukan sisa yang lupa dibersihkan: nomornya
+ * sudah terlanjur dipegang pelapor dan tertulis di percakapan WhatsApp. Kalau
+ * regex ini hanya mengenal bentuk baru, tiket lama akan ditolak halaman lacak
+ * dengan pesan "format tidak valid" — seolah tiketnya tidak pernah ada.
+ */
+export const TICKET_NUMBER_RE = new RegExp(
+  `^(?:${LEGACY_NUMBER}|(?:${Object.values(WORKING_ORDER_PREFIX).join(
+    "|"
+  )})-\\d{${TICKET_SEQ_PAD},})$`
+);
+
+/** Rakit nomor tiket dari working order + urutannya. */
+export function formatTicketNumber(wo: WorkingOrder, seq: number): string {
+  return `${WORKING_ORDER_PREFIX[wo]}-${String(seq).padStart(
+    TICKET_SEQ_PAD,
+    "0"
+  )}`;
+}
+
+/**
+ * Urutan di dalam sebuah nomor tiket, atau null bila nomornya bukan milik
+ * prefix tersebut (termasuk semua nomor bentuk lama).
+ *
+ * Dipakai penghitung nomor berikutnya di lib/tickets.ts. Sengaja tinggal di
+ * sini, bersebelahan dengan formatTicketNumber(): pembaca dan penulis format
+ * yang sama harus bisa dilihat sekaligus, supaya salah satunya tidak
+ * diam-diam berubah sendiri.
+ */
+export function ticketSeq(number: string, prefix: string): number | null {
+  const m = new RegExp(`^${prefix}-(\\d+)$`).exec(number);
+  if (!m) return null;
+  const n = Number(m[1]);
+  return Number.isSafeInteger(n) && n > 0 ? n : null;
+}
 
 /** Token portal: 64 hex char (2 × UUIDv4 tanpa tanda hubung). */
 export const TICKET_TOKEN_RE = /^[a-f0-9]{64}$/;

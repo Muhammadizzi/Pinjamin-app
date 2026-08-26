@@ -1,16 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
-import { clientIp, requireAuth, ticketLimiter, unauthorized } from "@/lib/auth";
+import { clientIp, gateHelpdeskAdmin, ticketLimiter } from "@/lib/auth";
 import { createTicket, listTickets, validateNewTicket } from "@/lib/tickets";
 import { ticketPortalPath } from "@/lib/ticket-shared";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** GET /api/tickets — daftar semua tiket (khusus admin). */
+/**
+ * GET /api/tickets — daftar tiket untuk WORKING ORDER milik admin ini.
+ *
+ * Tidak ada mode "semua tiket". Panel Tiket Bantuan hanya dipakai admin
+ * helpdesk, dan tiap admin helpdesk terikat tepat satu meja — jadi antrean
+ * yang lain bukan sekadar disembunyikan dari tampilan, melainkan tidak
+ * pernah diambil.
+ */
 export async function GET(req: NextRequest) {
-  if (!(await requireAuth(req))) return unauthorized();
+  const gate = await gateHelpdeskAdmin(req);
+  if (!gate.ok) return gate.res;
   try {
-    return NextResponse.json({ tickets: await listTickets() });
+    return NextResponse.json({
+      tickets: await listTickets(gate.admin.workingOrder),
+      workingOrder: gate.admin.workingOrder,
+    });
   } catch (e) {
     console.error("[tickets GET]", e);
     return NextResponse.json({ error: "Gagal memuat tiket." }, { status: 500 });

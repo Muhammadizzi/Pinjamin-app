@@ -1,43 +1,34 @@
 import { NextRequest, NextResponse } from "next/server";
 import { clientIp, trackLimiter } from "@/lib/auth";
-import {
-  getTicketByNumber,
-  listMessages,
-  publicMessageView,
-  publicTicketView,
-} from "@/lib/tickets";
+import { getTicketByNumber, publicTicketView } from "@/lib/tickets";
 import { TICKET_NUMBER_RE } from "@/lib/ticket-shared";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * GET /api/tickets/track?number=TKT-XXXXXX — PUBLIK.
+ * GET /api/tickets/track?number=GA-0001 — PUBLIK.
  *
- * Melacak tiket dengan nomornya saja, dan sejak permintaan pemilik produk
- * juga MENAMPILKAN percakapannya — supaya pelapor tidak perlu menyimpan
- * tautan pribadi hanya untuk membaca balasan admin.
+ * Melacak STATUS sebuah tiket dengan nomornya saja. Percakapan TIDAK lagi
+ * ikut dikirim: membalas dari halaman lacak sudah dihapus, dan mengirim
+ * thread yang tidak dipakai siapa pun hanya memperlebar apa yang bocor dari
+ * sekadar mengetahui sebuah nomor tiket. Balasan admin dibaca pelapor lewat
+ * portal pribadinya (/tiket/<nomor>?t=<token>).
  *
- * Konsekuensi yang disengaja: siapa pun yang tahu sebuah nomor tiket bisa
- * membaca percakapan tiket itu. Nomor tiket hanya 6 karakter dan lazim
- * ditempel di chat grup, jadi endpoint ini TIDAK boleh mengeluarkan apa pun
- * yang lebih sensitif dari isi percakapan itu sendiri:
+ * Yang TIDAK pernah keluar dari sini:
  *
- * - catatan internal admin  → disaring listMessages() (tanpa includeNotes)
- * - email & nomor WhatsApp  → tidak pernah masuk publicTicketView()
- * - nama pelapor            → IKUT ditampilkan, atas keputusan pemilik
- *                             produk: percakapan tanpa nama terasa timpang
- *                             ("Pelapor" berhadapan dengan "Admin SIGAP").
- *                             Konsekuensinya nomor tiket ikut mengungkap
- *                             nama karyawan
- * - hak MEMBALAS            → tetap butuh token portal. Tanpa itu, siapa pun
- *                             yang tahu nomor tiket bisa menulis atas nama
- *                             pelapor, dan itu lebih berbahaya daripada
- *                             sekadar membaca. Pelapor menukar emailnya
- *                             dengan token lewat ./verify.
+ * - percakapan & catatan internal → tidak lagi dimuat sama sekali
+ * - email & nomor WhatsApp        → tidak pernah masuk publicTicketView()
+ * - token portal                  → satu-satunya sumbernya tetap respons
+ *                                   POST /api/tickets
  *
- * Rate-limited: tanpa batas, endpoint ini bisa dipakai memanen percakapan
- * dengan menebak nomor tiket secara massal.
+ * ⚠️ Yang MASIH keluar: nama pelapor, subjek, dan isi pesan pertama. Sejak
+ * nomor tiket berjalan berurutan per working order (GA-0001, GA-0002, ...),
+ * menebak nomor tiket orang lain tidak lagi butuh keberuntungan — cukup
+ * menghitung. Rate limit di bawah memperlambat pemanenan massal, tapi tidak
+ * menghentikannya; kalau kelak isi tiket dianggap rahasia, endpoint inilah
+ * yang harus menuntut bukti kepemilikan (mis. email pelapor), bukan
+ * nomornya yang dibuat sulit ditebak lagi.
  */
 export async function GET(req: NextRequest) {
   const rate = trackLimiter.check(`track:${clientIp(req)}`);
@@ -61,7 +52,7 @@ export async function GET(req: NextRequest) {
   }
   if (!TICKET_NUMBER_RE.test(number)) {
     return NextResponse.json(
-      { error: "Format nomor tiket tidak valid (contoh: TKT-A1B2C3)." },
+      { error: "Format nomor tiket tidak valid (contoh: GA-0001)." },
       { status: 400 }
     );
   }
@@ -74,10 +65,8 @@ export async function GET(req: NextRequest) {
         { status: 404 }
       );
     }
-    const messages = await listMessages(ticket.id);
     return NextResponse.json({
       ticket: publicTicketView(ticket, { withReporterName: true }),
-      messages: messages.map(publicMessageView),
     });
   } catch (e) {
     console.error("[tickets track]", e);
