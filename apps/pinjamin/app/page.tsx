@@ -542,10 +542,15 @@ export default function LandingPage() {
               </CardContent>
             </Card>
 
-            {/* Daftar tiket terbaru — PUBLIK.
-                Judulnya sengaja bukan lagi "Tiket Anda": isinya tiket semua
-                orang, dan label kepemilikan pada daftar milik bersama akan
-                menyesatkan pembacanya sendiri. */}
+            {/* Daftar tiket terbaru — PUBLIK dan MURNI TAMPILAN.
+                Judulnya sengaja bukan "Tiket Anda": isinya tiket semua orang,
+                dan label kepemilikan pada daftar milik bersama akan
+                menyesatkan pembacanya sendiri.
+
+                Barisnya BUKAN tombol. Satu-satunya jalan ke detail tiket
+                adalah mengetik nomornya di Lacak Tiket — supaya membuka isi
+                tiket tetap menuntut orang memegang nomornya, bukan sekadar
+                menemukannya di daftar lalu mengetuknya. */}
             <Card className="border-[#243a5e]">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-lg">
@@ -556,7 +561,8 @@ export default function LandingPage() {
               <CardContent className="space-y-2.5">
                 <p className="text-[11px] leading-relaxed text-slate-500">
                   Tiket yang masuk {RECENT_TICKETS_DAYS} hari terakhir, dari
-                  seluruh pelapor. Ketuk salah satu untuk melihat statusnya.
+                  seluruh pelapor. Untuk melihat detail sebuah tiket, masukkan
+                  nomornya di Lacak Tiket di atas.
                 </p>
                 {terbaruLoading ? (
                   <div className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-[#243a5e] px-3 py-4 text-xs text-slate-500">
@@ -572,43 +578,35 @@ export default function LandingPage() {
                     {terbaru.map((r) => {
                       const meta = statusMeta(r.status);
                       return (
-                        <li key={r.number}>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setTrackNumber(r.number);
-                              document
-                                .getElementById("lacak")
-                                ?.scrollIntoView({ block: "start" });
-                            }}
-                            className="w-full rounded-xl border border-[#243a5e] bg-[#0f1d33] px-3 py-2 text-left transition-colors hover:border-slate-500"
-                          >
-                            <div className="flex items-center gap-2">
-                              <span className="font-mono text-xs font-bold text-amber-300">
-                                {r.number}
-                              </span>
+                        <li
+                          key={r.number}
+                          className="rounded-xl border border-[#243a5e] bg-[#0f1d33] px-3 py-2"
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-xs font-bold text-amber-300">
+                              {r.number}
+                            </span>
+                            <span
+                              className={`inline-flex items-center gap-1 rounded-full border px-1.5 py-px text-[10px] font-semibold ${meta.cls}`}
+                            >
                               <span
-                                className={`inline-flex items-center gap-1 rounded-full border px-1.5 py-px text-[10px] font-semibold ${meta.cls}`}
-                              >
-                                <span
-                                  className={`h-1 w-1 rounded-full ${meta.dot}`}
-                                />
-                                {meta.label}
-                              </span>
-                              <span className="ml-auto shrink-0 text-[10px] text-slate-500">
-                                {formatDateTime(r.createdAt)}
-                              </span>
-                            </div>
-                            <div className="mt-0.5 truncate text-[13px] text-slate-300">
-                              {r.subject}
-                            </div>
-                            <div className="mt-1 flex items-center gap-1.5 text-[11px] text-slate-500">
-                              <UserRound className="h-3 w-3 shrink-0" />
-                              <span className="truncate">{r.name}</span>
-                              <span className="shrink-0">•</span>
-                              <span className="shrink-0">{r.workingOrder}</span>
-                            </div>
-                          </button>
+                                className={`h-1 w-1 rounded-full ${meta.dot}`}
+                              />
+                              {meta.label}
+                            </span>
+                            <span className="ml-auto shrink-0 text-[10px] text-slate-500">
+                              {formatDateTime(r.createdAt)}
+                            </span>
+                          </div>
+                          <div className="mt-0.5 truncate text-[13px] text-slate-300">
+                            {r.subject}
+                          </div>
+                          <div className="mt-1 flex items-center gap-1.5 text-[11px] text-slate-500">
+                            <UserRound className="h-3 w-3 shrink-0" />
+                            <span className="truncate">{r.name}</span>
+                            <span className="shrink-0">•</span>
+                            <span className="shrink-0">{r.workingOrder}</span>
+                          </div>
                         </li>
                       );
                     })}
