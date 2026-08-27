@@ -575,7 +575,7 @@ export default function LandingPage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-lg">
                   <History className="h-5 w-5 text-amber-300" />
-                  Tiket Terbaru
+                  History Ticket
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2.5">
@@ -786,9 +786,6 @@ export default function LandingPage() {
                         maxLength={15}
                         required
                       />
-                      <p className="text-[11px] text-slate-500">
-                        Diawali 08 — bukan +62. Contoh: 081234567890
-                      </p>
                     </div>
                   </div>
                   {/* Working order = meja yang akan mengerjakan tiket, dan
