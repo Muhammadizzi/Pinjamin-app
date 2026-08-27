@@ -618,31 +618,6 @@ export default function LandingPage() {
                 )}
               </CardContent>
             </Card>
-
-            {/* Catatan privasi — HARUS cocok dengan payload
-                /api/tickets/track. Kalimatnya ditulis ulang tiap kali payload
-                itu berubah; janji yang ketinggalan zaman lebih buruk daripada
-                tidak ada janji sama sekali. */}
-            <div className="rounded-2xl border border-[#243a5e] bg-[#12263f]/50 p-4 sm:p-5 flex gap-2.5 sm:gap-3">
-              <ShieldCheck
-                className="h-5 w-5 text-emerald-400 shrink-0 mt-0.5"
-                strokeWidth={1.75}
-              />
-              <div className="space-y-1">
-                <div className="text-[13px] sm:text-sm font-semibold">
-                  Yang terlihat publik
-                </div>
-                <p className="text-[11px] sm:text-xs text-slate-400 leading-relaxed">
-                  Daftar <span className="font-semibold">Tiket Terbaru</span> di
-                  halaman ini terbuka untuk siapa pun: nomor, nama pelapor,
-                  subjek, dan statusnya terbaca tanpa login. Isi pesan dan
-                  lampiran tidak ikut di daftar, tapi bisa dibuka lewat Lacak
-                  Tiket dengan nomornya. Email, nomor WhatsApp, dan balasan tim
-                  tidak pernah ditampilkan di sini — pertimbangkan itu saat
-                  menulis subjek tiket.
-                </p>
-              </div>
-            </div>
           </div>
 
           {/* Form tiket */}
