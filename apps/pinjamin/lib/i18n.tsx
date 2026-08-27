@@ -45,8 +45,6 @@ type I18nValue = {
   formatCurrency: (n: number) => string;
   /** Label status aset (AVAILABLE, CHECKED_OUT, ...). */
   assetStatus: (status: string) => string;
-  /** Label status peminjaman (DRAFT, RESERVED, ONGOING, ...). */
-  bookingStatus: (status: string) => string;
   /** Label status tiket helpdesk (OPEN, IN_PROGRESS, RESOLVED). */
   ticketStatus: (status: string) => string;
   /** Label prioritas tiket (LOW, MEDIUM, HIGH, URGENT). */
@@ -68,15 +66,6 @@ const ASSET_STATUS_KEY: Record<string, MessageKey> = {
   CHECKED_OUT: "statusCheckedOut",
   MAINTENANCE: "statusMaintenance",
   RETIRED: "statusRetired",
-};
-
-const BOOKING_STATUS_KEY: Record<string, MessageKey> = {
-  DRAFT: "bookingDraft",
-  RESERVED: "bookingReserved",
-  ONGOING: "bookingOngoingStatus",
-  OVERDUE: "bookingOverdue",
-  COMPLETE: "bookingComplete",
-  CANCELLED: "bookingCancelled",
 };
 
 const TICKET_STATUS_KEY: Record<string, MessageKey> = {
@@ -200,7 +189,6 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
         return fallback ?? t("genericFailed");
       },
       assetStatus: byKey(ASSET_STATUS_KEY),
-      bookingStatus: byKey(BOOKING_STATUS_KEY),
       ticketStatus: byKey(TICKET_STATUS_KEY),
       ticketPriority: byKey(TICKET_PRIORITY_KEY),
       auditResult: byKey(AUDIT_RESULT_KEY),

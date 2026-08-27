@@ -17,15 +17,8 @@ import { ImageUpload } from "@/components/ui/image-upload";
 
 export default function NewAssetPage() {
   const router = useRouter();
-  const {
-    categories,
-    locations,
-    assetModels,
-    tags,
-    customFields,
-    addAsset,
-    assets,
-  } = useStore();
+  const { categories, locations, tags, customFields, addAsset, assets } =
+    useStore();
   const { t, assetStatus } = useT();
   const { ask, confirmDialog } = useConfirmDialog();
   const [form, setForm] = useState<any>({
@@ -34,7 +27,6 @@ export default function NewAssetPage() {
     status: "AVAILABLE",
     categoryId: "",
     locationId: "",
-    assetModelId: "",
     tagIds: [] as string[],
     customValues: {} as Record<string, string>,
     mainImage: "",
@@ -71,7 +63,6 @@ export default function NewAssetPage() {
           status: form.status,
           categoryId: form.categoryId || undefined,
           locationId: form.locationId || undefined,
-          assetModelId: form.assetModelId || undefined,
           // Nilai dihilangkan sesuai request
           serialNumber: nextSerial,
           tagIds: form.tagIds,
@@ -157,22 +148,6 @@ export default function NewAssetPage() {
                     {locations.map((l) => (
                       <option key={l.id} value={l.id}>
                         {l.name}
-                      </option>
-                    ))}
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>{t("model")}</Label>
-                  <Select
-                    value={form.assetModelId}
-                    onChange={(e) =>
-                      setForm({ ...form, assetModelId: e.target.value })
-                    }
-                  >
-                    <option value="">{t("selectPlaceholder")}</option>
-                    {assetModels.map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.name} {m.brand && `(${m.brand})`}
                       </option>
                     ))}
                   </Select>

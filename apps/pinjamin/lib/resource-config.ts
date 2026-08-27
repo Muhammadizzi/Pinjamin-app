@@ -7,18 +7,14 @@ export type SimpleResourceKey =
   | "tags"
   | "locations"
   | "customFields"
-  | "assetModels"
-  | "custodians"
-  | "kits";
+  | "custodians";
 
 export const SIMPLE_RESOURCE_TABLE: Record<SimpleResourceKey, string> = {
   categories: "categories",
   tags: "tags",
   locations: "locations",
   customFields: "custom_fields",
-  assetModels: "asset_models",
   custodians: "custodians",
-  kits: "kits",
 };
 
 export const SIMPLE_RESOURCE_FIELDS: Record<SimpleResourceKey, string[]> = {
@@ -33,16 +29,7 @@ export const SIMPLE_RESOURCE_FIELDS: Record<SimpleResourceKey, string[]> = {
     "image",
   ],
   customFields: ["name", "type", "required", "options", "category_ids"],
-  assetModels: ["name", "brand", "model_no", "category_id"],
   custodians: ["name", "nik", "department", "email", "phone"],
-  kits: [
-    "name",
-    "description",
-    "status",
-    "image",
-    "category_id",
-    "location_id",
-  ],
 };
 
 /**
@@ -52,7 +39,6 @@ export const SIMPLE_RESOURCE_FIELDS: Record<SimpleResourceKey, string[]> = {
 export const IMAGE_COLUMN: Record<string, string> = {
   assets: "main_image",
   locations: "image",
-  kits: "image",
 };
 
 export const ASSET_FIELDS = [
@@ -61,17 +47,10 @@ export const ASSET_FIELDS = [
   "status",
   "category_id",
   "location_id",
-  "asset_model_id",
   "custodian_id",
   "main_image",
   "value",
   "serial_number",
-];
-
-export const BOOKING_UPDATE_FIELDS = [
-  "status",
-  "actual_return_date",
-  "return_condition",
 ];
 
 const UUID_RE =

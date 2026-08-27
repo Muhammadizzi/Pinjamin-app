@@ -3,13 +3,6 @@ export type AssetStatus =
   | "CHECKED_OUT"
   | "MAINTENANCE"
   | "RETIRED";
-export type BookingStatus =
-  | "DRAFT"
-  | "RESERVED"
-  | "ONGOING"
-  | "OVERDUE"
-  | "COMPLETE"
-  | "CANCELLED";
 export type AuditStatus = "OPEN" | "COMPLETED";
 export type AuditResult = "FOUND" | "MISSING" | "DAMAGED";
 
@@ -51,15 +44,6 @@ export interface CustomField {
   createdAt: string;
 }
 
-export interface AssetModel {
-  id: string;
-  name: string;
-  brand?: string;
-  modelNo?: string;
-  categoryId?: string;
-  createdAt: string;
-}
-
 export interface Custodian {
   id: string;
   name: string;
@@ -77,7 +61,6 @@ export interface Asset {
   status: AssetStatus;
   categoryId?: string;
   locationId?: string;
-  assetModelId?: string;
   custodianId?: string | null;
   qrCode: string;
   mainImage?: string;
@@ -96,36 +79,6 @@ export interface AssetNote {
   content: string;
   type: string;
   createdAt: string;
-}
-
-export interface Kit {
-  id: string;
-  name: string;
-  description?: string;
-  status: string;
-  qrCode: string;
-  assetIds: string[];
-  categoryId?: string;
-  locationId?: string;
-  image?: string;
-  createdAt: string;
-}
-
-export interface Booking {
-  id: string;
-  name: string;
-  description?: string;
-  status: BookingStatus;
-  custodianId: string;
-  fromDate: string;
-  toDate: string;
-  actualReturnDate?: string;
-  returnCondition?: string;
-  assetIds: string[];
-  kitIds: string[];
-  createdBy: string;
-  createdAt: string;
-  history: { status: BookingStatus; at: string; by: string }[];
 }
 
 export interface Audit {
@@ -151,10 +104,7 @@ export interface AppData {
   tags: Tag[];
   locations: Location[];
   customFields: CustomField[];
-  assetModels: AssetModel[];
   custodians: Custodian[];
   assets: Asset[];
-  kits: Kit[];
-  bookings: Booking[];
   audits: Audit[];
 }

@@ -7,7 +7,7 @@ import { AuthProvider } from "@/lib/auth-client";
 export const metadata: Metadata = {
   title: "SIGAP — Sistem Integrasi Guna Aset & Pelayanan | Garudafood",
   description:
-    "SIGAP — Sistem Integrasi Guna Aset & Pelayanan Garudafood. Kelola aset, kit, booking, audit, laporan, dan helpdesk dengan QR Code.",
+    "SIGAP — Sistem Integrasi Guna Aset & Pelayanan Garudafood. Kelola aset, lokasi, audit, laporan, dan helpdesk dengan QR Code.",
   manifest: "/site.webmanifest",
   icons: {
     // ?v=3 → cache-buster: Safari menyimpan cache favicon sangat agresif;

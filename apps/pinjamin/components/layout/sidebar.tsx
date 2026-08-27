@@ -13,13 +13,10 @@ import type { AdminRole } from "@/lib/auth-types";
 import {
   LayoutDashboard,
   Package,
-  Boxes,
   Tag,
   MapPin,
   SlidersHorizontal,
-  Layers,
   ClipboardCheck,
-  CalendarRange,
   BarChart3,
   QrCode,
   Users,
@@ -290,9 +287,6 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const profile = useAdminProfile();
   const { logout } = useAuth();
   const mode = modeFor(profile.role);
-  const [bookingsOpen, setBookingsOpen] = useState(
-    pathname.startsWith("/bookings")
-  );
   const [acctOpen, setAcctOpen] = useState(false);
   const [gantiAkun, setGantiAkun] = useState(false);
   const acctRef = useRef<HTMLDivElement>(null);
@@ -331,7 +325,6 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
       : [
           { href: "/dashboard", label: t("home"), icon: LayoutDashboard },
           { href: "/assets", label: t("assets"), icon: Package },
-          { href: "/kits", label: t("kits"), icon: Boxes },
           { href: "/categories", label: t("categories"), icon: Tag },
           { href: "/tags", label: t("tags"), icon: Tag },
           { href: "/locations", label: t("locations"), icon: MapPin },
@@ -340,10 +333,8 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
             label: t("customFields"),
             icon: SlidersHorizontal,
           },
-          { href: "/asset-models", label: t("assetModels"), icon: Layers },
           { href: "/custodians", label: t("custodians"), icon: Users },
           { href: "/audits", label: t("audits"), icon: ClipboardCheck },
-          { href: "/bookings", label: t("bookings"), icon: CalendarRange },
           { href: "/reports", label: t("reports"), icon: BarChart3 },
         ];
 
@@ -398,70 +389,6 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
               item.href === "/dashboard"
                 ? pathname === "/dashboard"
                 : pathname.startsWith(item.href);
-            if (item.href === "/bookings") {
-              return (
-                <div key={item.href}>
-                  <button
-                    onClick={() => setBookingsOpen(!bookingsOpen)}
-                    className={cn(
-                      "flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition-all touch-target",
-                      isActive
-                        ? "bg-[#CBA12C] text-[#1a365d] shadow font-semibold"
-                        : "text-slate-300 hover:bg-[#243a5e] hover:text-white"
-                    )}
-                  >
-                    <item.icon className="h-5 w-5 shrink-0" strokeWidth={1.5} />
-                    <span className="flex-1 text-left">{item.label}</span>
-                    <ChevronDown
-                      className={cn(
-                        "h-4 w-4 transition-transform",
-                        bookingsOpen && "rotate-180"
-                      )}
-                    />
-                  </button>
-                  {bookingsOpen && (
-                    <div className="ml-4 mt-1 space-y-1 border-l border-[var(--sidebar-border)] pl-4">
-                      <Link
-                        href="/bookings"
-                        onClick={onNavigate}
-                        className={cn(
-                          "block rounded-lg px-3 py-2 text-sm transition-colors",
-                          pathname === "/bookings"
-                            ? "bg-[#243a5e] text-amber-200 font-medium"
-                            : "text-slate-400 hover:text-white"
-                        )}
-                      >
-                        {t("bookings")}
-                      </Link>
-                      <Link
-                        href="/bookings/calendar"
-                        onClick={onNavigate}
-                        className={cn(
-                          "block rounded-lg px-3 py-2 text-sm transition-colors",
-                          pathname === "/bookings/calendar"
-                            ? "bg-[#243a5e] text-amber-200 font-medium"
-                            : "text-slate-400 hover:text-white"
-                        )}
-                      >
-                        {t("bookingsCalendar")}
-                      </Link>
-                      <Link
-                        href="/bookings/new"
-                        onClick={onNavigate}
-                        className={cn(
-                          "block rounded-lg px-3 py-2 text-sm transition-colors",
-                          pathname === "/bookings/new"
-                            ? "bg-[#243a5e] text-amber-200 font-medium"
-                            : "text-slate-400 hover:text-white"
-                        )}
-                      >
-                        + {t("create")}
-                      </Link>
-                    </div>
-                  )}
-                </div>
-              );
-            }
             return (
               <Link
                 key={item.href}

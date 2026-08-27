@@ -13,15 +13,11 @@ import type {
   AppData,
   Asset,
   AssetStatus,
-  Booking,
-  BookingStatus,
   Category,
   Tag,
   Location,
   CustomField,
-  AssetModel,
   Custodian,
-  Kit,
   Audit,
 } from "./types";
 import { generateId, generateQRCode } from "./utils";
@@ -43,7 +39,6 @@ export type AssetImportRow = {
   description?: string;
   custodianName?: string;
   tagNames?: string;
-  modelName?: string;
 };
 
 export type ImportAssetsResult = {
@@ -54,7 +49,6 @@ export type ImportAssetsResult = {
   locationsCreated: number;
   custodiansCreated: number;
   tagsCreated: number;
-  modelsCreated: number;
 };
 
 type StoreContextType = AppData & {
@@ -80,25 +74,9 @@ type StoreContextType = AppData & {
   deleteLocation: (id: string) => void;
   addCustomField: (f: Omit<CustomField, "id" | "createdAt">) => void;
   deleteCustomField: (id: string) => void;
-  addAssetModel: (m: Omit<AssetModel, "id" | "createdAt">) => void;
-  deleteAssetModel: (id: string) => void;
   addCustodian: (c: Omit<Custodian, "id" | "createdAt">) => void;
   updateCustodian: (id: string, patch: Partial<Custodian>) => void;
   deleteCustodian: (id: string) => void;
-  addKit: (k: Omit<Kit, "id" | "qrCode" | "createdAt">) => void;
-  deleteKit: (id: string) => void;
-  addBooking: (
-    b: Omit<
-      Booking,
-      "id" | "createdAt" | "history" | "status" | "createdBy"
-    > & { status?: BookingStatus }
-  ) => { ok: boolean; error?: string; id?: string };
-  updateBookingStatus: (
-    id: string,
-    status: BookingStatus,
-    extra?: Partial<Booking>
-  ) => void;
-  deleteBooking: (id: string) => void;
   addAudit: (
     a: Omit<Audit, "id" | "createdAt" | "items"> & { assetIds: string[] }
   ) => void;
@@ -197,20 +175,6 @@ function hasAnyItems(d: AppData): boolean {
   return Object.values(d).some((v) => Array.isArray(v) && v.length > 0);
 }
 
-/** Tandai booking yang lewat jatuh tempo sebagai OVERDUE (komputasi tampilan). */
-function normalizeOverdueBookings(d: AppData): AppData {
-  const now = new Date();
-  return {
-    ...d,
-    bookings: d.bookings.map((b) =>
-      (b.status === "ONGOING" || b.status === "RESERVED") &&
-      new Date(b.toDate) < now
-        ? { ...b, status: "OVERDUE" as BookingStatus }
-        : b
-    ),
-  };
-}
-
 /** Teriakkan error Supabase: console.error + dispatch event buat UI. */
 function fireSupaError(context: string, err: unknown) {
   const msg =
@@ -229,18 +193,15 @@ function fireSupaError(context: string, err: unknown) {
 }
 
 // Mapping nama tabel DB -> resource generic di /api/data/[resource] untuk
-// resource sederhana (categories, tags, dll). assets/bookings/audits TIDAK
-// ada di sini untuk insert — mereka pakai route khusus (lihat apiMutate).
+// resource sederhana (categories, tags, dll). assets/audits TIDAK ada di
+// sini untuk insert — mereka pakai route khusus (lihat apiMutate).
 const TABLE_TO_API: Record<string, string> = {
   categories: "categories",
   tags: "tags",
   locations: "locations",
   custom_fields: "customFields",
-  asset_models: "assetModels",
   custodians: "custodians",
-  kits: "kits",
   assets: "assets",
-  bookings: "bookings",
   audits: "audits",
 };
 
@@ -313,7 +274,7 @@ async function supaDelete(table: string, id: string) {
 }
 
 /**
- * Mutasi langsung ke route khusus (assets/bookings/audits) yang punya
+ * Mutasi langsung ke route khusus (assets/audits) yang punya
  * kontrak payload sendiri. Tidak konversi toDbRow otomatis — pemanggil
  * menyiapkan body sesuai kontrak route tersebut.
  */
@@ -344,7 +305,6 @@ async function apiMutate(
 }
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   // StoreProvider berada DI DALAM I18nProvider (app/layout.tsx), jadi pesan
-  // yang dikembalikan ke UI (mis. bentrok booking) ikut bahasa aktif.
   const { t } = useT();
   const [data, setData] = useState<AppData>(seedData);
   const [isHydrated, setHydrated] = useState(false);
@@ -384,7 +344,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     hydratingRef.current = true;
     // Tampilkan cache lokal dengan normalisasi overdue (dipakai bila
     // server kosong atau tak terjangkau).
-    const loaded = normalizeOverdueBookings(loadFromStorage());
+    const loaded = loadFromStorage();
     try {
       const serverData = await fetchServerStore();
       // Server terjangkau & sesi valid → aktifkan sinkron dua arah.
@@ -393,15 +353,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
       if (serverData && hasAnyItems(serverData)) {
         // Server sudah punya data nyata → sumber kebenaran.
-        const normalized = normalizeOverdueBookings(serverData);
+        const normalized = serverData;
         setData(normalized);
         saveToStorage(normalized);
       } else {
         // Server kosong (atau hanya koleksi kosong) → pakai cache lokal,
         // atau seed dummy Garudafood jika lokal juga kosong.
-        const local = hasAnyItems(loaded)
-          ? loaded
-          : normalizeOverdueBookings(seedData);
+        const local = hasAnyItems(loaded) ? loaded : seedData;
         setData(local);
         if (hasAnyItems(local)) {
           pushServerStore(local).catch((e) => {
@@ -456,7 +414,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           if (!res.ok) throw new Error(`GET /api/data -> ${res.status}`);
           const json = await res.json();
           if (json.configured && json.data) {
-            const normalized = normalizeOverdueBookings(json.data as AppData);
+            const normalized = json.data as AppData;
             setData(normalized);
             saveToStorage(normalized);
           } else {
@@ -500,11 +458,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             if (res.ok) {
               const json = await res.json();
               if (json.configured && json.data) {
-                const normalized = normalizeOverdueBookings(
-                  json.data as AppData
-                );
-                setData(normalized);
-                saveToStorage(normalized);
+                const fresh = json.data as AppData;
+                setData(fresh);
+                saveToStorage(fresh);
               }
             }
           } catch {}
@@ -565,20 +521,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener("pinjamin:supa-error", handler);
   }, []);
 
-  const computedBookings = data.bookings.map((b) => {
-    if (
-      (b.status === "ONGOING" || b.status === "RESERVED") &&
-      new Date(b.toDate) < new Date() &&
-      !b.actualReturnDate
-    ) {
-      return { ...b, status: "OVERDUE" as BookingStatus };
-    }
-    return b;
-  });
-
   const ctx: StoreContextType = {
     ...data,
-    bookings: computedBookings,
     isHydrated,
     isSupabase,
     addAsset: (a) => {
@@ -604,7 +548,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             status: newAsset.status,
             categoryId: newAsset.categoryId,
             locationId: newAsset.locationId,
-            assetModelId: newAsset.assetModelId,
             custodianId: newAsset.custodianId,
             mainImage: newAsset.mainImage,
             value: newAsset.value,
@@ -646,7 +589,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         locationsCreated: 0,
         custodiansCreated: 0,
         tagsCreated: 0,
-        modelsCreated: 0,
       };
       const now = new Date().toISOString();
       const VALID_STATUS: AssetStatus[] = [
@@ -672,7 +614,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         const locations = [...d.locations];
         const custodians = [...d.custodians];
         const tags = [...d.tags];
-        const assetModels = [...d.assetModels];
         const byName = <T extends { name: string }>(list: T[], name: string) =>
           list.find((x) => x.name.trim().toLowerCase() === name.toLowerCase());
         const takenQr = new Set(d.assets.map((a) => a.qrCode.toLowerCase()));
@@ -750,24 +691,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             custodianId = cus.id;
           }
 
-          let assetModelId: string | undefined;
-          const modelName = row.modelName?.trim();
-          if (modelName) {
-            let model = byName(assetModels, modelName);
-            if (!model) {
-              model = {
-                id: generateId(),
-                name: modelName,
-                categoryId,
-                createdAt: now,
-              };
-              assetModels.push(model);
-              result.modelsCreated++;
-              if (supa) supaInsert("asset_models", model);
-            }
-            assetModelId = model.id;
-          }
-
           const tagIds: string[] = [];
           const rawTags = row.tagNames?.trim();
           if (rawTags) {
@@ -800,7 +723,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             status,
             categoryId,
             locationId,
-            assetModelId,
             custodianId,
             qrCode,
             value:
@@ -837,7 +759,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           locations,
           custodians,
           tags,
-          assetModels,
           assets: [...newAssets.reverse(), ...d.assets],
         };
       });
@@ -934,22 +855,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         customFields: d.customFields.filter((x) => x.id !== id),
       }));
     },
-    addAssetModel: (m) => {
-      const row = {
-        ...m,
-        id: generateId(),
-        createdAt: new Date().toISOString(),
-      } as AssetModel;
-      if (isSupabaseConfigured()) supaInsert("asset_models", row);
-      setData((d) => ({ ...d, assetModels: [row, ...d.assetModels] }));
-    },
-    deleteAssetModel: (id) => {
-      if (isSupabaseConfigured()) supaDelete("asset_models", id);
-      setData((d) => ({
-        ...d,
-        assetModels: d.assetModels.filter((x) => x.id !== id),
-      }));
-    },
     addCustodian: (c) => {
       const row = {
         ...c,
@@ -973,165 +878,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       setData((d) => ({
         ...d,
         custodians: d.custodians.filter((x) => x.id !== id),
-      }));
-    },
-    addKit: (k) => {
-      const row = {
-        ...k,
-        id: generateId(),
-        qrCode: "KIT-" + generateQRCode().slice(4),
-        createdAt: new Date().toISOString(),
-      } as Kit;
-      // Lewat apiMutate (bukan supaInsert) supaya assetIds tetap camelCase —
-      // route /api/data/kits memakainya untuk mengisi tabel relasi kit_assets.
-      if (isSupabaseConfigured()) {
-        apiMutate("/api/data/kits", "POST", {
-          ...toDbRow({
-            id: row.id,
-            qrCode: row.qrCode,
-            name: row.name,
-            description: row.description,
-            status: row.status,
-            image: row.image,
-            categoryId: row.categoryId,
-            locationId: row.locationId,
-          }),
-          assetIds: row.assetIds || [],
-        });
-      }
-      setData((d) => ({ ...d, kits: [row, ...d.kits] }));
-    },
-    deleteKit: (id) => {
-      if (isSupabaseConfigured()) supaDelete("kits", id);
-      setData((d) => ({ ...d, kits: d.kits.filter((x) => x.id !== id) }));
-    },
-    addBooking: (b) => {
-      const newFrom = new Date(b.fromDate);
-      const newTo = new Date(b.toDate);
-      for (const ex of data.bookings) {
-        if (ex.status === "CANCELLED" || ex.status === "COMPLETE") continue;
-        const exFrom = new Date(ex.fromDate);
-        const exTo = new Date(ex.toDate);
-        const overlap = newFrom <= exTo && newTo >= exFrom;
-        if (!overlap) continue;
-        const intersectAssets = b.assetIds.some((aid) =>
-          ex.assetIds.includes(aid)
-        );
-        if (intersectAssets) {
-          return {
-            ok: false,
-            error: t("bookingConflict", { name: ex.name, id: ex.id }),
-          };
-        }
-      }
-      const id = generateId();
-      const nowIso = new Date().toISOString();
-      const from = new Date(b.fromDate);
-      const status: BookingStatus =
-        b.status || (from > new Date() ? "RESERVED" : "ONGOING");
-      const booking: Booking = {
-        id,
-        name: b.name,
-        description: b.description,
-        status,
-        custodianId: b.custodianId,
-        fromDate: b.fromDate,
-        toDate: b.toDate,
-        assetIds: b.assetIds,
-        kitIds: b.kitIds || [],
-        createdBy: getCachedAdminUsername(),
-        createdAt: nowIso,
-        history: [{ status, at: nowIso, by: getCachedAdminUsername() }],
-      };
-      // Sinkron via route khusus /api/data/bookings — route tsb yang
-      // membuat booking + relasi booking_assets + cascade status aset.
-      if (isSupabaseConfigured()) {
-        apiMutate("/api/data/bookings", "POST", {
-          id,
-          name: b.name,
-          description: b.description,
-          custodianId: b.custodianId,
-          fromDate: b.fromDate,
-          toDate: b.toDate,
-          assetIds: b.assetIds,
-          status,
-        });
-      }
-      setData((d) => {
-        let assets = d.assets;
-        if (status === "ONGOING") {
-          assets = assets.map((a) =>
-            b.assetIds.includes(a.id)
-              ? {
-                  ...a,
-                  status: "CHECKED_OUT" as const,
-                  custodianId: b.custodianId,
-                }
-              : a
-          );
-        }
-        return { ...d, assets, bookings: [booking, ...d.bookings] };
-      });
-      return { ok: true, id };
-    },
-    updateBookingStatus: (id, status, extra) => {
-      // Route khusus /api/data/bookings/[id] yang meng-cascade status aset
-      // secara server-side (COMPLETE/CANCELLED -> AVAILABLE, ONGOING -> CHECKED_OUT).
-      if (isSupabaseConfigured()) {
-        apiMutate(`/api/data/bookings/${encodeURIComponent(id)}`, "PATCH", {
-          ...toDbRow({ status, ...extra }),
-        });
-      }
-      setData((d) => {
-        const bookings = d.bookings.map((bk) => {
-          if (bk.id !== id) return bk;
-          const hist = [
-            ...bk.history,
-            {
-              status,
-              at: new Date().toISOString(),
-              by: getCachedAdminUsername(),
-            },
-          ];
-          return {
-            ...bk,
-            ...extra,
-            status,
-            history: hist,
-            ...(status === "COMPLETE"
-              ? { actualReturnDate: new Date().toISOString() }
-              : {}),
-          };
-        });
-        const target = d.bookings.find((x) => x.id === id);
-        let assets = d.assets;
-        if (target) {
-          if (status === "COMPLETE" || status === "CANCELLED") {
-            assets = assets.map((a) =>
-              target.assetIds.includes(a.id)
-                ? { ...a, status: "AVAILABLE" as const, custodianId: null }
-                : a
-            );
-          } else if (status === "ONGOING") {
-            assets = assets.map((a) =>
-              target.assetIds.includes(a.id)
-                ? {
-                    ...a,
-                    status: "CHECKED_OUT" as const,
-                    custodianId: target.custodianId,
-                  }
-                : a
-            );
-          }
-        }
-        return { ...d, assets, bookings };
-      });
-    },
-    deleteBooking: (id) => {
-      if (isSupabaseConfigured()) supaDelete("bookings", id);
-      setData((d) => ({
-        ...d,
-        bookings: d.bookings.filter((x) => x.id !== id),
       }));
     },
     addAudit: (a) => {
@@ -1216,7 +962,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       }
     },
     loadDemoData: () => {
-      const next = normalizeOverdueBookings(seedData);
+      const next = seedData;
       setData(next);
       saveToStorage(next);
     },

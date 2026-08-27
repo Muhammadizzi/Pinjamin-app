@@ -36,7 +36,6 @@ export default function AssetDetailPage() {
     locations,
     tags,
     custodians,
-    assetModels,
     customFields,
     deleteAsset,
   } = useStore();
@@ -58,7 +57,6 @@ export default function AssetDetailPage() {
     );
   const cat = categories.find((c) => c.id === asset.categoryId);
   const loc = locations.find((l) => l.id === asset.locationId);
-  const model = assetModels.find((m) => m.id === asset.assetModelId);
   const cust = custodians.find((c) => c.id === asset.custodianId);
 
   const handleDelete = () => {
@@ -170,10 +168,6 @@ export default function AssetDetailPage() {
                     </div>
                   </div>
                   <div className="space-y-3">
-                    <div>
-                      {t("model")}:{" "}
-                      <span className="font-medium">{model?.name || "-"}</span>
-                    </div>
                     <div>
                       {t("serialLabel")}:{" "}
                       <span className="font-mono text-xs bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded">
@@ -335,11 +329,6 @@ export default function AssetDetailPage() {
                 >
                   <Trash2 className="h-4 w-4" /> {t("delete")}
                 </Button>
-                <Link href="/bookings/new">
-                  <Button variant="outline" className="w-full rounded-xl">
-                    {t("bookThisAsset")}
-                  </Button>
-                </Link>
               </CardContent>
             </Card>
           </div>

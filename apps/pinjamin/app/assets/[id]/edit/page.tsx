@@ -18,15 +18,8 @@ export default function EditAssetPage() {
   const params = useParams();
   const id = params.id as string;
   const router = useRouter();
-  const {
-    assets,
-    categories,
-    locations,
-    assetModels,
-    tags,
-    customFields,
-    updateAsset,
-  } = useStore();
+  const { assets, categories, locations, tags, customFields, updateAsset } =
+    useStore();
   const { t, assetStatus } = useT();
   const { ask, confirmDialog } = useConfirmDialog();
   const asset = assets.find((a) => a.id === id);
@@ -126,22 +119,6 @@ export default function EditAssetPage() {
                     {locations.map((l) => (
                       <option key={l.id} value={l.id}>
                         {l.name}
-                      </option>
-                    ))}
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>{t("model")}</Label>
-                  <Select
-                    value={form.assetModelId || ""}
-                    onChange={(e) =>
-                      setForm({ ...form, assetModelId: e.target.value })
-                    }
-                  >
-                    <option value="">—</option>
-                    {assetModels.map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.name}
                       </option>
                     ))}
                   </Select>

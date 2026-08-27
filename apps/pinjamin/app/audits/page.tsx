@@ -17,13 +17,12 @@ import {
   Eye,
   Compass,
   MapPin,
-  Package,
   X,
   ArrowLeft,
   Search,
 } from "lucide-react";
 
-type AuditMode = "assets" | "locations" | "kits";
+type AuditMode = "assets" | "locations";
 
 /**
  * Metadata per mode audit. Teksnya disimpan sebagai KUNCI kamus (bukan string
@@ -65,21 +64,10 @@ const MODE_META: Record<
     icon: MapPin,
     iconCls: "bg-blue-100 text-blue-600 dark:bg-blue-950 dark:text-blue-300",
   },
-  kits: {
-    titleKey: "auditModeKitsTitle",
-    descKey: "auditModeKitsDesc",
-    buttonKey: "auditModeKitsBtn",
-    stepTitleKey: "auditModeKitsStep",
-    defaultNameKey: "auditDefaultNameKits",
-    nounKey: "kits",
-    icon: Package,
-    iconCls:
-      "bg-emerald-100 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-300",
-  },
 };
 
 export default function AuditsPage() {
-  const { audits, assets, locations, kits, addAudit, deleteAudit } = useStore();
+  const { audits, assets, locations, addAudit, deleteAudit } = useStore();
   const { t, lang, formatDate, assetStatus } = useT();
   const { ask, confirmDialog } = useConfirmDialog();
 
@@ -195,18 +183,9 @@ export default function AuditsPage() {
             count: assetCountByLocation.get(l.id + "::total") ?? 0,
           }),
         }));
-    if (mode === "kits")
-      return kits
-        .filter((k) => !needle || k.name.toLowerCase().includes(needle))
-        .map((k) => ({
-          id: k.id,
-          name: k.name,
-          sub: k.qrCode,
-          right: t("assetCountLabel", { count: k.assetIds.length }),
-        }));
     return [];
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, assets, locations, kits, q, assetCountByLocation, lang]);
+  }, [mode, assets, locations, q, assetCountByLocation, lang]);
 
   // Aset hasil resolusi dari pilihan
   const resolvedAssetIds = useMemo(() => {
@@ -217,15 +196,8 @@ export default function AuditsPage() {
         .filter((a) => a.locationId && set.has(a.locationId))
         .map((a) => a.id);
     }
-    if (mode === "kits") {
-      const out = new Set<string>();
-      kits
-        .filter((k) => sel.includes(k.id))
-        .forEach((k) => k.assetIds.forEach((id) => out.add(id)));
-      return [...out];
-    }
     return [];
-  }, [mode, sel, assets, locations, kits]);
+  }, [mode, sel, assets, locations]);
 
   const submit = () => {
     if (!name.trim()) return alert(t("sessionNameRequired"));

@@ -19,18 +19,14 @@ export async function GET(req: NextRequest) {
     tags,
     locations,
     customFields,
-    assetModels,
     custodians,
     assetsRes,
-    kitsRes,
-    bookingsRes,
     auditsRes,
   ] = await Promise.all([
     supa.from("categories").select("*").limit(500),
     supa.from("tags").select("*").limit(500),
     supa.from("locations").select("*").limit(500),
     supa.from("custom_fields").select("*").limit(500),
-    supa.from("asset_models").select("*").limit(500),
     supa.from("custodians").select("*").limit(500),
     supa
       .from("assets")
@@ -38,8 +34,6 @@ export async function GET(req: NextRequest) {
         "*, asset_tags(tag_id), asset_notes(*), asset_custom_values(custom_field_id, value)"
       )
       .limit(500),
-    supa.from("kits").select("*, kit_assets(asset_id)").limit(500),
-    supa.from("bookings").select("*, booking_assets(asset_id)").limit(500),
     supa.from("audits").select("*, audit_items(*)").limit(500),
   ]);
 
@@ -48,11 +42,8 @@ export async function GET(req: NextRequest) {
     tags,
     locations,
     customFields,
-    assetModels,
     custodians,
     assetsRes,
-    kitsRes,
-    bookingsRes,
     auditsRes,
   ].find((r) => r.error);
   if (firstError?.error) {
@@ -74,18 +65,6 @@ export async function GET(req: NextRequest) {
     ),
   }));
 
-  const kits = (kitsRes.data || []).map((row: Row) => ({
-    ...fromDbRow(row),
-    assetIds: (row.kit_assets || []).map((a: Row) => a.asset_id),
-  }));
-
-  const bookings = (bookingsRes.data || []).map((row: Row) => ({
-    ...fromDbRow(row),
-    assetIds: (row.booking_assets || []).map((a: Row) => a.asset_id),
-    kitIds: [],
-    history: [],
-  }));
-
   const audits = (auditsRes.data || []).map((row: Row) => ({
     ...fromDbRow(row),
     items: (row.audit_items || []).map(fromDbRow),
@@ -98,11 +77,8 @@ export async function GET(req: NextRequest) {
       tags: (tags.data || []).map(fromDbRow),
       locations: (locations.data || []).map(fromDbRow),
       customFields: (customFields.data || []).map(fromDbRow),
-      assetModels: (assetModels.data || []).map(fromDbRow),
       custodians: (custodians.data || []).map(fromDbRow),
       assets,
-      kits,
-      bookings,
       audits,
     },
   });

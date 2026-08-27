@@ -31,11 +31,8 @@ const COLLECTIONS = [
   "tags",
   "locations",
   "customFields",
-  "assetModels",
   "custodians",
   "assets",
-  "kits",
-  "bookings",
   "audits",
 ] as const;
 

@@ -36,7 +36,7 @@ import {
 const QR_READER_ID = "pinjamin-qr-reader";
 
 export default function ScannerPage() {
-  const { assets, kits, updateAsset } = useStore();
+  const { assets, updateAsset } = useStore();
   const { t, assetStatus } = useT();
   const [mode, setMode] = useState<"scan" | "manual">("scan");
   const [manual, setManual] = useState("");
@@ -58,8 +58,6 @@ export default function ScannerPage() {
   const findByCode = (code: string) => {
     const a = assets.find((x) => x.qrCode === code || x.id === code);
     if (a) return { type: "asset", data: a };
-    const k = kits.find((x) => x.qrCode === code || x.id === code);
-    if (k) return { type: "kit", data: k };
     return null;
   };
 
@@ -67,7 +65,7 @@ export default function ScannerPage() {
    * Kandidat kode dari teks hasil decode. QR yang di-download dari aplikasi
    * berisi URL penuh (mis. "http://localhost:5003/assets/AB12?qr=PIN-XYZ"),
    * BUKAN kode polos — tanpa diekstrak, findByCode selalu gagal ("Tidak
-   * ditemukan"). Ambil param ?qr= lalu segmen path /assets|kits/<id>.
+   * ditemukan"). Ambil param ?qr= lalu segmen path /assets/<id>.
    */
   const extractCodeCandidates = (raw: string): string[] => {
     const out: string[] = [];
@@ -75,8 +73,8 @@ export default function ScannerPage() {
       const u = new URL(raw);
       const qr = u.searchParams.get("qr");
       if (qr) out.push(qr.trim());
-      const m = u.pathname.match(/\/(assets|kits)\/([^/?#]+)/);
-      if (m && m[2]) out.push(decodeURIComponent(m[2]).trim());
+      const m = u.pathname.match(/\/assets\/([^/?#]+)/);
+      if (m && m[1]) out.push(decodeURIComponent(m[1]).trim());
     } catch {
       /* bukan URL — pakai teks apa adanya */
     }
@@ -85,7 +83,7 @@ export default function ScannerPage() {
   };
 
   // Ref agar callback decode kamera selalu memanggil handleCode versi terbaru
-  // (data assets/kits terkini) walau effect scanner hanya jalan sekali per mode.
+  // (data assets terkini) walau effect scanner hanya jalan sekali per mode.
   const handleCodeRef = useRef<(code: string) => void>(() => {});
 
   const handleCode = (code: string) => {
@@ -514,13 +512,7 @@ export default function ScannerPage() {
                   </div>
                 )}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  <Link
-                    href={
-                      result.type === "asset"
-                        ? `/assets/${result.data.id}`
-                        : `/kits/${result.data.id}`
-                    }
-                  >
+                  <Link href={`/assets/${result.data.id}`}>
                     <Button
                       className="w-full rounded-xl bg-[#123367] hover:bg-[#1a3d6d] text-white"
                       size="sm"
@@ -528,17 +520,6 @@ export default function ScannerPage() {
                       {t("viewDetail")}
                     </Button>
                   </Link>
-                  {result.type === "asset" && (
-                    <Link href={`/bookings/new`}>
-                      <Button
-                        variant="outline"
-                        className="w-full rounded-xl"
-                        size="sm"
-                      >
-                        {t("lendAction")}
-                      </Button>
-                    </Link>
-                  )}
                   {result.type === "asset" &&
                     result.data.status === "CHECKED_OUT" && (
                       <Button

@@ -15,7 +15,6 @@ export type ImportFieldKey =
   | "description"
   | "custodianName"
   | "tagNames"
-  | "modelName"
   | "skip";
 
 /**
@@ -37,7 +36,6 @@ export const IMPORT_FIELDS: {
   { key: "description", labelKey: "importFieldDescription" },
   { key: "custodianName", labelKey: "importFieldCustodian" },
   { key: "tagNames", labelKey: "importFieldTags" },
-  { key: "modelName", labelKey: "importFieldModel" },
   { key: "skip", labelKey: "importFieldSkip" },
 ];
 
@@ -139,7 +137,6 @@ const FIELD_HINTS: Record<Exclude<ImportFieldKey, "skip">, string[]> = {
     "holder",
   ],
   tagNames: ["tag", "tags", "label", "labels", "flag"],
-  modelName: ["model", "tipe", "type", "merk", "merek", "brand", "type_model"],
 };
 
 const STATUS_ALIASES: Record<string, AssetStatus> = {

@@ -101,8 +101,6 @@ export function ImportDialog({ open, onClose, onImport }: Props) {
     if (r.custodiansCreated)
       parts.push(t("createdCustodians", { count: r.custodiansCreated }));
     if (r.tagsCreated) parts.push(t("createdTags", { count: r.tagsCreated }));
-    if (r.modelsCreated)
-      parts.push(t("createdModels", { count: r.modelsCreated }));
     const extra = r.skipped ? t("skippedRows", { count: r.skipped }) : "";
     setDone(`${parts.join(", ")}.${extra}`);
   };
