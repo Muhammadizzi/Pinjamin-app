@@ -577,11 +577,6 @@ export default function LandingPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2.5">
-                <p className="text-[11px] leading-relaxed text-slate-500">
-                  Tiket yang masuk {RECENT_TICKETS_DAYS} hari terakhir, dari
-                  seluruh pelapor. Status dan perkembangannya hanya terlihat di
-                  Lacak Tiket — masukkan nomor tiketnya di atas.
-                </p>
                 {terbaruLoading ? (
                   <div className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-[#243a5e] px-3 py-4 text-xs text-slate-500">
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
