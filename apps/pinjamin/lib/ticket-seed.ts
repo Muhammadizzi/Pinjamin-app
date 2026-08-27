@@ -274,7 +274,7 @@ const SEEDS: Seed[] = [
     subject: "Onboarding karyawan baru — akun email & VPN",
     message:
       "3 karyawan baru Produksi Pati mulai Senin. Mohon buatkan email @garudafood.co.id, akun SAP display, dan VPN. Nama sudah di email HRD kemarin.",
-    status: "CLOSED",
+    status: "RESOLVED",
     adminNote: "3 akun dibuat, password dikirim via WhatsApp HRD. Closed.",
     createdAt: iso(-12, 9),
     updatedAt: iso(-10, 16),
@@ -320,7 +320,7 @@ const SEEDS: Seed[] = [
     subject: "VPN putus saat approve pembayaran vendor",
     message:
       "VPN HQ sering disconnect sejak kemarin sore. Gagal approve Fiori. Mohon cek gateway.",
-    status: "CLOSED",
+    status: "RESOLVED",
     adminNote: "Restart concentrator VPN. Monitoring 24 jam stabil. Closed.",
     createdAt: iso(-11, 16),
     updatedAt: iso(-10, 9),
@@ -483,8 +483,7 @@ function lengkapi(seed: Seed): Ticket {
     resolutionDueAt: due.resolutionDueAt,
     firstResponseAt: firstAdminReply(seed.id),
     resolvedAt: isTicketDone(seed.status) ? seed.updatedAt : null,
-    // Tidak ada tiket contoh yang berstatus REPLIED, jadi tak satu pun
-    // sedang dijeda.
+    // Jeda SLA sudah tidak dikelola lagi — lihat lib/tickets.ts.
     slaPausedAt: null,
     slaPausedMs: 0,
     createdAt: seed.createdAt,

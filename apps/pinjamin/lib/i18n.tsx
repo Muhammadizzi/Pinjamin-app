@@ -47,7 +47,7 @@ type I18nValue = {
   assetStatus: (status: string) => string;
   /** Label status peminjaman (DRAFT, RESERVED, ONGOING, ...). */
   bookingStatus: (status: string) => string;
-  /** Label status tiket helpdesk (OPEN, IN_PROGRESS, REPLIED, ...). */
+  /** Label status tiket helpdesk (OPEN, IN_PROGRESS, RESOLVED). */
   ticketStatus: (status: string) => string;
   /** Label prioritas tiket (LOW, MEDIUM, HIGH, URGENT). */
   ticketPriority: (priority: string) => string;
@@ -82,9 +82,7 @@ const BOOKING_STATUS_KEY: Record<string, MessageKey> = {
 const TICKET_STATUS_KEY: Record<string, MessageKey> = {
   OPEN: "ticketOpen",
   IN_PROGRESS: "ticketInProgress",
-  REPLIED: "ticketReplied",
   RESOLVED: "ticketResolved",
-  CLOSED: "ticketClosed",
 };
 
 const TICKET_PRIORITY_KEY: Record<string, MessageKey> = {

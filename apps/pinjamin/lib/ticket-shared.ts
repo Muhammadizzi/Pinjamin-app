@@ -8,31 +8,54 @@
  * dikenal kedua sisi tinggal di sini; lib/tickets.ts me-re-export-nya.
  */
 
-export type TicketStatus =
-  | "OPEN"
-  | "IN_PROGRESS"
-  | "REPLIED"
-  | "RESOLVED"
-  | "CLOSED";
+/**
+ * Siklus hidup tiket: masuk → dikerjakan → beres. Tiga keadaan, satu arah.
+ *
+ * Dua status lama dihapus, keduanya karena kehilangan arti:
+ *
+ * - `REPLIED` dulu berarti "admin sudah menjawab, giliran pelapor". Sejak
+ *   percakapan jadi satu arah, pelapor tidak punya cara merespons — jadi
+ *   tiket di keadaan itu menunggu sesuatu yang tidak akan pernah terjadi.
+ * - `CLOSED` dulu berarti "diakhiri tanpa dikerjakan". Di kode ia sudah
+ *   diperlakukan persis sama dengan RESOLVED, dan dua status yang berujung
+ *   sama akan dipakai tidak konsisten antar admin — sementara setiap laporan
+ *   harus selalu ingat menghitung keduanya. Tiket sampah lebih tepat dihapus.
+ */
+export type TicketStatus = "OPEN" | "IN_PROGRESS" | "RESOLVED";
 
-/** REPLIED = admin sudah membalas, bola ada di pelapor (pola Frappe Helpdesk). */
 export const TICKET_STATUSES: TicketStatus[] = [
   "OPEN",
   "IN_PROGRESS",
-  "REPLIED",
   "RESOLVED",
-  "CLOSED",
 ];
 
 export function isTicketStatus(v: unknown): v is TicketStatus {
   return typeof v === "string" && (TICKET_STATUSES as string[]).includes(v);
 }
 
-/** Status yang dianggap "tiket sudah beres" — SLA berhenti dihitung. */
-export const TICKET_CLOSED_STATUSES: TicketStatus[] = ["RESOLVED", "CLOSED"];
+/**
+ * Status lama → status sekarang.
+ *
+ * Baris `REPLIED` / `CLOSED` masih mungkin ada di database sampai
+ * supabase/12-status-simplify.sql dijalankan — dan urutan antara deploy dan
+ * SQL manual tidak pernah bisa dijamin di SIGAP. Tanpa pemetaan ini, tiket
+ * lama akan jatuh ke label bawaan "Open" secara DIAM-DIAM: admin melihat
+ * tiket yang sudah selesai kembali muncul sebagai tiket baru.
+ */
+const STATUS_LAMA: Record<string, TicketStatus> = {
+  REPLIED: "IN_PROGRESS",
+  CLOSED: "RESOLVED",
+};
 
+export function normalizeStatus(v: unknown): TicketStatus {
+  if (isTicketStatus(v)) return v;
+  if (typeof v === "string" && STATUS_LAMA[v]) return STATUS_LAMA[v];
+  return "OPEN";
+}
+
+/** Tiket sudah beres — dipakai untuk mencatat waktu penyelesaian. */
 export function isTicketDone(status: TicketStatus): boolean {
-  return TICKET_CLOSED_STATUSES.includes(status);
+  return status === "RESOLVED";
 }
 
 export type TicketPriority = "LOW" | "MEDIUM" | "HIGH" | "URGENT";

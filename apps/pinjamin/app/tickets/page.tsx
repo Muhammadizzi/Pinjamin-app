@@ -73,17 +73,9 @@ const STATUS_META: Record<TicketStatus, { badge: string; dot: string }> = {
     badge: "bg-amber-500/15 text-amber-300 border-amber-500/30",
     dot: "bg-amber-400",
   },
-  REPLIED: {
-    badge: "bg-sky-500/15 text-sky-300 border-sky-500/30",
-    dot: "bg-sky-400",
-  },
   RESOLVED: {
     badge: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
     dot: "bg-emerald-400",
-  },
-  CLOSED: {
-    badge: "bg-slate-500/15 text-slate-400 border-slate-500/30",
-    dot: "bg-slate-400",
   },
 };
 
@@ -208,7 +200,6 @@ export default function TicketsPage() {
     () => ({
       open: tickets.filter((x) => x.status === "OPEN").length,
       inProgress: tickets.filter((x) => x.status === "IN_PROGRESS").length,
-      replied: tickets.filter((x) => x.status === "REPLIED").length,
       resolved: tickets.filter((x) => x.status === "RESOLVED").length,
     }),
     [tickets]
@@ -385,13 +376,6 @@ export default function TicketsPage() {
       value: stats.inProgress,
       icon: Clock,
       cls: "from-amber-500/20 to-amber-500/5 text-amber-300",
-    },
-    {
-      key: "REPLIED",
-      label: ticketStatus("REPLIED"),
-      value: stats.replied,
-      icon: MessageSquare,
-      cls: "from-sky-500/20 to-sky-500/5 text-sky-300",
     },
     {
       key: "RESOLVED",

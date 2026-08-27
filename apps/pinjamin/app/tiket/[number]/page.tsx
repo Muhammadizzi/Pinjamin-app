@@ -194,7 +194,7 @@ function PortalInner() {
   }
 
   const meta = statusMeta(ticket.status);
-  const closed = ticket.status === "CLOSED";
+  const selesai = ticket.status === "RESOLVED";
 
   return (
     <div className="space-y-4 py-6 sm:space-y-6 sm:py-10">
@@ -266,9 +266,9 @@ function PortalInner() {
               hanya admin yang menulis. Tanpa keterangan ini, pelapor akan
               menunggu kotak balasan yang tidak akan pernah muncul. */}
           <div className="rounded-xl border border-[#243a5e] bg-[#0f1d33] px-3.5 py-3 text-center text-xs text-slate-400">
-            {closed ? (
+            {selesai ? (
               <>
-                Tiket ini sudah ditutup. Bila kendalanya berulang, silakan{" "}
+                Tiket ini sudah selesai. Bila kendalanya berulang, silakan{" "}
                 <Link href="/#buat-tiket" className="text-amber-300">
                   buat tiket baru
                 </Link>

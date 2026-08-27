@@ -32,6 +32,7 @@ import {
   formatTicketNumber,
   isTicketPriority,
   isTicketDone,
+  normalizeStatus,
   isWorkingOrder,
   slaDeadlines,
   ticketSeq,
@@ -99,9 +100,8 @@ export interface Ticket {
   firstResponseAt: string | null;
   resolvedAt: string | null;
   /**
-   * Jeda SLA. Jam penyelesaian berhenti selama tiket menunggu pelapor
-   * (status REPLIED) — lihat supabase/10-sla-pause.sql.
-   * `slaPausedAt` null berarti jam sedang berjalan.
+   * @deprecated Sisa mekanisme jeda SLA. Nilainya tidak lagi berubah dan
+   * tidak dibaca siapa pun; kolomnya dibiarkan ada di database.
    */
   slaPausedAt: string | null;
   slaPausedMs: number;
@@ -182,7 +182,7 @@ function rowToTicket(row: Row): Ticket {
     workingOrder: str(row.category),
     subject: str(row.subject),
     message: str(row.message),
-    status: (row.status as TicketStatus) || "OPEN",
+    status: normalizeStatus(row.status),
     priority: isTicketPriority(row.priority) ? row.priority : "MEDIUM",
     accessToken: str(row.access_token),
     attachments: parseAttachments(row.attachments),
@@ -299,7 +299,7 @@ function normalizeTicket(raw: Partial<Ticket> & { id: string }): Ticket {
   const createdAt = raw.createdAt || new Date().toISOString();
   const priority = isTicketPriority(raw.priority) ? raw.priority : "MEDIUM";
   const due = slaDeadlines(createdAt, priority);
-  const status = (raw.status as TicketStatus) || "OPEN";
+  const status = normalizeStatus(raw.status);
   return {
     id: raw.id,
     number: raw.number || "",
@@ -319,8 +319,7 @@ function normalizeTicket(raw: Partial<Ticket> & { id: string }): Ticket {
     firstResponseAt: raw.firstResponseAt ?? null,
     resolvedAt:
       raw.resolvedAt ?? (isTicketDone(status) ? raw.updatedAt || null : null),
-    slaPausedAt:
-      raw.slaPausedAt ?? (status === "REPLIED" ? raw.updatedAt || null : null),
+    slaPausedAt: raw.slaPausedAt ?? null,
     slaPausedMs: raw.slaPausedMs ?? 0,
     createdAt,
     updatedAt: raw.updatedAt || createdAt,
@@ -650,55 +649,19 @@ export async function createTicket(data: NewTicketInput): Promise<Ticket> {
   }
 }
 
-/**
- * Kelola jam jeda SLA saat status berpindah.
+/*
+ * Jam jeda SLA sudah tidak dikelola lagi.
  *
- * Jam berhenti selama tiket berstatus REPLIED (menunggu pelapor) dan jalan
- * lagi begitu keluar dari status itu — entah karena pelapor membalas atau
- * karena admin menggeser statusnya manual. Durasi tiap jeda yang selesai
- * ditumpuk ke `slaPausedMs`.
+ * transisiJeda() dulu menghentikan jam saat tiket berstatus REPLIED — yaitu
+ * "menunggu balasan pelapor". Status itu dihapus, dan pelapor pun tidak bisa
+ * membalas, jadi tidak ada lagi keadaan yang layak menjeda apa pun.
  *
- * Dipakai BERSAMA oleh applyPatch (perubahan status manual) dan
- * applyMessageSideEffects (perpindahan otomatis karena ada pesan baru).
- * Kalau keduanya punya salinan aturan sendiri, cukup satu jalur yang lupa
- * menutup jedanya untuk membuat sebuah tiket berhenti dihitung selamanya.
+ * Kolom sla_paused_at / sla_paused_ms SENGAJA dibiarkan di database dan di
+ * tipe Ticket: nilainya berhenti berubah, tidak ada yang membacanya, dan
+ * membuang kolom bukan hal yang perlu diburu-buru di database yang sedang
+ * berjalan.
  */
-function transisiJeda(
-  ticket: Pick<Ticket, "status" | "slaPausedAt" | "slaPausedMs">,
-  statusBaru: TicketStatus,
-  now: string
-): { slaPausedAt: string | null; slaPausedMs: number } {
-  const sedangJeda = ticket.status === "REPLIED";
-  const akanJeda = statusBaru === "REPLIED";
 
-  if (!sedangJeda && akanJeda) {
-    return { slaPausedAt: now, slaPausedMs: ticket.slaPausedMs };
-  }
-
-  if (sedangJeda && !akanJeda) {
-    // Tutup jeda yang berjalan. slaPausedAt bisa saja kosong pada tiket lama
-    // yang statusnya REPLIED sebelum kolom ini ada — anggap saja nol,
-    // jangan sampai menghasilkan NaN yang merusak seluruh perhitungan.
-    const mulai = ticket.slaPausedAt
-      ? new Date(ticket.slaPausedAt).getTime()
-      : NaN;
-    const tambahan = Number.isFinite(mulai)
-      ? Math.max(0, new Date(now).getTime() - mulai)
-      : 0;
-    return { slaPausedAt: null, slaPausedMs: ticket.slaPausedMs + tambahan };
-  }
-
-  return { slaPausedAt: ticket.slaPausedAt, slaPausedMs: ticket.slaPausedMs };
-}
-
-/**
- * Terapkan patch ke satu tiket, termasuk efek turunannya:
- * - prioritas berubah  → deadline SLA dihitung ulang dari waktu DIBUAT
- * - status jadi selesai → `resolvedAt` dicatat (sekali)
- * - status dibuka lagi  → `resolvedAt` dikosongkan
- *
- * Dipisah dari updateTicket agar aturan yang sama berlaku di kedua backend.
- */
 function applyPatch(current: Ticket, patch: TicketPatch, now: string): Ticket {
   const next: Ticket = { ...current, updatedAt: now };
 
@@ -709,9 +672,6 @@ function applyPatch(current: Ticket, patch: TicketPatch, now: string): Ticket {
     next.resolutionDueAt = due.resolutionDueAt;
   }
   if (patch.status && patch.status !== current.status) {
-    const jeda = transisiJeda(current, patch.status, now);
-    next.slaPausedAt = jeda.slaPausedAt;
-    next.slaPausedMs = jeda.slaPausedMs;
     next.status = patch.status;
     if (isTicketDone(patch.status)) {
       next.resolvedAt = current.resolvedAt ?? now;
@@ -825,14 +785,16 @@ export type NewMessageInput = {
 };
 
 /**
- * Simpan satu pesan dan geser status tiket sesuai giliran bicara.
+ * Simpan satu pesan dan geser status tiket bila perlu.
  *
- * Aturan status (mengikuti pola Frappe Helpdesk):
- * - admin membalas (REPLY) → REPLIED, bola di pelapor; respons pertama
- *   dicatat ke `firstResponseAt` untuk SLA
- * - pelapor membalas       → kembali ke IN_PROGRESS, bola di admin; tiket
- *   yang sudah RESOLVED dibuka lagi karena jelas belum beres
- * - catatan internal (NOTE) tidak menggeser status apa pun
+ * - admin membalas → IN_PROGRESS, karena membalas berarti tiket sedang
+ *   ditangani. Dulu status ini REPLIED ("giliran pelapor"), tapi pelapor
+ *   tidak punya cara merespons sejak percakapan jadi satu arah.
+ * - tiket yang sudah RESOLVED tidak dibuka lagi hanya karena admin menulis.
+ *
+ * Cabang untuk pesan dari pelapor tetap ada meski tidak ada jalur yang bisa
+ * membuatnya: baris USER lama masih tersimpan di database, dan menghapus
+ * penanganannya berarti menebak apa yang terjadi bila kelak ia dihidupkan.
  *
  * Mengembalikan pesan yang tersimpan beserta tiket versi terbaru.
  */
@@ -877,20 +839,12 @@ async function applyMessageSideEffects(
 
   if (message.author === "ADMIN") {
     if (!ticket.firstResponseAt) next.firstResponseAt = now;
-    // Tiket yang sudah ditutup tidak dibuka lagi hanya karena admin menulis.
-    if (!isTicketDone(ticket.status)) next.status = "REPLIED";
+    // Tiket yang sudah selesai tidak dibuka lagi hanya karena admin menulis.
+    if (!isTicketDone(ticket.status)) next.status = "IN_PROGRESS";
   } else {
     // Pelapor bersuara: tiket kembali jadi tanggung jawab admin.
     next.status = "IN_PROGRESS";
     next.resolvedAt = null;
-  }
-
-  // Status bergeser karena pesan ini → jam jeda ikut dikelola. Aturannya
-  // sama persis dengan perubahan status manual.
-  if (next.status && next.status !== ticket.status) {
-    const jeda = transisiJeda(ticket, next.status, now);
-    next.slaPausedAt = jeda.slaPausedAt;
-    next.slaPausedMs = jeda.slaPausedMs;
   }
 
   const merged: Ticket = { ...ticket, ...next } as Ticket;

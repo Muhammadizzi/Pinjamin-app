@@ -18,9 +18,7 @@ import type {
 export const STATUS_LABEL_ID: Record<TicketStatus, string> = {
   OPEN: "Open",
   IN_PROGRESS: "Diproses",
-  REPLIED: "Dibalas",
   RESOLVED: "Selesai",
-  CLOSED: "Ditutup",
 };
 
 /** Kelas warna badge status — dipakai landing page dan portal pelapor. */
@@ -33,17 +31,9 @@ export const STATUS_CLS: Record<TicketStatus, { cls: string; dot: string }> = {
     cls: "bg-amber-500/15 text-amber-300 border-amber-500/30",
     dot: "bg-amber-400",
   },
-  REPLIED: {
-    cls: "bg-sky-500/15 text-sky-300 border-sky-500/30",
-    dot: "bg-sky-400",
-  },
   RESOLVED: {
     cls: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
     dot: "bg-emerald-400",
-  },
-  CLOSED: {
-    cls: "bg-slate-500/15 text-slate-400 border-slate-500/30",
-    dot: "bg-slate-400",
   },
 };
 
