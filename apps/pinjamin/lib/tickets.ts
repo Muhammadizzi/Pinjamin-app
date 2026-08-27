@@ -1052,8 +1052,13 @@ export function validateNewTicket(
     return { error: "Nama wajib diisi (2–60 karakter)." };
   if (email.length > 150 || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email))
     return { error: "Format email tidak valid." };
-  if (!/^\+?\d{9,15}$/.test(phone))
-    return { error: "Nomor WhatsApp tidak valid (9–15 digit)." };
+  // Wajib format lokal 08…, bukan +62 atau 62. Satu bentuk saja membuat
+  // nomor bisa dibandingkan dan dicari tanpa menormalkan apa pun lebih dulu —
+  // dan admin menyalinnya langsung ke WhatsApp tanpa mengubah awalannya.
+  if (!/^08\d{8,13}$/.test(phone))
+    return {
+      error: "Nomor WhatsApp harus diawali 08 dan berisi 10–15 digit.",
+    };
   if (!isWorkingOrder(workingOrder))
     return { error: "Working order tidak dikenal." };
   if (subject.length < 4 || subject.length > 120)

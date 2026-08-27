@@ -48,7 +48,6 @@ import {
   FileText,
   Hash,
   Paperclip,
-  ExternalLink,
   ShieldCheck,
   History,
   UserRound,
@@ -149,12 +148,9 @@ export default function LandingPage() {
   const [form, setForm] = useState(FORM_KOSONG);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
-  /** Terisi setelah tiket tersimpan: nomor + tautan portal berisi tokennya. */
-  const [created, setCreated] = useState<{
-    number: string;
-    portalPath: string;
-  } | null>(null);
-  const [copied, setCopied] = useState<"nomor" | "link" | null>(null);
+  /** Terisi setelah tiket tersimpan. Hanya nomornya — tidak ada token. */
+  const [created, setCreated] = useState<{ number: string } | null>(null);
+  const [copied, setCopied] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const attach = useAttachments({
     tooMany: `Maksimal ${ATTACHMENTS_MAX} lampiran.`,
@@ -207,7 +203,7 @@ export default function LandingPage() {
         setFormError(j.error || "Gagal membuat tiket. Coba lagi.");
         return;
       }
-      setCreated({ number: j.number, portalPath: j.portalPath });
+      setCreated({ number: j.number });
       setTrackNumber(j.number);
       // Tiket baru harus langsung terlihat di daftar, bukan menunggu muat
       // ulang halaman — itu yang membuat orang mengira tiketnya gagal masuk.
@@ -220,11 +216,11 @@ export default function LandingPage() {
     }
   };
 
-  const copyText = async (teks: string, jenis: "nomor" | "link") => {
+  const copyText = async (teks: string) => {
     try {
       await navigator.clipboard.writeText(teks);
-      setCopied(jenis);
-      setTimeout(() => setCopied(null), 1800);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
     } catch {}
   };
 
@@ -690,11 +686,11 @@ export default function LandingPage() {
                       {created.number}
                     </span>
                     <button
-                      onClick={() => copyText(created.number, "nomor")}
+                      onClick={() => copyText(created.number)}
                       title="Salin nomor tiket"
                       className="rounded-lg p-1.5 hover:bg-white/10 transition-colors"
                     >
-                      {copied === "nomor" ? (
+                      {copied ? (
                         <Check className="h-4 w-4 text-emerald-400" />
                       ) : (
                         <Copy className="h-4 w-4 text-slate-300" />
@@ -702,44 +698,23 @@ export default function LandingPage() {
                     </button>
                   </div>
 
-                  {/* Tautan portal — satu-satunya kunci ke percakapan tiket.
-                      Ditampilkan menonjol karena server TIDAK bisa
-                      mengirimkannya ulang: tidak ada akun untuk memulihkannya
-                      dan SIGAP belum mengirim email. */}
-                  <div className="rounded-2xl border border-[#243a5e] bg-[#0f1d33] p-3.5 space-y-2.5 text-left">
-                    <div className="text-[13px] font-semibold">
-                      Tautan percakapan tiket
-                    </div>
+                  {/* Tautan portal pribadi DIHAPUS.
+                      Dulu ini satu-satunya kunci ke percakapan tiket, jadi
+                      pelapor wajib menyimpannya. Sejak balasan tim bisa
+                      dibaca di Lacak Tiket cukup dengan nomor tiket, tautan
+                      berisi token itu tidak lagi menambah kemampuan apa pun —
+                      ia hanya menambah satu rahasia yang bisa tercecer di
+                      grup chat. Nomor tiket sekarang satu-satunya yang perlu
+                      diingat. */}
+                  <div className="rounded-2xl border border-[#243a5e] bg-[#0f1d33] p-3.5 text-left">
                     <p className="text-[11px] leading-relaxed text-slate-400">
-                      Buka tautan ini untuk membaca balasan tim SIGAP dan
-                      membalasnya. Simpan baik-baik — tautan ini bersifat
-                      pribadi dan tidak dikirim ulang.
+                      Simpan nomor di atas. Untuk melihat status tiket dan
+                      balasan dari tim SIGAP, masukkan nomor itu di{" "}
+                      <span className="font-semibold text-slate-300">
+                        Lacak Tiket
+                      </span>{" "}
+                      kapan saja — dari perangkat mana pun, tanpa tautan khusus.
                     </p>
-                    <div className="grid grid-cols-2 gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-full rounded-xl"
-                        onClick={() =>
-                          copyText(
-                            `${window.location.origin}${created.portalPath}`,
-                            "link"
-                          )
-                        }
-                      >
-                        {copied === "link" ? (
-                          <Check className="h-4 w-4 text-emerald-400" />
-                        ) : (
-                          <Copy className="h-4 w-4" />
-                        )}
-                        {copied === "link" ? "Tersalin" : "Salin tautan"}
-                      </Button>
-                      <Link href={created.portalPath} className="block">
-                        <Button size="sm" className="w-full rounded-xl">
-                          <ExternalLink className="h-4 w-4" /> Buka tiket
-                        </Button>
-                      </Link>
-                    </div>
                   </div>
 
                   <Button
@@ -789,6 +764,12 @@ export default function LandingPage() {
                         required
                       />
                     </div>
+                    {/* Nomor WhatsApp wajib format lokal 08…
+                        `pattern` menolak +62 / 62 di peramban sebelum request
+                        dikirim; aturannya sama persis dengan validateNewTicket
+                        di server, yang tetap jadi penentu akhir. Pemeriksaan
+                        di peramban hanya menghemat satu perjalanan bolak-balik,
+                        bukan menggantikan pemeriksaan server. */}
                     <div className="space-y-1.5">
                       <Label>No. WhatsApp</Label>
                       <Input
@@ -799,9 +780,15 @@ export default function LandingPage() {
                         placeholder="08xxxxxxxxxx"
                         className="h-11 rounded-xl"
                         autoComplete="tel"
-                        inputMode="tel"
+                        inputMode="numeric"
+                        pattern="08[0-9]{8,13}"
+                        title="Diawali 08, total 10–15 digit. Contoh: 081234567890"
+                        maxLength={15}
                         required
                       />
+                      <p className="text-[11px] text-slate-500">
+                        Diawali 08 — bukan +62. Contoh: 081234567890
+                      </p>
                     </div>
                   </div>
                   {/* Working order = meja yang akan mengerjakan tiket, dan
