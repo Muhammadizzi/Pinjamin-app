@@ -41,7 +41,6 @@ import {
   Loader2,
   Package,
   QrCode,
-  CalendarRange,
   BarChart3,
   Sparkles,
   Headset,
@@ -96,7 +95,6 @@ interface TrackTicket {
 const SIGAP_FEATURES = [
   { icon: Package, label: "Manajemen Aset" },
   { icon: QrCode, label: "QR Scanner" },
-  { icon: CalendarRange, label: "Peminjaman" },
   { icon: BarChart3, label: "Laporan" },
   { icon: Headset, label: "Helpdesk" },
 ];
@@ -122,8 +120,8 @@ function PlatformCard({ className }: { className?: string }) {
       {/* Kalimat penjelas disembunyikan di ponsel — chip fitur di
           bawahnya sudah menyampaikan hal yang sama secara ringkas. */}
       <p className="hidden sm:block text-xs text-slate-400 leading-relaxed">
-        Tiket Anda masuk ke sistem yang sama dengan katalog aset dan peminjaman,
-        jadi tim bisa langsung menautkannya ke aset terkait.
+        Tiket Anda masuk ke sistem yang sama dengan katalog aset, jadi tim bisa
+        langsung menautkannya ke aset terkait.
       </p>
       <div className="flex flex-wrap gap-1.5 sm:gap-2">
         {SIGAP_FEATURES.map((f) => (
