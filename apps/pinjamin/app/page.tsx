@@ -67,7 +67,6 @@ interface TiketTerbaru {
   workingOrder: string;
   status: string;
   priority: TicketPriority;
-  message: string;
   createdAt: string;
 }
 
@@ -179,6 +178,30 @@ export default function LandingPage() {
 
   useEffect(() => {
     void muatTerbaru();
+  }, [muatTerbaru]);
+
+  /**
+   * Segarkan daftar berkala supaya perubahan status/prioritas dari admin
+   * menyusul tanpa pengunjung memuat ulang halaman.
+   *
+   * 30 detik disamakan dengan `s-maxage` di /api/tickets/recent: memanggil
+   * lebih rapat dari itu hanya menerima salinan CDN yang sama persis, jadi
+   * tidak mempercepat apa pun sambil menambah lalu lintas.
+   *
+   * Berhenti saat tab tidak terlihat — tab yang ditinggalkan seharian tidak
+   * perlu menembus edge tiap 30 detik, dan begitu kembali dibuka daftarnya
+   * langsung disegarkan sekali.
+   */
+  useEffect(() => {
+    const tick = () => {
+      if (document.visibilityState === "visible") void muatTerbaru();
+    };
+    const id = setInterval(tick, 30_000);
+    document.addEventListener("visibilitychange", tick);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", tick);
+    };
   }, [muatTerbaru]);
 
   const terbaruTersaring = useMemo(
@@ -681,9 +704,6 @@ export default function LandingPage() {
                             <span className="shrink-0">•</span>
                             <span className="shrink-0">{r.workingOrder}</span>
                           </div>
-                          <p className="mt-1 line-clamp-1 text-[11px] text-slate-500">
-                            {r.message}
-                          </p>
                         </li>
                       );
                     })}

@@ -518,18 +518,17 @@ export async function listRecentTickets(
  * kolom di sini adalah keputusan sadar untuk membukanya ke publik, bukan
  * sisa dari objek yang kebetulan lewat.
  *
- * Atas permintaan pemilik produk (27 Agustus 2026), daftar ini kini memuat
- * ISI PESAN, STATUS, dan PRIORITAS — sebelumnya ketiganya sengaja ditahan.
- * Dua konsekuensi yang melekat pada keputusan itu, dicatat di sini supaya
- * tidak hilang:
+ * Atas permintaan pemilik produk (27 Agustus 2026), STATUS dan PRIORITAS
+ * kini ikut supaya pengunjung bisa memantau progres tanpa mengetik nomor.
  *
- * 1. Isi keluhan karyawan terbaca publik. Itu bagian yang paling mungkin
- *    memuat detail pribadi atau rahasia operasional.
- * 2. Lacak Tiket kehilangan alasan keberadaannya: kalau status sudah
- *    terbaca di daftar, tidak ada lagi dorongan mengetik nomor tiket.
+ * ISI PESAN sengaja TIDAK ikut, dan itu keputusan sadar: bagian itulah yang
+ * paling mungkin memuat detail pribadi atau rahasia operasional. Batas ini
+ * juga yang menyisakan alasan Lacak Tiket tetap ada — di sana pelapor
+ * membaca isi tiketnya sendiri berikut SELURUH BALASAN ADMIN, yang tidak
+ * pernah muncul di daftar publik.
  *
- * Yang TETAP tidak pernah ikut: email, nomor WhatsApp, lampiran, token
- * portal, dan catatan admin. Hak membalas tetap tertutup.
+ * Yang TETAP tidak pernah ikut: isi pesan, balasan admin, email, nomor
+ * WhatsApp, lampiran, token portal, dan catatan admin.
  */
 export function publicRecentView(t: Ticket) {
   return {
@@ -539,7 +538,6 @@ export function publicRecentView(t: Ticket) {
     workingOrder: t.workingOrder,
     status: t.status,
     priority: t.priority,
-    message: t.message,
     createdAt: t.createdAt,
   };
 }

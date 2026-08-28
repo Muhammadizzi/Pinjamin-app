@@ -1,5 +1,22 @@
 @import "tailwindcss";
 
+/*
+  Varian `dark:` mengikuti CLASS .dark, bukan setelan OS.
+
+  Tailwind v4 secara bawaan mengaitkan `dark:` ke @media
+  (prefers-color-scheme: dark). Aplikasi ini bertema gelap tunggal dan
+  memaksanya lewat forcedTheme="dark" (lihat components/theme-provider.tsx),
+  sehingga <html> SELALU ber-class .dark — tapi tanpa baris di bawah, varian
+  `dark:` tetap menuruti setelan sistem pengunjung.
+
+  Akibatnya di perangkat bermode terang: variabel warna di bawah tetap gelap
+  (halaman navy, teks nyaris putih) sementara utilitas seperti
+  `bg-white dark:bg-slate-800` berhenti di bg-white. Hasilnya kotak putih
+  berisi teks putih — input login, tombol unggah, dan kartu dasbor jadi tidak
+  terbaca. Bug ini tidak pernah tampak di perangkat yang OS-nya sudah gelap.
+*/
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* 
   Pinjamin — SINGLE DARK THEME (navy #1a365d + gold #CBA12C)
   Sesuai request: hilangkan 2 mode, cukup 1 tema saja (dark navy)

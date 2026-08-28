@@ -201,7 +201,7 @@ export default function DashboardPage() {
                   </div>
                 </div>
               </div>
-              <div className="flex gap-3 p-2 rounded-xl hover:bg-white/60 transition-colors">
+              <div className="flex gap-3 p-2 rounded-xl hover:bg-white/60 dark:hover:bg-slate-700/30 transition-colors">
                 <div className="h-2 w-2 rounded-full bg-amber-500 mt-2" />
                 <div>
                   <div className="font-medium">{t("auditOpened")}</div>
