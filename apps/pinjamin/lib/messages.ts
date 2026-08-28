@@ -13,27 +13,18 @@ export const messages = {
   // ---------- Navigasi & kerangka ----------
   home: ["Home", "Home"],
   assets: ["Aset", "Assets"],
-  kits: ["Kit", "Kits"],
   categories: ["Kategori", "Categories"],
   tags: ["Tag", "Tags"],
   locations: ["Lokasi", "Locations"],
-  customFields: ["Custom Field", "Custom Fields"],
-  assetModels: ["Model Aset", "Asset Models"],
-  custodians: ["Peminjam", "Custodians"],
-  audits: ["Audit", "Audits"],
-  bookings: ["Peminjaman", "Bookings"],
   reports: ["Laporan", "Reports"],
-  scanner: ["Pemindai QR", "QR Scanner"],
   accountSetting: ["Pengaturan Akun", "Account Settings"],
   logOut: ["Keluar", "Log Out"],
   profile: ["Profil", "Profile"],
   fullName: ["Nama Lengkap", "Full Name"],
   profilePicture: ["Foto Profil", "Profile Picture"],
   assetManagement: ["Manajemen Aset", "Asset Management"],
-  operations: ["Operasional", "Operations"],
   helpdesk: ["Helpdesk", "Helpdesk"],
   helpdeskTickets: ["Tiket Bantuan", "Support Tickets"],
-  bookingsCalendar: ["Kalender Peminjaman", "Bookings Calendar"],
   sidebarHelpdeskHint: [
     "Tiket masuk dari landing page tanpa login. Ubah statusnya agar user bisa melacak lewat nomor tiket.",
     "Tickets arrive from the landing page without login. Update the status so users can track it by ticket number.",
@@ -44,12 +35,8 @@ export const messages = {
     "Scan an asset QR for quick check-out/return without opening the menu.",
   ],
   systemActive: ["Sistem aktif", "System online"],
-  modeAdminAssets: ["Mode Admin Aset", "Asset Admin Mode"],
-  modeAdminTickets: ["Mode Admin Ticketing", "Ticketing Admin Mode"],
 
   // ---------- Umum ----------
-  search: ["Cari", "Search"],
-  create: ["Buat", "Create"],
   add: ["Tambah", "Add"],
   edit: ["Ubah", "Edit"],
   delete: ["Hapus", "Delete"],
@@ -68,9 +55,6 @@ export const messages = {
   value: ["Nilai", "Value"],
   serialNumber: ["Serial Number", "Serial Number"],
   actions: ["Aksi", "Actions"],
-  optional: ["opsional", "optional"],
-  required: ["Wajib", "Required"],
-  loading: ["Memuat...", "Loading..."],
   saving: ["Menyimpan...", "Saving..."],
   color: ["Warna", "Color"],
   preview: ["Pratinjau", "Preview"],
@@ -83,9 +67,6 @@ export const messages = {
   yesContinue: ["Ya, Lanjutkan", "Yes, Continue"],
   closeDialog: ["Tutup dialog", "Close dialog"],
   totalAsset: ["Total Aset", "Total Assets"],
-  available: ["Tersedia", "Available"],
-  checkedOut: ["Dipinjam", "Checked Out"],
-  overdue: ["Terlambat", "Overdue"],
   maintenance: ["Perawatan", "Maintenance"],
   retired: ["Pensiun", "Retired"],
   assetCountLabel: ["{count} aset", "{count} assets"],
@@ -95,12 +76,6 @@ export const messages = {
   statusDamaged: ["Rusak", "Damaged"],
   statusMaintenance: ["Dalam Perbaikan", "Under Repair"],
   statusRetired: ["Dihapuskan", "Retired"],
-  bookingDraft: ["Draf", "Draft"],
-  bookingReserved: ["Dipesan", "Reserved"],
-  bookingOngoingStatus: ["Berlangsung", "Ongoing"],
-  bookingOverdue: ["Terlambat", "Overdue"],
-  bookingComplete: ["Selesai", "Complete"],
-  bookingCancelled: ["Dibatalkan", "Cancelled"],
   ticketOpen: ["Open", "Open"],
   ticketOnHold: ["On Hold", "On Hold"],
   ticketInProgress: ["Diproses", "In Progress"],
@@ -109,9 +84,6 @@ export const messages = {
   priorityMedium: ["Sedang", "Medium"],
   priorityHigh: ["Tinggi", "High"],
   priorityUrgent: ["Mendesak", "Urgent"],
-  auditFound: ["Ditemukan", "Found"],
-  auditMissing: ["Hilang", "Missing"],
-  auditDamaged: ["Rusak", "Damaged"],
 
   // ---------- Dasbor ----------
   dashboard: ["Dasbor", "Dashboard"],
@@ -121,18 +93,9 @@ export const messages = {
   ],
   todayIs: ["Hari ini {date}", "Today {date}"],
   newAsset: ["Aset Baru", "New Asset"],
-  scanQr: ["Pindai QR", "Scan QR"],
   allAssetsTracked: ["Semua aset terdata", "All assets tracked"],
   percentOfTotal: ["% dari total", "% of total"],
-  currentlyBorrowed: ["Sedang dipinjam", "Currently borrowed"],
-  needFollowUp: ["Perlu tindak lanjut", "Needs follow-up"],
-  noDelay: ["Tidak ada keterlambatan", "No delays"],
-  recentBookings: ["Peminjaman Terbaru", "Recent Bookings"],
-  viewAll: ["Lihat semua", "View all"],
-  noBookings: ["Belum ada peminjaman", "No bookings yet"],
   needAttention: ["Perlu Perhatian", "Needs Attention"],
-  allSafe: ["Semua peminjaman aman 🎉", "All bookings are on track 🎉"],
-  due: ["Jatuh tempo", "Due"],
   needsCheck: ["Perlu pengecekan", "Needs a check"],
   needsRepair: ["Perlu diperbaiki", "Needs repair"],
   noDamagedAssets: ["Tidak ada yang rusak", "Nothing damaged"],
@@ -150,44 +113,14 @@ export const messages = {
     "Every asset has complete data 🎉",
   ],
   missingFields: ["belum: {fields}", "missing: {fields}"],
-  maintenanceCount: ["{count} aset perawatan", "{count} assets in maintenance"],
-  lastActivity: ["Aktivitas Terakhir", "Recent Activity"],
-  noActivity: ["Belum ada aktivitas", "No activity yet"],
-  assetCreated: ["Aset dibuat", "Asset created"],
-  bookingOngoing: ["Peminjaman berlangsung", "Booking in progress"],
-  auditOpened: ["Audit dibuka", "Audit opened"],
-  justNowBy: ["Baru saja", "Just now"],
-  yesterday: ["Kemarin", "Yesterday"],
-  twoDaysAgo: ["2 hari lalu", "2 days ago"],
 
   // ---------- Login ----------
   welcome: ["Selamat Datang", "Welcome"],
   loginToPinjamin: ["Masuk ke SIGAP", "Sign in to SIGAP"],
   username: ["Username", "Username"],
   password: ["Password", "Password"],
-  login: ["Masuk", "Sign In"],
   loginAdmin: ["Masuk Admin", "Admin Login"],
   rememberMe: ["Ingat saya", "Remember me"],
-  forgotPassword: [
-    "Lupa password? Hubungi admin",
-    "Forgot your password? Contact an admin",
-  ],
-
-  // ---------- Pemindai ----------
-  scannerTitle: ["Pemindai QR", "QR Scanner"],
-  scannerSub: [
-    "Pindai cepat dengan kamera, upload gambar, atau input manual",
-    "Quick scan with the camera, upload an image, or type it in",
-  ],
-  scanCamera: ["Pindai Kamera", "Scan Camera"],
-  inputManual: ["Input Manual", "Manual Input"],
-  uploadQrImage: ["Unggah Gambar QR", "Upload QR Image"],
-  recentAssetsTap: [
-    "Aset Terbaru — ketuk untuk simulasi",
-    "Recent Assets — tap to simulate",
-  ],
-  found: ["Ditemukan", "Found"],
-  notFound: ["Tidak ditemukan", "Not found"],
 
   // ---------- Kategori ----------
   categoriesSub: [
@@ -228,44 +161,7 @@ export const messages = {
   ],
 
   // ---------- Peminjam ----------
-  custodiansSub: [
-    "Data peminjam dikelola admin (tanpa login)",
-    "Custodian records are managed by admins (no login required)",
-  ],
-  addCustodianTitle: ["Tambah Peminjam", "Add Custodian"],
-  editCustodianTitle: ["Edit Peminjam", "Edit Custodian"],
-  nik: ["NIK", "Employee ID"],
-  department: ["Departemen", "Department"],
   email: ["Email", "Email"],
-  phone: ["Telepon", "Phone"],
-  confirmAddCustodian: [
-    'Tambah peminjam "{name}"?',
-    'Add the custodian "{name}"?',
-  ],
-  confirmEditCustodian: [
-    'Simpan perubahan peminjam "{name}"?',
-    'Save changes to the custodian "{name}"?',
-  ],
-  confirmDeleteCustodian: ["Hapus peminjam?", "Delete custodian?"],
-  confirmDeleteCustodianBody: [
-    '"{name}" akan dihapus permanen dari daftar peminjam.',
-    '"{name}" will be permanently removed from the custodian list.',
-  ],
-
-  // ---------- Model aset ----------
-  assetModelsSub: ["Spesifikasi model aset", "Asset model specifications"],
-  addModel: ["Tambah Model", "Add Model"],
-  modelName: ["Nama Model", "Model Name"],
-  brand: ["Merek", "Brand"],
-  confirmAddModel: [
-    'Tambah model aset "{name}"?',
-    'Add the asset model "{name}"?',
-  ],
-  confirmDeleteModel: ["Hapus model aset?", "Delete asset model?"],
-  confirmDeleteModelBody: [
-    'Model "{name}" akan dihapus permanen.',
-    'The model "{name}" will be permanently deleted.',
-  ],
 
   // ---------- Unggah foto ----------
   assetPhoto: ["Foto Aset", "Asset Photo"],
@@ -341,7 +237,6 @@ export const messages = {
   updatedAt: ["update {date}", "updated {date}"],
   // Tidak lagi dipakai sejak penautan aset dihapus dari panel tiket, tapi
   // SENGAJA dipertahankan: CLAUDE.md melarang mengutak-atik nama kunci ini.
-  noAssetsInPinjamin: ["Belum ada aset di SIGAP", "No assets in SIGAP yet"],
   changeStatus: ["Ubah Status", "Change Status"],
   deleteTicket: ["Hapus Tiket", "Delete Ticket"],
   confirmDeleteTicketBody: [
@@ -362,7 +257,6 @@ export const messages = {
     "Belum ada balasan. Tulis pesan pertama untuk pelapor.",
     "No replies yet. Write the first message to the reporter.",
   ],
-  reporterLabel: ["Pelapor", "Reporter"],
   adminLabel: ["Admin SIGAP", "SIGAP Admin"],
   replyPlaceholder: [
     "Tulis balasan yang akan dibaca pelapor...",
@@ -467,7 +361,6 @@ export const messages = {
   colValue: ["Nilai", "Value"],
   colSerial: ["Nomor Seri", "Serial Number"],
   colDescription: ["Deskripsi", "Description"],
-  colCustodian: ["Peminjam", "Custodian"],
   colTags: ["Tag", "Tags"],
   sheetAssets: ["Aset", "Assets"],
 
@@ -480,7 +373,6 @@ export const messages = {
   assetInfo: ["Informasi Aset", "Asset Information"],
   assetName: ["Nama Aset", "Asset Name"],
   descriptionPlaceholder: ["Deskripsi aset...", "Asset description..."],
-  model: ["Model", "Model"],
   ownerLabel: ["Pemilik", "Owner"],
   ownerPlaceholder: ["Nama pemegang aset", "Asset holder name"],
   specLabel: ["Spesifikasi", "Specification"],
@@ -509,16 +401,6 @@ export const messages = {
     "{count} tag dipilih • klik untuk pilih/hapus",
     "{count} tags selected • click to select/deselect",
   ],
-  customFieldsOptional: ["Custom Field (Opsional)", "Custom Fields (Optional)"],
-  hide: ["Sembunyikan", "Hide"],
-  fieldCount: ["{count} field", "{count} fields"],
-  customFieldsHint: [
-    "Semua field di bawah ini opsional — boleh dikosongkan. Field mengikuti kategori aset yang dipilih.",
-    "Every field below is optional — you may leave them blank. Fields follow the selected asset category.",
-  ],
-  yes: ["Ya", "Yes"],
-  no: ["Tidak", "No"],
-  optionalPlaceholder: ["Opsional", "Optional"],
   saveAsset: ["Simpan Aset", "Save Asset"],
   nameRequired: ["Nama wajib diisi", "Name is required"],
   confirmAddAsset: ['Tambah aset "{name}"?', 'Add the asset "{name}"?'],
@@ -550,7 +432,6 @@ export const messages = {
   preparing: ["Menyiapkan...", "Preparing..."],
   print: ["Cetak", "Print"],
   editAsset: ["Edit Aset", "Edit Asset"],
-  bookThisAsset: ["Booking Aset Ini", "Book This Asset"],
 
   // ---------- Edit aset ----------
   editAssetOf: ["Edit {name}", "Edit {name}"],
@@ -564,10 +445,6 @@ export const messages = {
   ],
   serialAutoLocked: ["Otomatis, tidak diubah", "Automatic, not editable"],
   noTagsShort: ["Belum ada tag", "No tags yet"],
-  customFieldsHintShort: [
-    "Semua field opsional — boleh dikosongkan. Field mengikuti kategori aset yang dipilih.",
-    "All fields are optional — you may leave them blank. Fields follow the selected asset category.",
-  ],
 
   // ---------- Lokasi ----------
   locationsSummary: [
@@ -615,11 +492,6 @@ export const messages = {
     " Sub-lokasi di dalamnya menjadi lokasi biasa.",
     " Its sub-locations become regular locations.",
   ],
-  addLocationTitle: ["Tambah Lokasi", "Add Location"],
-  addLocationSub: [
-    "Buat lokasi baru — bisa lokasi biasa atau lokasi parent (gedung/area).",
-    "Create a new location — either a regular location or a parent (building/area).",
-  ],
   confirmAddLocation: ['Tambah lokasi "{name}"?', 'Add the location "{name}"?'],
   saveLocation: ["Simpan Lokasi", "Save Location"],
 
@@ -663,303 +535,19 @@ export const messages = {
     "Location description, capacity, facilities...",
   ],
 
-  // ---------- Kit ----------
-  kitsSub: [
-    "Bundel aset yang dipinjam sebagai paket • {count} kit",
-    "Bundles of assets borrowed as one package • {count} kits",
-  ],
-  createKit: ["+ Buat Kit", "+ Create Kit"],
-  noKitsYet: ["Belum ada kit", "No kits yet"],
-  noKitsHint: [
-    "Kit adalah bundel aset yang dipinjam bersamaan",
-    "A kit is a bundle of assets that get borrowed together",
-  ],
-  createFirstKit: ["Buat Kit Pertama", "Create the First Kit"],
-  kitContents: ["Isi Kit", "Kit Contents"],
-  confirmDeleteKit: ["Hapus kit?", "Delete kit?"],
-  confirmDeleteKitBody: [
-    '"{name}" beserta seluruh isinya ({count} aset) akan dihapus permanen.',
-    '"{name}" and all its contents ({count} assets) will be permanently deleted.',
-  ],
-  backToKits: ["Kembali ke Daftar Kit", "Back to Kits"],
-  newKitHeading: ["Buat Kit Baru", "Create a New Kit"],
-  newKitSub: [
-    "Isi informasi kit. Kit yang sudah terdaftar tidak tampil di sini — hanya form.",
-    "Fill in the kit details. Existing kits are not listed here — this is the form only.",
-  ],
-  newKitForm: ["Form Kit Baru", "New Kit Form"],
-  kitName: ["Nama Kit", "Kit Name"],
-  kitNameRequired: ["Nama Kit wajib diisi", "Kit name is required"],
-  kitDescriptionPlaceholder: ["Deskripsi kit...", "Kit description..."],
-  selectCategory: ["— Pilih Kategori —", "— Select Category —"],
-  selectLocation: ["— Pilih Lokasi —", "— Select Location —"],
-  kitImage: ["Gambar Kit", "Kit Image"],
-  saveKit: ["Simpan Kit", "Save Kit"],
-  confirmCreateKit: ['Buat kit "{name}"?', 'Create the kit "{name}"?'],
-  confirmCreateKitBody: [
-    "Kit baru akan dibuat dan bisa diisi aset dari halaman detailnya.",
-    "The kit will be created, and you can add assets from its detail page.",
-  ],
-  yesCreate: ["Ya, Buat", "Yes, Create"],
-  kitNotFound: ["Kit tidak ditemukan", "Kit not found"],
-  kitMembers: ["Anggota ({count})", "Members ({count})"],
-  kitNoMembers: [
-    "Kit ini belum ada anggota aset.",
-    "This kit has no assets yet.",
-  ],
-  bookThisKit: ["Booking Kit Ini", "Book This Kit"],
-  deleteKitLabel: ["Hapus Kit", "Delete Kit"],
-
   // ---------- Peminjaman ----------
-  bookingsSub: [
-    "{count} booking • cegah bentrok otomatis",
-    "{count} bookings • conflicts blocked automatically",
-  ],
-  calendar: ["Kalender", "Calendar"],
-  newBooking: ["Booking Baru", "New Booking"],
-  searchBookings: ["Cari booking...", "Search bookings..."],
-  noBookingsYet: ["Belum ada booking", "No bookings yet"],
-  confirmReturnBooking: ["Kembalikan peminjaman?", "Return this booking?"],
-  confirmReturnBookingBody: [
-    '"{name}" akan ditandai selesai (COMPLETE) dan asetnya kembali tersedia.',
-    '"{name}" will be marked COMPLETE and its assets become available again.',
-  ],
-  yesReturn: ["Ya, Kembalikan", "Yes, Return"],
-  returnAction: ["Kembalikan", "Return"],
-  confirmStartBooking: ["Mulai peminjaman?", "Start this booking?"],
-  confirmStartBookingBody: [
-    '"{name}" akan ditandai sedang berjalan (ONGOING) dan asetnya diserahkan.',
-    '"{name}" will be marked ONGOING and its assets handed over.',
-  ],
-  yesStart: ["Ya, Mulai", "Yes, Start"],
-  startAction: ["Mulai", "Start"],
-  confirmCancelBooking: ["Batalkan peminjaman?", "Cancel this booking?"],
-  confirmCancelBookingBody: [
-    '"{name}" akan dibatalkan dan reservasi asetnya dilepas.',
-    '"{name}" will be cancelled and its asset reservations released.',
-  ],
-  yesCancelBooking: ["Ya, Batalkan", "Yes, Cancel"],
-  confirmDeleteBooking: ["Hapus peminjaman?", "Delete booking?"],
-  confirmDeleteBookingBody: [
-    '"{name}" akan dihapus permanen beserta riwayatnya.',
-    '"{name}" and its history will be permanently deleted.',
-  ],
-  newBookingSub: [
-    "Pilih aset/kit + peminjam + tanggal. Sistem cegah bentrok otomatis.",
-    "Pick assets/kits + a custodian + dates. Conflicts are blocked automatically.",
-  ],
-  bookingForm: ["Form Peminjaman", "Booking Form"],
-  bookingName: ["Nama Booking", "Booking Name"],
-  purposePlaceholder: ["Keperluan...", "Purpose..."],
-  custodianRequired: ["Peminjam (Custodian)", "Custodian"],
-  selectCustodian: ["— Pilih Peminjam —", "— Select Custodian —"],
-  fromDate: ["Tgl Pinjam", "Start Date"],
-  toDate: ["Tgl Kembali", "Return Date"],
-  pickAssets: ["Pilih Aset", "Select Assets"],
-  pickKits: ["Pilih Kit (opsional)", "Select Kits (optional)"],
-  noKitsShort: ["Belum ada kit", "No kits yet"],
-  saveBooking: ["Simpan Booking", "Save Booking"],
-  fillRequiredFields: [
-    "Lengkapi field wajib (*)",
-    "Please fill in the required fields (*)",
-  ],
-  pickAtLeastOne: [
-    "Pilih minimal 1 aset atau kit",
-    "Select at least one asset or kit",
-  ],
-  returnAfterStart: [
-    "Tanggal kembali harus setelah tanggal pinjam",
-    "The return date must come after the start date",
-  ],
-  confirmCreateBooking: [
-    'Buat peminjaman "{name}"?',
-    'Create the booking "{name}"?',
-  ],
-  confirmCreateBookingBody: [
-    "{count} unit akan dipesan. Sistem menolak otomatis jika jadwalnya bentrok.",
-    "{count} units will be reserved. Overlapping schedules are rejected automatically.",
-  ],
   genericFailed: ["Gagal", "Failed"],
-  bookingCalendarTitle: ["Kalender Booking", "Booking Calendar"],
-  bookingCalendarSub: [
-    "Tampilan kalender peminjaman",
-    "Calendar view of bookings",
-  ],
-  dowSun: ["Min", "Sun"],
-  dowMon: ["Sen", "Mon"],
-  dowTue: ["Sel", "Tue"],
-  dowWed: ["Rab", "Wed"],
-  dowThu: ["Kam", "Thu"],
-  dowFri: ["Jum", "Fri"],
-  dowSat: ["Sab", "Sat"],
-  moreCount: ["+{count} lagi", "+{count} more"],
-  legend: ["Keterangan", "Legend"],
-
-  // ---------- Detail peminjaman ----------
-  bookingNotFound: ["Booking tidak ditemukan", "Booking not found"],
-  period: ["Periode", "Period"],
-  createdByAt: ["Dibuat {date} oleh {by}", "Created {date} by {by}"],
-  assetsCount: ["Aset ({count})", "Assets ({count})"],
-  kitAssetCount: ["{name} ({count} aset)", "{name} ({count} assets)"],
-  statusHistory: ["Riwayat Status", "Status History"],
-  byWhom: ["oleh {by}", "by {by}"],
-  returnCondition: ["Kondisi Pengembalian", "Return Condition"],
-  returnConditionPlaceholder: ["Baik, lengkap...", "Good, complete..."],
-  confirmMarkReturned: ["Tandai dikembalikan?", "Mark as returned?"],
-  confirmMarkReturnedBody: [
-    '"{name}" akan selesai (COMPLETE) dan asetnya kembali tersedia.',
-    '"{name}" will be COMPLETE and its assets become available again.',
-  ],
-  markReturned: [
-    "Tandai Dikembalikan (COMPLETE)",
-    "Mark as Returned (COMPLETE)",
-  ],
-  confirmStartBookingShortBody: [
-    '"{name}" akan berjalan (ONGOING) dan asetnya diserahkan.',
-    '"{name}" will be ONGOING and its assets handed over.',
-  ],
-  startBookingAction: ["Mulai Peminjaman (ONGOING)", "Start Booking (ONGOING)"],
-  cancelBookingAction: ["Batalkan (CANCELLED)", "Cancel (CANCELLED)"],
-  returnConditionLabel: ["Kondisi kembali:", "Return condition:"],
-  returnedAt: ["Dikembalikan {date}", "Returned {date}"],
-  deleteBookingLabel: ["Hapus Booking", "Delete Booking"],
-
-  // ---------- Audit ----------
-  auditsSub: [
-    "Verifikasi keberadaan & kondisi aset",
-    "Verify that assets exist and are in good condition",
-  ],
-  newSession: ["Sesi Baru", "New Session"],
-  auditModeAssetsTitle: [
-    "Dari Daftar Aset (mode lanjutan)",
-    "From the Asset List (advanced)",
-  ],
-  auditModeAssetsDesc: [
-    "Pilih aset tertentu dari inventaris untuk dimasukkan ke audit. Cocok untuk pengecekan terarah terhadap item tertentu.",
-    "Pick specific assets from the inventory for the audit. Good for a targeted check of particular items.",
-  ],
-  auditModeAssetsBtn: ["Pilih Aset", "Select Assets"],
-  auditModeAssetsStep: ["Pilih Aset untuk Audit", "Select Assets to Audit"],
-  auditModeLocationsTitle: ["Dari Lokasi", "From Locations"],
-  auditModeLocationsDesc: [
-    "Audit aset di satu atau lebih lokasi. Ideal untuk pengecekan inventaris per ruangan atau per area.",
-    "Audit the assets in one or more locations. Ideal for a room-by-room or area-by-area stocktake.",
-  ],
-  auditModeLocationsBtn: ["Pilih Lokasi", "Select Locations"],
-  auditModeLocationsStep: [
-    "Pilih Lokasi untuk Audit",
-    "Select Locations to Audit",
-  ],
-  auditModeKitsTitle: ["Dari Kit", "From Kits"],
-  auditModeKitsDesc: [
-    "Audit aset di satu atau lebih kit. Cocok untuk memverifikasi kelengkapan isi kit.",
-    "Audit the assets in one or more kits. Good for verifying that a kit is complete.",
-  ],
-  auditModeKitsBtn: ["Pilih Kit", "Select Kits"],
-  auditModeKitsStep: ["Pilih Kit untuk Audit", "Select Kits to Audit"],
-  auditDefaultNameAssets: ["Audit Aset • {date}", "Asset Audit • {date}"],
-  auditDefaultNameLocations: [
-    "Audit Lokasi • {date}",
-    "Location Audit • {date}",
-  ],
-  auditDefaultNameKits: ["Audit Kit • {date}", "Kit Audit • {date}"],
-  auditStatusOpen: ["Berjalan", "Open"],
-  auditStatusCompleted: ["Selesai", "Completed"],
-  auditFoundCount: ["{count} ditemukan", "{count} found"],
-  auditMissingCount: ["{count} hilang", "{count} missing"],
-  confirmDeleteAudit: ["Hapus audit?", "Delete audit?"],
-  confirmDeleteAuditBody: [
-    'Audit "{name}" beserta hasilnya akan dihapus permanen.',
-    'The audit "{name}" and its results will be permanently deleted.',
-  ],
-  noAuditsYet: [
-    'Belum ada audit — klik "Sesi Baru" untuk membuat.',
-    'No audits yet — click "New Session" to create one.',
-  ],
-  newAuditTitle: ["Buat Audit Baru", "Create a New Audit"],
-  newAuditIntro: [
-    "Audit membantu memverifikasi inventaris dengan memeriksa bahwa aset berada di lokasi yang seharusnya. Pilih cara membuat audit:",
-    "An audit verifies your inventory by checking that assets are where they should be. Choose how to build it:",
-  ],
-  sessionName: ["Nama Sesi", "Session Name"],
-  sessionNameRequired: ["Nama sesi wajib diisi", "Session name is required"],
-  auditToBeAudited: ["{what} yang akan diaudit", "{what} to audit"],
-  selectedCount: ["{count} dipilih", "{count} selected"],
-  searchPlaceholder: ["Cari...", "Search..."],
-  noMatch: ["Tidak ada {what}{suffix}.", "No {what}{suffix}."],
-  matchingSuffix: [" yang cocok", " matched"],
-  auditResolvedCount: [
-    "{count} aset akan masuk audit dari pilihan ini{extra}.",
-    "{count} assets will be included from this selection{extra}.",
-  ],
-  auditSublocationsIncluded: [
-    " (sub-lokasi ikut diaudit)",
-    " (sub-locations are included)",
-  ],
-  createAudit: ["Buat Audit", "Create Audit"],
-  createAuditCount: [" ({count} aset)", " ({count} assets)"],
-  confirmCreateAudit: ['Buat audit "{name}"?', 'Create the audit "{name}"?'],
-  confirmCreateAuditBody: [
-    "{count} aset akan masuk sesi audit ini.",
-    "{count} assets will be included in this audit session.",
-  ],
-  auditNoAssetsSelected: [
-    "Pilihan ini tidak menghasilkan aset apa pun untuk diaudit",
-    "This selection produces no assets to audit",
-  ],
-
-  // ---------- Detail audit ----------
-  auditNotFound: ["Audit tidak ditemukan", "Audit not found"],
-  progressPercent: ["Progres {percent}%", "Progress {percent}%"],
-  auditNotChecked: ["Belum dicek", "Not checked"],
-  notePlaceholder: ["Catatan...", "Notes..."],
-  confirmCompleteAudit: ["Selesaikan audit?", "Complete this audit?"],
-  confirmCompleteAuditBody: [
-    'Audit "{name}" akan dikunci sebagai COMPLETED dan tidak bisa diubah lagi.',
-    'The audit "{name}" will be locked as COMPLETED and can no longer be edited.',
-  ],
-  yesComplete: ["Ya, Selesaikan", "Yes, Complete"],
-  completeAudit: ["Selesaikan Audit", "Complete Audit"],
-  markAllFirst: [
-    "Tandai semua aset dulu sebelum menyelesaikan.",
-    "Mark every asset before completing the audit.",
-  ],
 
   // ---------- Laporan ----------
   reportsSub: [
     "Laporan & ekspor — SIGAP Garudafood",
     "Reports & exports — SIGAP Garudafood",
   ],
-  reportHistoryTitle: ["Riwayat Peminjaman", "Booking History"],
-  reportHistorySub: [
-    "Per periode, per aset, per peminjam",
-    "By period, by asset, by custodian",
-  ],
-  reportHistoryStats: [
-    "{total} total • {complete} selesai • ",
-    "{total} total • {complete} complete • ",
-  ],
-  reportOverdueCount: ["{count} terlambat", "{count} overdue"],
   reportInventoryTitle: ["Inventaris Aset", "Asset Inventory"],
   reportInventorySub: [
     "Jumlah per kategori/lokasi/status",
     "Counts by category / location / status",
   ],
-  reportOverdueTitle: ["Terlambat", "Overdue"],
-  reportOverdueSub: [
-    "Aset telat & pemegangnya",
-    "Late assets and who holds them",
-  ],
-  noOverdue: ["Tidak ada keterlambatan 🎉", "Nothing overdue 🎉"],
-  dueOn: ["jatuh tempo {date}", "due {date}"],
-  exportOverdueCsv: ["Ekspor CSV Terlambat", "Export Overdue CSV"],
-  reportUtilizationTitle: ["Utilisasi Aset", "Asset Utilisation"],
-  reportUtilizationSub: [
-    "Paling sering / jarang dipinjam",
-    "Most and least frequently borrowed",
-  ],
-  borrowedTimes: ["{count}x dipinjam", "borrowed {count}x"],
-  exportCsv: ["Ekspor CSV", "Export CSV"],
   pdfReportTitle: ["Laporan Inventaris", "Inventory Report"],
   pdfTotalAssets: ["Total Aset: {count}", "Total assets: {count}"],
   pdfCategoryLine: ["{name}: {count} aset", "{name}: {count} assets"],
@@ -967,9 +555,6 @@ export const messages = {
     "Dicetak: {date} • SIGAP v1.1",
     "Printed: {date} • SIGAP v1.1",
   ],
-  colBooking: ["Booking", "Booking"],
-  colFrom: ["Pinjam", "From"],
-  colTo: ["Kembali", "To"],
   sheetReport: ["Laporan", "Report"],
 
   // ---------- Pengaturan akun ----------
@@ -1117,114 +702,6 @@ export const messages = {
   rememberDurationLong: ["7 hari", "7 days"],
   rememberDurationShort: ["12 jam", "12 hours"],
 
-  // ---------- Pemindai QR ----------
-  scannerHeadSub: [
-    "Scan cepat dengan kamera, upload gambar, atau input manual — semua jalan",
-    "Quick scan with the camera, an uploaded image, or manual input — all work",
-  ],
-  scanFoundIt: ["Ditemukan {type}: {name}", "Found {type}: {name}"],
-  scanNotFound: ["Tidak ditemukan: {code}", "Not found: {code}"],
-  cameraNeedsHttps: [
-    "Kamera butuh HTTPS. Gunakan localhost atau upload gambar QR.",
-    "The camera needs HTTPS. Use localhost or upload a QR image.",
-  ],
-  cameraActive: [
-    "Kamera aktif — arahkan ke QR",
-    "Camera active — point it at the QR code",
-  ],
-  cameraDenied: [
-    "Izin kamera ditolak. Aktifkan izin di browser atau gunakan Input Manual.",
-    "Camera permission denied. Allow it in your browser or use Manual Input.",
-  ],
-  cameraUnsupported: [
-    "Streaming kamera tidak didukung — butuh HTTPS. Gunakan Input Manual atau Upload Gambar.",
-    "Camera streaming is not supported — HTTPS is required. Use Manual Input or Upload Image.",
-  ],
-  cameraFailed: [
-    "Gagal akses kamera: {msg} — gunakan Input Manual.",
-    "Could not access the camera: {msg} — use Manual Input.",
-  ],
-  processingImage: ["Memproses gambar...", "Processing image..."],
-  qrFromFile: ["QR dari file: {code}", "QR from file: {code}"],
-  qrFileFailed: [
-    "Gagal baca QR dari gambar. Pastikan foto QR jelas & tidak blur, atau crop hanya bagian QR-nya lalu coba lagi.",
-    "Could not read the QR from that image. Make sure the photo is sharp, or crop to just the QR code and try again.",
-  ],
-  insecureModeTitle: ["Mode tidak aman (Not Secure)", "Insecure mode"],
-  insecureModeBody: [
-    "Browser blokir kamera di http://0.0.0.0:5003. Buka lewat http://localhost:5003 atau https://… untuk kamera, atau pakai Upload Gambar QR di bawah.",
-    "The browser blocks the camera on http://0.0.0.0:5003. Open http://localhost:5003 or an https:// URL for the camera, or use Upload QR Image below.",
-  ],
-  scannerCardTitle: ["Pemindai", "Scanner"],
-  cameraUnavailableHere: [
-    "Kamera tidak tersedia di sini",
-    "The camera is not available here",
-  ],
-  uploadQrBelow: ["Upload gambar QR di bawah", "Upload a QR image below"],
-  waitingForCamera: ["Menunggu kamera...", "Waiting for the camera..."],
-  or: ["atau", "or"],
-  processingShort: ["Memproses...", "Processing..."],
-  pickQrFromGallery: [
-    "Pilih foto QR dari galeri — jalan tanpa kamera",
-    "Pick a QR photo from your gallery — works without a camera",
-  ],
-  manualCodePlaceholder: [
-    "Masukkan kode QR (mis. PIN-MBP001A)",
-    "Enter a QR code (e.g. PIN-MBP001A)",
-  ],
-  searchAction: ["Cari", "Search"],
-  manualExampleHint: [
-    "Contoh: PIN-MBP001A, PIN-PRJ002B, KIT-001 • Tekan Enter untuk cari",
-    "Examples: PIN-MBP001A, PIN-PRJ002B, KIT-001 • Press Enter to search",
-  ],
-  qrPhotoFromGallery: [
-    "Foto QR dari kamera galeri",
-    "A QR photo from your gallery",
-  ],
-  viewDetail: ["Lihat Detail", "View Detail"],
-  lendAction: ["Pinjamkan", "Lend"],
-  markReturnedShort: [
-    "Aset ditandai kembali (AVAILABLE)",
-    "Asset marked as returned (AVAILABLE)",
-  ],
-  recentAssets: ["Aset Terbaru", "Recent Assets"],
-  tapToSimulate: ["ketuk untuk simulasi", "tap to simulate"],
-
-  // ---------- Custom field ----------
-  customFieldsSub: [
-    "Kolom metadata tambahan untuk aset • bisa dibatasi per kategori",
-    "Extra metadata columns for assets • can be limited per category",
-  ],
-  addField: ["Tambah Field", "Add Field"],
-  fieldType: ["Tipe", "Type"],
-  optionsCommaSeparated: ["Opsi (pisah koma)", "Options (comma separated)"],
-  useForCategories: ["Gunakan untuk Kategori", "Use for Categories"],
-  selectAll: ["Pilih Semua", "Select All"],
-  reset: ["Reset", "Reset"],
-  unnamed: ["(tanpa nama)", "(unnamed)"],
-  noCategoryMeansAll: [
-    "Tidak memilih kategori = field berlaku untuk semua kategori.",
-    "Selecting no category means the field applies to every category.",
-  ],
-  requiredField: ["Wajib diisi", "Required"],
-  allCategoriesBadge: ["Semua kategori", "All categories"],
-  requiredShort: ["wajib", "required"],
-  noCustomFields: ["Belum ada custom field.", "No custom fields yet."],
-  confirmAddCustomField: [
-    'Tambah custom field "{name}"?',
-    'Add the custom field "{name}"?',
-  ],
-  confirmAddCustomFieldBody: [
-    "Field ini akan dipakai untuk: {categories}.",
-    "This field will apply to: {categories}.",
-  ],
-  allCategoriesPhrase: ["semua kategori", "all categories"],
-  confirmDeleteCustomField: ["Hapus custom field?", "Delete custom field?"],
-  confirmDeleteCustomFieldBody: [
-    'Field "{name}" akan dihapus permanen dari semua aset.',
-    'The field "{name}" will be permanently removed from every asset.',
-  ],
-
   // ---------- Dialog impor ----------
   importTitle: ["Impor dari Excel / CSV", "Import from Excel / CSV"],
   importSubtitle: [
@@ -1260,9 +737,7 @@ export const messages = {
   importedSummary: ["{count} aset masuk", "{count} assets imported"],
   createdCategories: ["{count} kategori baru", "{count} new categories"],
   createdLocations: ["{count} lokasi baru", "{count} new locations"],
-  createdCustodians: ["{count} peminjam baru", "{count} new custodians"],
   createdTags: ["{count} tag baru", "{count} new tags"],
-  createdModels: ["{count} model baru", "{count} new models"],
   skippedRows: [
     " {count} baris dilewati (duplikat QR / nama kosong).",
     " {count} rows skipped (duplicate QR / empty name).",
@@ -1278,19 +753,10 @@ export const messages = {
   importFieldDescription: ["Deskripsi / keterangan", "Description / notes"],
   importFieldCustodian: ["Peminjam / PIC", "Custodian / PIC"],
   importFieldTags: ["Tag", "Tags"],
-  importFieldModel: ["Model / merek", "Model / brand"],
   importFieldSkip: ["Abaikan kolom ini", "Ignore this column"],
 
   // ---------- Lain-lain ----------
-  bookingConflict: [
-    'Bentrok dengan booking "{name}" ({id}) pada rentang tanggal yang sama.',
-    'Conflicts with the booking "{name}" ({id}) over the same date range.',
-  ],
   assetPhotoAlt: ["Foto aset", "Asset photo"],
-  bookingNamePlaceholder: [
-    "Peminjaman Proyektor Marketing",
-    "Marketing projector booking",
-  ],
 } as const satisfies Record<string, readonly [string, string]>;
 
 export type MessageKey = keyof typeof messages;

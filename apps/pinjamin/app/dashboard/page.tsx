@@ -11,7 +11,6 @@ import {
   Wrench,
   CheckCircle2,
   AlertTriangle,
-  QrCode,
   Plus,
   TrendingUp,
   Sparkles,
@@ -158,11 +157,6 @@ export default function DashboardPage() {
             <Link href="/assets/new" className="contents sm:block">
               <Button className="rounded-xl w-full sm:w-auto bg-[#1a365d] hover:bg-[#243a5e] text-white shadow-lg">
                 <Plus className="h-4 w-4" strokeWidth={1.5} /> {t("newAsset")}
-              </Button>
-            </Link>
-            <Link href="/scanner" className="contents sm:block">
-              <Button variant="outline" className="rounded-xl w-full sm:w-auto">
-                <QrCode className="h-4 w-4" strokeWidth={1.5} /> {t("scanQr")}
               </Button>
             </Link>
           </div>

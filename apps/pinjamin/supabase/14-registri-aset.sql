@@ -1,5 +1,5 @@
 -- ============================================================
--- SIGAP — 13 REGISTRI ASET (kondisi, pemilik, spesifikasi, riwayat pemakai)
+-- SIGAP — 14 REGISTRI ASET (kondisi, pemilik, spesifikasi, riwayat pemakai)
 -- Jalankan di Supabase SQL Editor → asset-management → main
 --
 -- ⚠️  WAJIB dijalankan SEBELUM kode versi baru masuk production.
@@ -8,7 +8,7 @@
 --     senyap: form tampak tersimpan, datanya tidak berubah.
 --
 -- Tidak menghapus tabel apa pun. Tabel audits/custom_fields/custodians
--- sengaja dibiarkan berdiri; lihat 14-drop-modul-lama.sql untuk itu.
+-- sengaja dibiarkan berdiri; lihat 15-drop-modul-lama.sql untuk itu.
 -- Aman dijalankan ulang.
 -- ============================================================
 

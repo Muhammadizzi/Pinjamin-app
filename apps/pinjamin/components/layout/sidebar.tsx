@@ -16,7 +16,6 @@ import {
   Tag,
   MapPin,
   BarChart3,
-  QrCode,
   Menu,
   X,
   LogOut,
@@ -403,22 +402,6 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           })}
         </div>
 
-        {mode === "assets" && (
-          <Link
-            href="/scanner"
-            onClick={onNavigate}
-            className={cn(
-              "flex items-center justify-center gap-2 rounded-xl px-4 py-4 text-sm font-bold shadow-lg touch-target border transition-all",
-              pathname === "/scanner"
-                ? "bg-[#CBA12C] text-[#1a365d] border-amber-200"
-                : "bg-[#CBA12C] text-[#1a365d] hover:bg-amber-300 border-amber-200 hover:shadow-xl"
-            )}
-          >
-            <QrCode className="h-5 w-5" strokeWidth={1.5} />
-            {t("scanner")}
-          </Link>
-        )}
-
         <div className="rounded-xl bg-[#1e3250] border border-[#2a4a6b] p-3">
           {mode === "tickets" ? (
             <>
@@ -602,16 +585,6 @@ export function TopBar({ onMenu }: { onMenu: () => void }) {
           </span>
         </div>
         <LanguageToggle />
-        {mode === "assets" && (
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => router.push("/scanner")}
-            className="hidden sm:flex bg-white/5 hover:bg-white/10 text-white border-white/15 hover:text-white backdrop-blur"
-          >
-            <QrCode className="h-5 w-5" strokeWidth={1.5} />
-          </Button>
-        )}
         <button
           onClick={() => router.push("/settings")}
           title={t("accountSetting")}

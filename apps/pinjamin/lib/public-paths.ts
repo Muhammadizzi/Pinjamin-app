@@ -43,7 +43,7 @@ export function isPublicPage(pathname: string): boolean {
 
 /**
  * Halaman milik admin HELPDESK. Sisanya — dashboard, aset, lokasi,
- * laporan, scanner — milik admin ASET.
+ * laporan — milik admin ASET.
  *
  * Daftar ini memakai pola "milik helpdesk", bukan "milik aset", dan itu
  * disengaja: halaman baru yang lupa didaftarkan akan jatuh ke sisi aset,

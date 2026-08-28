@@ -1,5 +1,5 @@
 -- ============================================================
--- SIGAP — 12 STATUS ON_HOLD
+-- SIGAP — 13 STATUS ON_HOLD
 -- Jalankan di Supabase SQL Editor → asset-management → main
 --
 -- ⚠️  WAJIB dijalankan SEBELUM kode versi baru masuk production.
