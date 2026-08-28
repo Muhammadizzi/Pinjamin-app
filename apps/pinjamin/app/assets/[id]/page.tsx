@@ -5,11 +5,11 @@ import Link from "next/link";
 import { AppShell } from "@/components/layout/sidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { useStore } from "@/lib/store";
 import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useT } from "@/lib/i18n";
-import { contrastTextColor } from "@/lib/utils";
+import { assetPublicUrl, contrastTextColor } from "@/lib/utils";
 import { downloadQrPng, printQrPng } from "@/lib/qr-download";
 import { QRCodeSVG } from "qrcode.react";
 import {
@@ -30,15 +30,7 @@ export default function AssetDetailPage() {
   const params = useParams();
   const id = params.id as string;
   const router = useRouter();
-  const {
-    assets,
-    categories,
-    locations,
-    tags,
-    custodians,
-    customFields,
-    deleteAsset,
-  } = useStore();
+  const { assets, categories, locations, tags, deleteAsset } = useStore();
   const { t, formatDate, assetStatus } = useT();
   const { ask, confirmDialog } = useConfirmDialog();
   const [downloadingQr, setDownloadingQr] = useState(false);
@@ -57,7 +49,6 @@ export default function AssetDetailPage() {
     );
   const cat = categories.find((c) => c.id === asset.categoryId);
   const loc = locations.find((l) => l.id === asset.locationId);
-  const cust = custodians.find((c) => c.id === asset.custodianId);
 
   const handleDelete = () => {
     ask({
@@ -96,20 +87,11 @@ export default function AssetDetailPage() {
                       alt={asset.name}
                       size="xxl"
                     />
-                    <Badge
+                    <StatusBadge
                       className="absolute -top-2.5 -right-2.5 shadow"
-                      variant={
-                        asset.status === "AVAILABLE"
-                          ? "success"
-                          : asset.status === "CHECKED_OUT"
-                          ? "info"
-                          : asset.status === "MAINTENANCE"
-                          ? "warning"
-                          : "secondary"
-                      }
-                    >
-                      {assetStatus(asset.status)}
-                    </Badge>
+                      status={asset.status}
+                      label={assetStatus(asset.status)}
+                    />
                   </div>
                   <div className="flex-1 min-w-0 space-y-2 text-center sm:text-left">
                     <h1 className="text-xl font-bold truncate">{asset.name}</h1>
@@ -159,8 +141,8 @@ export default function AssetDetailPage() {
                     </div>
                     <div className="flex items-center gap-2">
                       <User className="h-4 w-4 text-muted-foreground" />{" "}
-                      {t("custodian")}:{" "}
-                      <span className="font-medium">{cust?.name || "-"}</span>
+                      {t("ownerLabel")}:{" "}
+                      <span className="font-medium">{asset.owner || "-"}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <Calendar className="h-4 w-4 text-muted-foreground" />{" "}
@@ -174,35 +156,11 @@ export default function AssetDetailPage() {
                         {asset.serialNumber || "-"}
                       </span>
                     </div>
+                    <div>
+                      {t("specLabel")}:{" "}
+                      <span className="font-medium">{asset.spec || "-"}</span>
+                    </div>
                   </div>
-                  {(() => {
-                    const visibleCustomFields = customFields.filter(
-                      (cf) =>
-                        !cf.categoryIds?.length ||
-                        (!!asset.categoryId &&
-                          cf.categoryIds.includes(asset.categoryId))
-                    );
-                    return visibleCustomFields.length > 0 ? (
-                      <div className="sm:col-span-2 border-t pt-4 space-y-2">
-                        <div className="font-medium text-sm">
-                          {t("customFields")}
-                        </div>
-                        {visibleCustomFields.map((cf) => (
-                          <div
-                            key={cf.id}
-                            className="flex justify-between text-sm border-b py-1"
-                          >
-                            <span className="text-muted-foreground">
-                              {cf.name}
-                            </span>
-                            <span className="font-medium">
-                              {asset.customValues[cf.id] || "-"}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    ) : null;
-                  })()}
                 </div>
               </CardContent>
             </Card>
@@ -247,14 +205,7 @@ export default function AssetDetailPage() {
               </CardHeader>
               <CardContent className="flex flex-col items-center gap-4">
                 <div id="asset-qr" className="bg-white p-4 rounded-2xl shadow">
-                  <QRCodeSVG
-                    value={`${
-                      typeof window !== "undefined"
-                        ? window.location.origin
-                        : ""
-                    }/assets/${asset.id}?qr=${asset.qrCode}`}
-                    size={160}
-                  />
+                  <QRCodeSVG value={assetPublicUrl(asset.qrCode)} size={160} />
                 </div>
                 <div className="text-center">
                   <div className="font-mono text-sm font-bold">

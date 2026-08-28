@@ -14,38 +14,19 @@ export async function GET(req: NextRequest) {
   const supa = getSupabaseAdmin();
   if (!supa) return NextResponse.json({ configured: false });
 
-  const [
-    categories,
-    tags,
-    locations,
-    customFields,
-    custodians,
-    assetsRes,
-    auditsRes,
-  ] = await Promise.all([
+  const [categories, tags, locations, assetsRes] = await Promise.all([
     supa.from("categories").select("*").limit(500),
     supa.from("tags").select("*").limit(500),
     supa.from("locations").select("*").limit(500),
-    supa.from("custom_fields").select("*").limit(500),
-    supa.from("custodians").select("*").limit(500),
     supa
       .from("assets")
-      .select(
-        "*, asset_tags(tag_id), asset_notes(*), asset_custom_values(custom_field_id, value)"
-      )
+      .select("*, asset_tags(tag_id), asset_notes(*)")
       .limit(500),
-    supa.from("audits").select("*, audit_items(*)").limit(500),
   ]);
 
-  const firstError = [
-    categories,
-    tags,
-    locations,
-    customFields,
-    custodians,
-    assetsRes,
-    auditsRes,
-  ].find((r) => r.error);
+  const firstError = [categories, tags, locations, assetsRes].find(
+    (r) => r.error
+  );
   if (firstError?.error) {
     return NextResponse.json(
       { error: firstError.error.message },
@@ -57,17 +38,6 @@ export async function GET(req: NextRequest) {
     ...fromDbRow(row),
     tagIds: (row.asset_tags || []).map((t: Row) => t.tag_id),
     notes: (row.asset_notes || []).map(fromDbRow),
-    customValues: Object.fromEntries(
-      (row.asset_custom_values || []).map((cv: Row) => [
-        cv.custom_field_id,
-        cv.value,
-      ])
-    ),
-  }));
-
-  const audits = (auditsRes.data || []).map((row: Row) => ({
-    ...fromDbRow(row),
-    items: (row.audit_items || []).map(fromDbRow),
   }));
 
   return NextResponse.json({
@@ -76,10 +46,7 @@ export async function GET(req: NextRequest) {
       categories: (categories.data || []).map(fromDbRow),
       tags: (tags.data || []).map(fromDbRow),
       locations: (locations.data || []).map(fromDbRow),
-      customFields: (customFields.data || []).map(fromDbRow),
-      custodians: (custodians.data || []).map(fromDbRow),
       assets,
-      audits,
     },
   });
 }

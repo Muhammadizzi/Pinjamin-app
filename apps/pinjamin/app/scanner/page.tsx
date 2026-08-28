@@ -520,23 +520,6 @@ export default function ScannerPage() {
                       {t("viewDetail")}
                     </Button>
                   </Link>
-                  {result.type === "asset" &&
-                    result.data.status === "CHECKED_OUT" && (
-                      <Button
-                        variant="secondary"
-                        className="w-full rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-900 dark:bg-amber-900 dark:text-amber-100"
-                        size="sm"
-                        onClick={() => {
-                          updateAsset(result.data.id, {
-                            status: "AVAILABLE",
-                            custodianId: null,
-                          });
-                          setStatus(t("markReturnedShort"));
-                        }}
-                      >
-                        <Check className="h-4 w-4" /> {t("returnAction")}
-                      </Button>
-                    )}
                 </div>
               </div>
             )}

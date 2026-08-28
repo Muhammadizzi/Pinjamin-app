@@ -16,8 +16,10 @@ export default function ReportsPage() {
     const data = categories.map((c) => ({
       category: c.name,
       total: assets.filter((a) => a.categoryId === c.id).length,
-      available: assets.filter(
-        (a) => a.categoryId === c.id && a.status === "AVAILABLE"
+      baik: assets.filter((a) => a.categoryId === c.id && a.status === "GOOD")
+        .length,
+      rusak: assets.filter(
+        (a) => a.categoryId === c.id && a.status === "DAMAGED"
       ).length,
     }));
     const filename = "laporan-inventaris.csv";

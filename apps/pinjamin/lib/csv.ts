@@ -33,15 +33,15 @@ const HEADER_ALIASES: Record<string, keyof AssetImportRow> = {
 };
 
 const STATUS_ALIASES: Record<string, AssetStatus> = {
-  available: "AVAILABLE",
-  tersedia: "AVAILABLE",
-  checked_out: "CHECKED_OUT",
-  checkedout: "CHECKED_OUT",
-  dipinjam: "CHECKED_OUT",
+  good: "GOOD",
+  baik: "GOOD",
+  ok: "GOOD",
+  damaged: "DAMAGED",
+  rusak: "DAMAGED",
   maintenance: "MAINTENANCE",
   perbaikan: "MAINTENANCE",
   retired: "RETIRED",
-  rusak: "RETIRED",
+  dihapuskan: "RETIRED",
 };
 
 export function normalizeHeader(h: string) {

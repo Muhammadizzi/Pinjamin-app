@@ -8,9 +8,7 @@ import { useT } from "@/lib/i18n";
 import Link from "next/link";
 import {
   Package,
-  CheckCircle2,
   Wrench,
-  CalendarRange,
   QrCode,
   Plus,
   TrendingUp,
@@ -23,8 +21,6 @@ export default function DashboardPage() {
   const statsRef = useRef<HTMLDivElement>(null);
 
   const total = assets.length;
-  const available = assets.filter((a) => a.status === "AVAILABLE").length;
-  const checked = assets.filter((a) => a.status === "CHECKED_OUT").length;
   const maintenance = assets.filter((a) => a.status === "MAINTENANCE").length;
 
   useEffect(() => {
@@ -94,10 +90,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div
-          ref={statsRef}
-          className="grid grid-cols-2 gap-2.5 sm:gap-4 lg:grid-cols-3"
-        >
+        <div ref={statsRef} className="grid grid-cols-1 gap-2.5 sm:gap-4">
           <Card className="stat-card border shadow-lg backdrop-blur-xl bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:shadow-xl transition-all hover:-translate-y-1">
             <CardHeader className="p-3 pb-1.5 sm:p-6 sm:pb-2 flex flex-row items-start justify-between gap-2">
               <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground leading-tight">
@@ -112,51 +105,6 @@ export default function DashboardPage() {
               <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 sm:mt-1 flex items-center gap-1">
                 <TrendingUp className="h-3 w-3" strokeWidth={1.5} />{" "}
                 {t("allAssetsTracked")}
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="stat-card border shadow-lg backdrop-blur-xl bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:shadow-xl transition-all hover:-translate-y-1">
-            <CardHeader className="p-3 pb-1.5 sm:p-6 sm:pb-2 flex flex-row items-start justify-between gap-2">
-              <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground leading-tight">
-                {t("available")}
-              </CardTitle>
-              <div className="h-7 w-7 sm:h-9 sm:w-9 shrink-0 rounded-lg sm:rounded-xl bg-emerald-500 text-white flex items-center justify-center">
-                <CheckCircle2
-                  className="h-4 w-4 sm:h-5 sm:w-5"
-                  strokeWidth={1.5}
-                />
-              </div>
-            </CardHeader>
-            <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
-              <div className="text-2xl sm:text-3xl font-extrabold text-emerald-600">
-                {available}
-              </div>
-              <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 sm:mt-1">
-                {Math.round((available / Math.max(1, total)) * 100)}
-                {t("percentOfTotal")}
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="stat-card border shadow-lg backdrop-blur-xl bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:shadow-xl transition-all hover:-translate-y-1">
-            <CardHeader className="p-3 pb-1.5 sm:p-6 sm:pb-2 flex flex-row items-start justify-between gap-2">
-              <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground leading-tight">
-                {t("checkedOut")}
-              </CardTitle>
-              <div className="h-7 w-7 sm:h-9 sm:w-9 shrink-0 rounded-lg sm:rounded-xl bg-blue-500 text-white flex items-center justify-center">
-                <CalendarRange
-                  className="h-4 w-4 sm:h-5 sm:w-5"
-                  strokeWidth={1.5}
-                />
-              </div>
-            </CardHeader>
-            <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
-              <div className="text-2xl sm:text-3xl font-extrabold text-blue-600">
-                {checked}
-              </div>
-              <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 sm:mt-1">
-                {t("currentlyBorrowed")}
               </p>
             </CardContent>
           </Card>

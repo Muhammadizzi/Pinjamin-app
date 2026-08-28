@@ -16,9 +16,6 @@ import type {
   Category,
   Tag,
   Location,
-  CustomField,
-  Custodian,
-  Audit,
 } from "./types";
 import { generateId, generateQRCode } from "./utils";
 import { isSupabaseConfigured } from "./supabase";
@@ -47,7 +44,6 @@ export type ImportAssetsResult = {
   skipped: number;
   categoriesCreated: number;
   locationsCreated: number;
-  custodiansCreated: number;
   tagsCreated: number;
 };
 
@@ -72,21 +68,6 @@ type StoreContextType = AppData & {
   addLocation: (l: Omit<Location, "id" | "createdAt">) => string;
   updateLocation: (id: string, patch: Partial<Location>) => void;
   deleteLocation: (id: string) => void;
-  addCustomField: (f: Omit<CustomField, "id" | "createdAt">) => void;
-  deleteCustomField: (id: string) => void;
-  addCustodian: (c: Omit<Custodian, "id" | "createdAt">) => void;
-  updateCustodian: (id: string, patch: Partial<Custodian>) => void;
-  deleteCustodian: (id: string) => void;
-  addAudit: (
-    a: Omit<Audit, "id" | "createdAt" | "items"> & { assetIds: string[] }
-  ) => void;
-  updateAuditItem: (
-    auditId: string,
-    assetId: string,
-    patch: Partial<import("./types").AuditItem>
-  ) => void;
-  completeAudit: (id: string) => void;
-  deleteAudit: (id: string) => void;
   resetData: () => void;
   /** Timpa store dengan data contoh Garudafood (seed). */
   loadDemoData: () => void;
@@ -199,10 +180,7 @@ const TABLE_TO_API: Record<string, string> = {
   categories: "categories",
   tags: "tags",
   locations: "locations",
-  custom_fields: "customFields",
-  custodians: "custodians",
   assets: "assets",
-  audits: "audits",
 };
 
 // Mutasi via /api/data/[resource] — ganti direct Supabase (anon key).
@@ -548,24 +526,21 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             status: newAsset.status,
             categoryId: newAsset.categoryId,
             locationId: newAsset.locationId,
-            custodianId: newAsset.custodianId,
             mainImage: newAsset.mainImage,
             value: newAsset.value,
             serialNumber: newAsset.serialNumber,
           }),
           tagIds: a.tagIds || [],
-          customValues: newAsset.customValues || {},
         });
       }
       setData((d) => ({ ...d, assets: [newAsset, ...d.assets] }));
     },
     updateAsset: (id, patch) => {
       if (isSupabaseConfigured()) {
-        const { tagIds, customValues, notes: _notes, ...fields } = patch;
+        const { tagIds, notes: _notes, ...fields } = patch;
         apiMutate(`/api/data/assets/${encodeURIComponent(id)}`, "PATCH", {
           ...toDbRow(fields),
           ...(Array.isArray(tagIds) ? { tagIds } : {}),
-          ...(customValues ? { customValues } : {}),
         });
       }
       setData((d) => ({
@@ -587,13 +562,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         skipped: 0,
         categoriesCreated: 0,
         locationsCreated: 0,
-        custodiansCreated: 0,
         tagsCreated: 0,
       };
       const now = new Date().toISOString();
       const VALID_STATUS: AssetStatus[] = [
-        "AVAILABLE",
-        "CHECKED_OUT",
+        "GOOD",
+        "DAMAGED",
         "MAINTENANCE",
         "RETIRED",
       ];
@@ -612,7 +586,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       setData((d) => {
         const categories = [...d.categories];
         const locations = [...d.locations];
-        const custodians = [...d.custodians];
         const tags = [...d.tags];
         const byName = <T extends { name: string }>(list: T[], name: string) =>
           list.find((x) => x.name.trim().toLowerCase() === name.toLowerCase());
@@ -674,23 +647,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             locationId = loc.id;
           }
 
-          let custodianId: string | null = null;
-          const cusName = row.custodianName?.trim();
-          if (cusName) {
-            let cus = byName(custodians, cusName);
-            if (!cus) {
-              cus = {
-                id: generateId(),
-                name: cusName,
-                createdAt: now,
-              };
-              custodians.push(cus);
-              result.custodiansCreated++;
-              if (supa) supaInsert("custodians", cus);
-            }
-            custodianId = cus.id;
-          }
-
           const tagIds: string[] = [];
           const rawTags = row.tagNames?.trim();
           if (rawTags) {
@@ -708,12 +664,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             }
           }
 
+          // Tanpa kolom kondisi di berkas impor, aset dianggap baik — bukan
+          // rusak. Kepemilikan tidak lagi menentukan kondisi barang.
           const status: AssetStatus =
             row.status && VALID_STATUS.includes(row.status)
               ? row.status
-              : custodianId
-              ? "CHECKED_OUT"
-              : "AVAILABLE";
+              : "GOOD";
 
           const qrCode = qr || generateQRCode();
           const asset: Asset = {
@@ -723,15 +679,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             status,
             categoryId,
             locationId,
-            custodianId,
             qrCode,
             value:
               typeof row.value === "number" && Number.isFinite(row.value)
                 ? row.value
                 : undefined,
             serialNumber: row.serialNumber?.trim() || undefined,
+            owner: row.custodianName?.trim() || undefined,
             tagIds,
-            customValues: {},
             notes: [],
             createdAt: now,
             updatedAt: now,
@@ -742,7 +697,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           if (supa) {
             // Lewat route khusus (bukan supaInsert) supaya relasi asset_tags
             // ikut terbentuk — impor CSV boleh membawa kolom Tag.
-            const { tagIds: _t, customValues: _c, notes: _n, ...cols } = asset;
+            const { tagIds: _t, notes: _n, ...cols } = asset;
             apiMutate("/api/data/assets", "POST", {
               ...toDbRow(cols),
               tagIds,
@@ -757,7 +712,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           ...d,
           categories,
           locations,
-          custodians,
           tags,
           assets: [...newAssets.reverse(), ...d.assets],
         };
@@ -838,119 +792,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         ...d,
         locations: d.locations.filter((x) => x.id !== id),
       }));
-    },
-    addCustomField: (f) => {
-      const row = {
-        ...f,
-        id: generateId(),
-        createdAt: new Date().toISOString(),
-      } as CustomField;
-      if (isSupabaseConfigured()) supaInsert("custom_fields", row);
-      setData((d) => ({ ...d, customFields: [row, ...d.customFields] }));
-    },
-    deleteCustomField: (id) => {
-      if (isSupabaseConfigured()) supaDelete("custom_fields", id);
-      setData((d) => ({
-        ...d,
-        customFields: d.customFields.filter((x) => x.id !== id),
-      }));
-    },
-    addCustodian: (c) => {
-      const row = {
-        ...c,
-        id: generateId(),
-        createdAt: new Date().toISOString(),
-      } as Custodian;
-      if (isSupabaseConfigured()) supaInsert("custodians", row);
-      setData((d) => ({ ...d, custodians: [row, ...d.custodians] }));
-    },
-    updateCustodian: (id, patch) => {
-      if (isSupabaseConfigured()) supaUpdate("custodians", id, patch);
-      setData((d) => ({
-        ...d,
-        custodians: d.custodians.map((x) =>
-          x.id === id ? { ...x, ...patch } : x
-        ),
-      }));
-    },
-    deleteCustodian: (id) => {
-      if (isSupabaseConfigured()) supaDelete("custodians", id);
-      setData((d) => ({
-        ...d,
-        custodians: d.custodians.filter((x) => x.id !== id),
-      }));
-    },
-    addAudit: (a) => {
-      const auditId = generateId();
-      const newAudit = {
-        id: auditId,
-        name: a.name,
-        status: "OPEN" as const,
-        createdBy: getCachedAdminUsername(),
-        createdAt: new Date().toISOString(),
-        items: a.assetIds.map((aid) => ({
-          id: generateId(),
-          auditId: "",
-          assetId: aid,
-          result: null,
-        })),
-      } as Audit;
-      // Route khusus /api/data/audits — membuat audit + audit_items sekaligus.
-      if (isSupabaseConfigured()) {
-        apiMutate("/api/data/audits", "POST", {
-          id: auditId,
-          name: a.name,
-          assetIds: a.assetIds,
-        });
-      }
-      setData((d) => ({ ...d, audits: [newAudit, ...d.audits] }));
-    },
-    updateAuditItem: (auditId, assetId, patch) => {
-      // Route khusus /api/data/audits/[id]/items — update audit_items
-      // berdasarkan (audit_id, asset_id); scanned_at diisi server-side.
-      if (isSupabaseConfigured()) {
-        apiMutate(
-          `/api/data/audits/${encodeURIComponent(auditId)}/items`,
-          "PATCH",
-          {
-            assetId,
-            ...(patch.result !== undefined ? { result: patch.result } : {}),
-            ...(patch.note !== undefined ? { note: patch.note } : {}),
-          }
-        );
-      }
-      setData((d) => ({
-        ...d,
-        audits: d.audits.map((aud) =>
-          aud.id === auditId
-            ? {
-                ...aud,
-                items: aud.items.map((it) =>
-                  it.assetId === assetId
-                    ? { ...it, ...patch, scannedAt: new Date().toISOString() }
-                    : it
-                ),
-              }
-            : aud
-        ),
-      }));
-    },
-    completeAudit: (id) => {
-      if (isSupabaseConfigured()) {
-        apiMutate(`/api/data/audits/${encodeURIComponent(id)}`, "PATCH", {
-          status: "COMPLETED",
-        });
-      }
-      setData((d) => ({
-        ...d,
-        audits: d.audits.map((a) =>
-          a.id === id ? { ...a, status: "COMPLETED" as const } : a
-        ),
-      }));
-    },
-    deleteAudit: (id) => {
-      if (isSupabaseConfigured()) supaDelete("audits", id);
-      setData((d) => ({ ...d, audits: d.audits.filter((x) => x.id !== id) }));
     },
     resetData: () => {
       localStorage.removeItem(STORAGE_KEY);

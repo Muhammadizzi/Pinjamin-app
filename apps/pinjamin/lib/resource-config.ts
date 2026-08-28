@@ -2,19 +2,12 @@
 // against these lists (not spread blindly) so a crafted payload can't set
 // columns like id / created_at / qr_code / created_by.
 
-export type SimpleResourceKey =
-  | "categories"
-  | "tags"
-  | "locations"
-  | "customFields"
-  | "custodians";
+export type SimpleResourceKey = "categories" | "tags" | "locations";
 
 export const SIMPLE_RESOURCE_TABLE: Record<SimpleResourceKey, string> = {
   categories: "categories",
   tags: "tags",
   locations: "locations",
-  customFields: "custom_fields",
-  custodians: "custodians",
 };
 
 export const SIMPLE_RESOURCE_FIELDS: Record<SimpleResourceKey, string[]> = {
@@ -28,8 +21,6 @@ export const SIMPLE_RESOURCE_FIELDS: Record<SimpleResourceKey, string[]> = {
     "is_parent",
     "image",
   ],
-  customFields: ["name", "type", "required", "options", "category_ids"],
-  custodians: ["name", "nik", "department", "email", "phone"],
 };
 
 /**
@@ -47,10 +38,11 @@ export const ASSET_FIELDS = [
   "status",
   "category_id",
   "location_id",
-  "custodian_id",
   "main_image",
   "value",
   "serial_number",
+  "owner",
+  "spec",
 ];
 
 const UUID_RE =

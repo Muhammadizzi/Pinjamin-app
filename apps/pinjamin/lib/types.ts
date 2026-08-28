@@ -1,10 +1,9 @@
-export type AssetStatus =
-  | "AVAILABLE"
-  | "CHECKED_OUT"
-  | "MAINTENANCE"
-  | "RETIRED";
-export type AuditStatus = "OPEN" | "COMPLETED";
-export type AuditResult = "FOUND" | "MISSING" | "DAMAGED";
+/**
+ * Kondisi fisik aset — menggantikan status peminjaman (AVAILABLE/CHECKED_OUT).
+ * MAINTENANCE & RETIRED dipertahankan apa adanya karena maknanya memang sudah
+ * soal kondisi barang, bukan soal siapa yang sedang memegang.
+ */
+export type AssetStatus = "GOOD" | "DAMAGED" | "MAINTENANCE" | "RETIRED";
 
 export interface Category {
   id: string;
@@ -33,27 +32,6 @@ export interface Location {
   createdAt: string;
 }
 
-export interface CustomField {
-  id: string;
-  name: string;
-  type: "text" | "number" | "date" | "boolean" | "option";
-  required: boolean;
-  options?: string[];
-  /** Kategori yang memakai field ini. Kosong/undefined = semua kategori. */
-  categoryIds?: string[];
-  createdAt: string;
-}
-
-export interface Custodian {
-  id: string;
-  name: string;
-  nik?: string;
-  department?: string;
-  email?: string;
-  phone?: string;
-  createdAt: string;
-}
-
 export interface Asset {
   id: string;
   name: string;
@@ -61,13 +39,15 @@ export interface Asset {
   status: AssetStatus;
   categoryId?: string;
   locationId?: string;
-  custodianId?: string | null;
   qrCode: string;
   mainImage?: string;
   value?: number;
   serialNumber?: string;
+  /** Pemilik/pemegang aset sekarang. Teks bebas, diketik admin. */
+  owner?: string;
+  /** Spesifikasi teknis bebas, mis. "Core i5, RAM 8GB, SSD 512GB". */
+  spec?: string;
   tagIds: string[];
-  customValues: Record<string, string>;
   notes: AssetNote[];
   createdAt: string;
   updatedAt: string;
@@ -81,30 +61,27 @@ export interface AssetNote {
   createdAt: string;
 }
 
-export interface Audit {
-  id: string;
-  name: string;
-  status: AuditStatus;
-  createdBy: string;
-  createdAt: string;
-  items: AuditItem[];
-}
-
-export interface AuditItem {
-  id: string;
-  auditId: string;
-  assetId: string;
-  result: AuditResult | null;
-  note?: string;
-  scannedAt?: string;
-}
-
 export interface AppData {
   categories: Category[];
   tags: Tag[];
   locations: Location[];
-  customFields: CustomField[];
-  custodians: Custodian[];
   assets: Asset[];
-  audits: Audit[];
+}
+
+/**
+ * Satu baris riwayat pemakai aset.
+ *
+ * `toDate` kosong = pemakai sekarang. Saat admin mengganti pemilik aset,
+ * baris berjalan ditutup (toDate diisi) dan baris baru dibuka — jadi kolom
+ * `owner` di aset dan baris teratas di sini selalu bercerita hal yang sama.
+ */
+export interface AssetHolder {
+  id: string;
+  assetId: string;
+  name: string;
+  department?: string;
+  fromDate: string;
+  toDate?: string | null;
+  note?: string;
+  createdAt: string;
 }

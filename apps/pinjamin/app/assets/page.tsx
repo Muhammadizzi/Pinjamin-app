@@ -40,7 +40,6 @@ export default function AssetsPage() {
     categories,
     locations,
     tags,
-    custodians,
     deleteAsset,
     importAssets,
     loadDemoData,
@@ -118,8 +117,8 @@ export default function AssetsPage() {
       [t("colValue")]: a.value ?? "",
       [t("colSerial")]: a.serialNumber ?? "",
       [t("colDescription")]: a.description ?? "",
-      [t("colCustodian")]:
-        custodians.find((c) => c.id === a.custodianId)?.name ?? "",
+      [t("ownerLabel")]: a.owner ?? "",
+      [t("specLabel")]: a.spec ?? "",
       [t("colTags")]: a.tagIds
         .map((id) => tags.find((tg) => tg.id === id)?.name)
         .filter(Boolean)
@@ -233,12 +232,8 @@ export default function AssetsPage() {
                       className="w-full sm:w-[150px] h-11 rounded-xl bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 pr-8"
                     >
                       <option value="ALL">{t("allStatus")}</option>
-                      <option value="AVAILABLE">
-                        {assetStatus("AVAILABLE")}
-                      </option>
-                      <option value="CHECKED_OUT">
-                        {assetStatus("CHECKED_OUT")}
-                      </option>
+                      <option value="GOOD">{assetStatus("GOOD")}</option>
+                      <option value="DAMAGED">{assetStatus("DAMAGED")}</option>
                       <option value="MAINTENANCE">
                         {assetStatus("MAINTENANCE")}
                       </option>
@@ -548,9 +543,7 @@ export default function AssetsPage() {
                       "-";
                     const locName =
                       locations.find((l) => l.id === a.locationId)?.name || "-";
-                    const custName =
-                      custodians.find((c) => c.id === a.custodianId)?.name ||
-                      "-";
+                    const custName = a.owner || "-";
                     return (
                       <tr
                         key={a.id}

@@ -25,6 +25,9 @@ const PUBLIC_PAGE_PREFIXES = [
   // Portal pelapor: /tiket/TKT-XXXXXX?t=<token>. Yang menjaganya adalah token
   // di URL, diverifikasi server — bukan sesi.
   "/tiket/",
+  // Halaman hasil scan QR: /a/PIN-XXXXXXXX. Tidak ditaut dari mana pun dan
+  // diberi noindex — jalan masuknya hanya stiker yang tertempel di asetnya.
+  "/a/",
 ];
 
 export function isPublicPage(pathname: string): boolean {
@@ -39,8 +42,8 @@ export function isPublicPage(pathname: string): boolean {
 /* ------------------------------------------------------------------ */
 
 /**
- * Halaman milik admin HELPDESK. Sisanya — dashboard, aset, peminjaman,
- * audit, laporan, scanner — milik admin ASET.
+ * Halaman milik admin HELPDESK. Sisanya — dashboard, aset, lokasi,
+ * laporan, scanner — milik admin ASET.
  *
  * Daftar ini memakai pola "milik helpdesk", bukan "milik aset", dan itu
  * disengaja: halaman baru yang lupa didaftarkan akan jatuh ke sisi aset,

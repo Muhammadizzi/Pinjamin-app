@@ -7,8 +7,8 @@ import {
   fromDbRow,
   isUuid,
 } from "@/lib/resource-config";
-import { customValueRows } from "@/lib/asset-relations";
 import { removeByPublicUrl } from "@/lib/storage";
+import { recordOwnerChange } from "@/lib/asset-holders";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -55,6 +55,13 @@ export async function PATCH(
       );
     }
     asset = data;
+
+    // Pemilik berubah -> riwayat pemakai menyusul. Hanya saat kolomnya benar-
+    // benar ikut dikirim, supaya penyimpanan yang tidak menyentuh pemilik
+    // tidak menghasilkan baris riwayat palsu.
+    if (Object.prototype.hasOwnProperty.call(patch, "owner")) {
+      await recordOwnerChange(supa, id, patch.owner as string | null);
+    }
   }
 
   const tagIds: unknown = (body as Record<string, unknown>).tagIds;
@@ -74,32 +81,6 @@ export async function PATCH(
         console.warn(
           "[assets PATCH] asset_tags insert failed:",
           insErr.message
-        );
-    }
-  }
-
-  // customValues dikirim sebagai map lengkap: kunci yang hilang berarti
-  // nilainya dikosongkan, jadi baris lama dihapus dulu lalu di-upsert.
-  const rawCustomValues = (body as Record<string, unknown>).customValues;
-  if (rawCustomValues && typeof rawCustomValues === "object") {
-    const { error: delErr } = await supa
-      .from("asset_custom_values")
-      .delete()
-      .eq("asset_id", id);
-    if (delErr)
-      console.warn(
-        "[assets PATCH] asset_custom_values delete failed:",
-        delErr.message
-      );
-    const rows = customValueRows(id, rawCustomValues);
-    if (rows.length) {
-      const { error: cvErr } = await supa
-        .from("asset_custom_values")
-        .upsert(rows, { onConflict: "asset_id,custom_field_id" });
-      if (cvErr)
-        console.warn(
-          "[assets PATCH] asset_custom_values upsert failed:",
-          cvErr.message
         );
     }
   }

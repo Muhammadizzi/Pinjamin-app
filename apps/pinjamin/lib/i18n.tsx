@@ -43,14 +43,12 @@ type I18nValue = {
   formatNumber: (n: number, opts?: Intl.NumberFormatOptions) => string;
   /** Rupiah — mata uangnya tetap IDR, hanya format angkanya yang ikut bahasa. */
   formatCurrency: (n: number) => string;
-  /** Label status aset (AVAILABLE, CHECKED_OUT, ...). */
+  /** Label kondisi aset (GOOD, DAMAGED, MAINTENANCE, RETIRED). */
   assetStatus: (status: string) => string;
   /** Label status tiket helpdesk (OPEN, IN_PROGRESS, RESOLVED). */
   ticketStatus: (status: string) => string;
   /** Label prioritas tiket (LOW, MEDIUM, HIGH, URGENT). */
   ticketPriority: (priority: string) => string;
-  /** Label hasil audit (FOUND, MISSING, DAMAGED). */
-  auditResult: (result: string) => string;
   /**
    * Terjemahkan bodi error dari API. Route mengirim `code` yang stabil
    * (lihat app/api/auth/**) plus `error` berbahasa Indonesia sebagai
@@ -62,8 +60,8 @@ type I18nValue = {
 const I18nContext = createContext<I18nValue | null>(null);
 
 const ASSET_STATUS_KEY: Record<string, MessageKey> = {
-  AVAILABLE: "statusAvailable",
-  CHECKED_OUT: "statusCheckedOut",
+  GOOD: "statusGood",
+  DAMAGED: "statusDamaged",
   MAINTENANCE: "statusMaintenance",
   RETIRED: "statusRetired",
 };
@@ -80,12 +78,6 @@ const TICKET_PRIORITY_KEY: Record<string, MessageKey> = {
   MEDIUM: "priorityMedium",
   HIGH: "priorityHigh",
   URGENT: "priorityUrgent",
-};
-
-const AUDIT_RESULT_KEY: Record<string, MessageKey> = {
-  FOUND: "auditFound",
-  MISSING: "auditMissing",
-  DAMAGED: "auditDamaged",
 };
 
 /** `code` dari route API -> kunci kamus. */
@@ -192,7 +184,6 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
       assetStatus: byKey(ASSET_STATUS_KEY),
       ticketStatus: byKey(TICKET_STATUS_KEY),
       ticketPriority: byKey(TICKET_PRIORITY_KEY),
-      auditResult: byKey(AUDIT_RESULT_KEY),
     };
   }, [lang, setLang]);
 

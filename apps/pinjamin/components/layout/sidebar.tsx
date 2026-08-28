@@ -15,11 +15,8 @@ import {
   Package,
   Tag,
   MapPin,
-  SlidersHorizontal,
-  ClipboardCheck,
   BarChart3,
   QrCode,
-  Users,
   Menu,
   X,
   LogOut,
@@ -328,13 +325,6 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           { href: "/categories", label: t("categories"), icon: Tag },
           { href: "/tags", label: t("tags"), icon: Tag },
           { href: "/locations", label: t("locations"), icon: MapPin },
-          {
-            href: "/custom-fields",
-            label: t("customFields"),
-            icon: SlidersHorizontal,
-          },
-          { href: "/custodians", label: t("custodians"), icon: Users },
-          { href: "/audits", label: t("audits"), icon: ClipboardCheck },
           { href: "/reports", label: t("reports"), icon: BarChart3 },
         ];
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { gateAssetAdmin, unauthorized } from "@/lib/auth";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
+import { recordOwnerChange } from "@/lib/asset-holders";
 import {
   ASSET_FIELDS,
   pickAllowed,
@@ -9,7 +10,6 @@ import {
   fromDbRow,
   isUuid,
 } from "@/lib/resource-config";
-import { customValueRows } from "@/lib/asset-relations";
 import { generateQRCode } from "@/lib/utils";
 
 export const runtime = "nodejs";
@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
   // tercetak/ditampilkan di UI sama dengan yang tersimpan di DB.
   const qr = (body as Record<string, unknown>).qr_code;
   row.qr_code = isQrCode(qr) ? qr : generateQRCode();
-  row.status = row.status || "AVAILABLE";
+  row.status = row.status || "GOOD";
 
   const { data: asset, error } = await supa
     .from("assets")
@@ -58,6 +58,8 @@ export async function POST(req: NextRequest) {
   }
 
   const tagIds: unknown = (body as Record<string, unknown>).tagIds;
+  if (row.owner) await recordOwnerChange(supa, asset.id, row.owner as string);
+
   const validTagIds = Array.isArray(tagIds) ? tagIds.filter(isUuid) : [];
   if (validTagIds.length) {
     const { error: tagErr } = await supa
@@ -69,28 +71,10 @@ export async function POST(req: NextRequest) {
       console.warn("[assets POST] asset_tags insert failed:", tagErr.message);
   }
 
-  const cvRows = customValueRows(
-    asset.id,
-    (body as Record<string, unknown>).customValues
-  );
-  if (cvRows.length) {
-    const { error: cvErr } = await supa
-      .from("asset_custom_values")
-      .upsert(cvRows, { onConflict: "asset_id,custom_field_id" });
-    if (cvErr)
-      console.warn(
-        "[assets POST] asset_custom_values upsert failed:",
-        cvErr.message
-      );
-  }
-
   return NextResponse.json({
     data: {
       ...fromDbRow(asset),
       tagIds: validTagIds,
-      customValues: Object.fromEntries(
-        cvRows.map((r) => [r.custom_field_id, r.value])
-      ),
       notes: [],
     },
   });

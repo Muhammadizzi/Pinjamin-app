@@ -17,29 +17,23 @@ import { ImageUpload } from "@/components/ui/image-upload";
 
 export default function NewAssetPage() {
   const router = useRouter();
-  const { categories, locations, tags, customFields, addAsset, assets } =
-    useStore();
+  const { categories, locations, tags, addAsset, assets } = useStore();
   const { t, assetStatus } = useT();
   const { ask, confirmDialog } = useConfirmDialog();
   const [form, setForm] = useState<any>({
     name: "",
     description: "",
-    status: "AVAILABLE",
+    status: "GOOD",
+    owner: "",
+    spec: "",
     categoryId: "",
     locationId: "",
     tagIds: [] as string[],
-    customValues: {} as Record<string, string>,
     mainImage: "",
   });
-  const [showCustom, setShowCustom] = useState(false);
 
   // Serial otomatis: 001, 002, dst berdasarkan jumlah aset + 1
   const nextSerial = String(assets.length + 1).padStart(3, "0");
-
-  // Custom field mengikuti kategori yang dipilih (tanpa kategori = semua)
-  const visibleCustomFields = customFields.filter(
-    (cf) => !cf.categoryIds?.length || cf.categoryIds.includes(form.categoryId)
-  );
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,13 +44,6 @@ export default function NewAssetPage() {
       confirmLabel: t("yesAdd"),
       variant: "primary",
       action: () => {
-        // Buang nilai custom field yang tidak berlaku untuk kategori terpilih
-        const allowed = new Set(visibleCustomFields.map((cf) => cf.id));
-        const customValues = Object.fromEntries(
-          Object.entries(form.customValues as Record<string, string>).filter(
-            ([k]) => allowed.has(k)
-          )
-        );
         addAsset({
           name: form.name,
           description: form.description,
@@ -65,10 +52,10 @@ export default function NewAssetPage() {
           locationId: form.locationId || undefined,
           // Nilai dihilangkan sesuai request
           serialNumber: nextSerial,
+          owner: form.owner.trim() || undefined,
+          spec: form.spec.trim() || undefined,
           tagIds: form.tagIds,
-          customValues,
           mainImage: form.mainImage,
-          custodianId: null,
         });
         router.push("/assets");
       },
@@ -160,17 +147,36 @@ export default function NewAssetPage() {
                       setForm({ ...form, status: e.target.value })
                     }
                   >
-                    <option value="AVAILABLE">
-                      {assetStatus("AVAILABLE")}
-                    </option>
-                    <option value="CHECKED_OUT">
-                      {assetStatus("CHECKED_OUT")}
-                    </option>
+                    <option value="GOOD">{assetStatus("GOOD")}</option>
+                    <option value="DAMAGED">{assetStatus("DAMAGED")}</option>
                     <option value="MAINTENANCE">
                       {assetStatus("MAINTENANCE")}
                     </option>
                     <option value="RETIRED">{assetStatus("RETIRED")}</option>
                   </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>{t("ownerLabel")}</Label>
+                  <Input
+                    value={form.owner}
+                    onChange={(e) =>
+                      setForm({ ...form, owner: e.target.value })
+                    }
+                    placeholder={t("ownerPlaceholder")}
+                    className="h-11 rounded-xl"
+                  />
+                </div>
+                <div className="sm:col-span-2 space-y-2">
+                  <Label>{t("specLabel")}</Label>
+                  <Input
+                    value={form.spec}
+                    onChange={(e) => setForm({ ...form, spec: e.target.value })}
+                    placeholder={t("specPlaceholder")}
+                    className="h-11 rounded-xl"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {t("specHint")}
+                  </p>
                 </div>
                 {/* Serial otomatis */}
                 <div className="sm:col-span-2 space-y-2">
@@ -232,108 +238,6 @@ export default function NewAssetPage() {
                     {t("tagsSelected", { count: form.tagIds.length })}
                   </p>
                 </div>
-                {/* Custom fields opsional — mengikuti kategori terpilih */}
-                {visibleCustomFields.length > 0 && (
-                  <div className="sm:col-span-2">
-                    <button
-                      type="button"
-                      onClick={() => setShowCustom(!showCustom)}
-                      className="w-full flex items-center justify-between p-3 rounded-xl border-2 border-dashed border-slate-200 dark:border-slate-700 hover:border-[#1a365d] dark:hover:border-slate-600 transition-colors"
-                    >
-                      <span className="text-sm font-medium">
-                        {t("customFieldsOptional")}
-                      </span>
-                      <span className="text-xs bg-[#1a365d] text-white px-2.5 py-1 rounded-full">
-                        {showCustom
-                          ? t("hide")
-                          : t("fieldCount", {
-                              count: visibleCustomFields.length,
-                            })}
-                      </span>
-                    </button>
-                    {showCustom && (
-                      <div className="mt-3 space-y-3 border rounded-xl p-4 bg-slate-50/30 dark:bg-slate-800/20">
-                        <p className="text-xs text-muted-foreground">
-                          {t("customFieldsHint")}
-                        </p>
-                        {visibleCustomFields.map((cf) => (
-                          <div key={cf.id} className="space-y-1">
-                            <Label className="text-xs font-medium">
-                              {cf.name}{" "}
-                              <span className="text-muted-foreground font-normal">
-                                ({cf.type}) • {t("optional")}
-                              </span>
-                            </Label>
-                            {cf.type === "option" ? (
-                              <Select
-                                value={form.customValues[cf.id] || ""}
-                                onChange={(e) =>
-                                  setForm({
-                                    ...form,
-                                    customValues: {
-                                      ...form.customValues,
-                                      [cf.id]: e.target.value,
-                                    },
-                                  })
-                                }
-                              >
-                                <option value="">
-                                  {t("selectPlaceholder")}
-                                </option>
-                                {cf.options?.map((o) => (
-                                  <option key={o} value={o}>
-                                    {o}
-                                  </option>
-                                ))}
-                              </Select>
-                            ) : cf.type === "boolean" ? (
-                              <Select
-                                value={form.customValues[cf.id] || ""}
-                                onChange={(e) =>
-                                  setForm({
-                                    ...form,
-                                    customValues: {
-                                      ...form.customValues,
-                                      [cf.id]: e.target.value,
-                                    },
-                                  })
-                                }
-                              >
-                                <option value="">
-                                  {t("selectPlaceholder")}
-                                </option>
-                                <option value="true">{t("yes")}</option>
-                                <option value="false">{t("no")}</option>
-                              </Select>
-                            ) : (
-                              <Input
-                                type={
-                                  cf.type === "number"
-                                    ? "number"
-                                    : cf.type === "date"
-                                    ? "date"
-                                    : "text"
-                                }
-                                value={form.customValues[cf.id] || ""}
-                                onChange={(e) =>
-                                  setForm({
-                                    ...form,
-                                    customValues: {
-                                      ...form.customValues,
-                                      [cf.id]: e.target.value,
-                                    },
-                                  })
-                                }
-                                className="h-11 rounded-xl"
-                                placeholder={t("optionalPlaceholder")}
-                              />
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
               </div>
 
               <div className="flex gap-3 pt-4">

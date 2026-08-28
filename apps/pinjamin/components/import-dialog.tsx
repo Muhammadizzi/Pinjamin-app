@@ -98,8 +98,6 @@ export function ImportDialog({ open, onClose, onImport }: Props) {
       parts.push(t("createdCategories", { count: r.categoriesCreated }));
     if (r.locationsCreated)
       parts.push(t("createdLocations", { count: r.locationsCreated }));
-    if (r.custodiansCreated)
-      parts.push(t("createdCustodians", { count: r.custodiansCreated }));
     if (r.tagsCreated) parts.push(t("createdTags", { count: r.tagsCreated }));
     const extra = r.skipped ? t("skippedRows", { count: r.skipped }) : "";
     setDone(`${parts.join(", ")}.${extra}`);

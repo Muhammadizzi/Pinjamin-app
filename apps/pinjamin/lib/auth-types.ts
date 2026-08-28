@@ -11,7 +11,7 @@ export const SESSION_MAX_AGE_SHORT = 60 * 60 * 12;
  * Peran admin. SIGAP punya DUA aplikasi di balik satu login, dan sebuah akun
  * hanya boleh berada di salah satunya:
  *
- * - `ASSET`    — manajemen aset (dashboard, aset, peminjaman, audit, laporan)
+ * - `ASSET`    — manajemen aset (dashboard, aset, lokasi, laporan)
  * - `HELPDESK` — panel Tiket Bantuan, DIBATASI ke satu working order saja
  *
  * Tidak ada peran "superadmin" yang memegang keduanya. Itu keputusan produk,

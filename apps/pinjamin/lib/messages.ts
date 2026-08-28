@@ -91,10 +91,10 @@ export const messages = {
   assetCountLabel: ["{count} aset", "{count} assets"],
 
   // ---------- Label status ----------
-  statusAvailable: ["Tersedia", "Available"],
-  statusCheckedOut: ["Dipinjam", "Checked Out"],
-  statusMaintenance: ["Perawatan", "Maintenance"],
-  statusRetired: ["Dipensiunkan", "Retired"],
+  statusGood: ["Baik", "Good"],
+  statusDamaged: ["Rusak", "Damaged"],
+  statusMaintenance: ["Dalam Perbaikan", "Under Repair"],
+  statusRetired: ["Dihapuskan", "Retired"],
   bookingDraft: ["Draf", "Draft"],
   bookingReserved: ["Dipesan", "Reserved"],
   bookingOngoingStatus: ["Berlangsung", "Ongoing"],
@@ -465,6 +465,17 @@ export const messages = {
   assetName: ["Nama Aset", "Asset Name"],
   descriptionPlaceholder: ["Deskripsi aset...", "Asset description..."],
   model: ["Model", "Model"],
+  ownerLabel: ["Pemilik", "Owner"],
+  ownerPlaceholder: ["Nama pemegang aset", "Asset holder name"],
+  specLabel: ["Spesifikasi", "Specification"],
+  specPlaceholder: [
+    "Core i5-1135G7, RAM 8GB, SSD 512GB",
+    "Core i5-1135G7, 8GB RAM, 512GB SSD",
+  ],
+  specHint: [
+    "Bebas diisi. Untuk aset non-komputer bisa diisi kapasitas atau daya.",
+    "Free text. For non-computer assets, use capacity or power rating.",
+  ],
   serialAuto: ["Serial Number (Otomatis)", "Serial Number (Automatic)"],
   serialWillBe: [
     "— akan jadi {serial} untuk aset ini",

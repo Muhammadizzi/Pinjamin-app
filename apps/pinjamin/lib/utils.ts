@@ -98,3 +98,29 @@ function relativeLuminance(r: number, g: number, b: number): number {
   };
   return 0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b);
 }
+
+/**
+ * Alamat dasar yang ditanam ke dalam QR code aset.
+ *
+ * WAJIB memakai env, bukan `window.location.origin`: stiker QR dicetak sekali
+ * lalu menempel di barangnya bertahun-tahun. Kalau alamatnya diambil dari
+ * peramban yang sedang membukanya, QR yang dicetak sambil development berisi
+ * `http://localhost:5003` — dan stiker itu mati total begitu ditempel, karena
+ * HP orang lain tidak punya localhost si pencetak. Kegagalannya senyap: QR-nya
+ * terlihat normal dan tetap bisa dipindai.
+ *
+ * Urutan: NEXT_PUBLIC_APP_URL -> domain Vercel -> origin peramban (dev).
+ */
+export function appBaseUrl(): string {
+  const env = process.env.NEXT_PUBLIC_APP_URL;
+  if (env) return env.replace(/\/+$/, "");
+  const vercel = process.env.NEXT_PUBLIC_VERCEL_URL;
+  if (vercel) return `https://${vercel.replace(/\/+$/, "")}`;
+  if (typeof window !== "undefined") return window.location.origin;
+  return "";
+}
+
+/** Alamat publik hasil pindai QR untuk satu kode aset. */
+export function assetPublicUrl(qrCode: string): string {
+  return `${appBaseUrl()}/a/${encodeURIComponent(qrCode)}`;
+}
