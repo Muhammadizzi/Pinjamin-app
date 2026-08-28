@@ -1,6 +1,7 @@
 # SIGAP — Sistem Integrasi Guna Aset & Pelayanan
 
-Aplikasi web admin-only (Garuda Food) untuk katalog aset, peminjaman, audit, laporan, dan helpdesk.
+Aplikasi web internal (Garudafood) untuk registri aset ber-QR, audit, laporan,
+dan helpdesk tiket.
 
 ## Arsitektur singkat
 
@@ -11,7 +12,17 @@ Aplikasi web admin-only (Garuda Food) untuk katalog aset, peminjaman, audit, lap
 | Auth    | JWT HS256 sendiri di cookie httpOnly (`lib/auth.ts`), bcrypt, `token_version` untuk cabut sesi |
 | Data    | `app/api/data/**` → Supabase via `SUPABASE_SERVICE_ROLE` (browser tidak pernah menyentuh DB)   |
 | Tiket   | `app/api/tickets/**` → tabel `tickets` (Supabase) atau `data/tickets.json` (lokal)             |
-| Publik  | `/` (buat + lacak tiket) dan `/login`. Sisanya wajib sesi admin.                               |
+| Publik  | `/` (buat + lacak tiket), `/tiket/<nomor>?t=<token>` (portal pelapor), `/login`                |
+
+Halaman selain daftar Publik di atas wajib sesi admin. Daftar tunggalnya ada di
+`lib/public-paths.ts` — dipakai bersama oleh middleware Edge dan guard client,
+supaya keduanya tidak pernah berbeda pendapat.
+
+### Aset & QR
+
+Tiap aset punya kode QR berawalan `PIN-`. Kode itu dicetak, ditempel di aset,
+lalu dipindai lewat kamera ponsel di `/scanner` untuk membuka halaman detailnya.
+Prefix `PIN-` tidak boleh diganti — QR yang sudah tercetak jadi tidak konsisten.
 
 ### Dua mode penyimpanan
 
@@ -24,7 +35,17 @@ Aplikasi web admin-only (Garuda Food) untuk katalog aset, peminjaman, audit, lap
 
 ## Auth admin
 
-Satu role login (username + password), sesi cookie httpOnly.
+Login username + password, sesi cookie httpOnly. Ada **dua peran**, dan tidak
+ada akun yang memegang keduanya (`supabase/11-admin-roles.sql`):
+
+| Peran      | Akses                                                                            |
+| ---------- | -------------------------------------------------------------------------------- |
+| `ASSET`    | Dashboard, aset, lokasi, kategori, tag, custodian, audit, laporan, scanner       |
+| `HELPDESK` | Hanya `/tickets`, dan hanya tiket sesuai `working_order`-nya (GA / Utility / IT) |
+
+`/settings` (profil & ganti password sendiri) terbuka untuk semua peran.
+Halaman baru yang lupa didaftarkan otomatis jatuh ke sisi `ASSET` — kelalaian
+berujung pada terlalu sedikit akses, bukan terlalu banyak.
 
 | Lingkungan     | Kredensial                                                                      |
 | -------------- | ------------------------------------------------------------------------------- |
@@ -51,22 +72,29 @@ simbol © di footer, atau `/login`.
 
 Jalankan SQL berikut berurutan di **SQL Editor** (folder `supabase/`):
 
-| Urutan | File                     | Isi                                                                                      |
-| ------ | ------------------------ | ---------------------------------------------------------------------------------------- |
-| 1      | `01-schema.sql`          | Semua tabel inti                                                                         |
-| 2      | `02-storage.sql`         | Bucket `assets` untuk foto                                                               |
-| 3      | `05-auth-hardening.sql`  | Kolom `token_version` di `admins`                                                        |
-| 4      | `06-tickets.sql`         | Tabel `tickets` (helpdesk) + RLS                                                         |
-| 5      | `07-image-columns.sql`   | Kolom `image` untuk `locations` & `kits`                                                 |
-| 6      | `08-missing-columns.sql` | `tags.color`, `locations.is_parent`, `custom_fields.category_ids`, kategori & lokasi kit |
-| 7      | `03-seed.sql`            | _opsional_ — data contoh                                                                 |
-| 8      | `04-enable-rls.sql`      | **paling akhir**, setelah app ter-deploy                                                 |
+| Urutan | File                      | Isi                                                                     |
+| ------ | ------------------------- | ----------------------------------------------------------------------- |
+| 1      | `01-schema.sql`           | Semua tabel inti                                                        |
+| 2      | `02-storage.sql`          | Bucket `assets` untuk foto                                              |
+| 3      | `05-auth-hardening.sql`   | Kolom `token_version` di `admins`                                       |
+| 4      | `06-tickets.sql`          | Tabel `tickets` (helpdesk) + RLS                                        |
+| 5      | `07-image-columns.sql`    | Kolom `image` untuk `locations`                                         |
+| 6      | `08-missing-columns.sql`  | `tags.color`, `locations.is_parent`, `custom_fields.category_ids`       |
+| 7      | `09-tickets-helpdesk.sql` | Thread percakapan, prioritas + SLA, lampiran tiket                      |
+| 8      | `10-sla-pause.sql`        | Jeda SLA (stop-the-clock saat menunggu pelapor)                         |
+| 9      | `11-admin-roles.sql`      | Kolom `role` + `working_order` di `admins`                              |
+| 10     | `12-status-simplify.sql`  | Status tiket dipangkas jadi `OPEN` → `IN_PROGRESS` → `RESOLVED`         |
+| 11     | `03-seed.sql`             | _opsional_ — data contoh (masih mengisi tabel lama `kits` & `bookings`) |
+| 12     | `04-enable-rls.sql`       | **paling akhir**, setelah app ter-deploy                                |
+
+> `07` dan `08` juga menyentuh tabel `kits` — sisa modul kit yang sudah dihapus
+> dari aplikasi. Skripnya aman dijalankan apa adanya.
 
 Lalu buat baris admin (ganti hash-nya):
 
 ```sql
-insert into admins (username, password_hash, name)
-values ('adminsystem', '$2b$12$...hash bcrypt anda...', 'Administrator');
+insert into admins (username, password_hash, name, role)
+values ('adminsystem', '$2b$12$...hash bcrypt anda...', 'Administrator', 'ASSET');
 ```
 
 Hash dibuat dengan:
@@ -74,6 +102,9 @@ Hash dibuat dengan:
 ```bash
 node -e "console.log(require('bcryptjs').hashSync('SandiKuatAnda',12))"
 ```
+
+Admin helpdesk wajib punya `working_order` (`GA`, `Utility`, atau `IT`); admin
+`ASSET` wajib `NULL`. Aturan itu dijaga constraint database, bukan aplikasi.
 
 ### 2. Buat project di Vercel
 
@@ -97,8 +128,10 @@ node -e "console.log(require('bcryptjs').hashSync('SandiKuatAnda',12))"
 | `SUPABASE_SERVICE_ROLE`         | ✅    | server-only, jangan pakai prefix NEXT_PUBLIC  |
 | `NEXT_PUBLIC_SUPABASE_URL`      | ✅    | URL project                                   |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | ✅    | anon public key                               |
+| `NEXT_PUBLIC_APP_URL`           | —     | asal aplikasi, dipakai untuk tautan portal    |
 | `ADMIN_PASSWORD_HASH`           | —     | alternatif kalau tidak memakai tabel `admins` |
 | `ADMIN_USERNAME` / `ADMIN_NAME` | —     | default `adminsystem` / `Administrator`       |
+| `RATE_LIMIT_TRUSTED_PROXIES`    | —     | jumlah proxy di depan app, default `1`        |
 
 Selengkapnya di `.env.example`.
 
@@ -115,17 +148,19 @@ Selengkapnya di `.env.example`.
 
 ## Penyimpanan foto
 
-Semua unggahan masuk ke bucket `assets`, dipisah per jenis lewat prefix folder:
+Semua unggahan masuk ke bucket `assets`, dipisah per jenis lewat prefix folder
+(`lib/storage.ts`):
 
 ```
 assets/
 ├── aset/2026-08/{waktu}-{acak}.jpg      <- foto aset
 ├── lokasi/2026-08/...                    <- foto lokasi
-├── kit/2026-08/...                       <- foto kit
-└── avatar/2026-08/...                    <- foto profil admin
+├── tiket/2026-08/...                     <- lampiran tiket
+├── avatar/2026-08/...                    <- foto profil admin
+└── kit/2026-08/...                       <- sisa modul kit yang sudah dihapus
 ```
 
-Saat aset, lokasi, atau kit dihapus, objek storage-nya ikut dihapus
+Saat aset atau lokasi dihapus, objek storage-nya ikut dihapus
 (`lib/storage.ts`). Penghapusan file bersifat best-effort: kalau gagal, hanya
 dicatat di log dan penghapusan record tetap diteruskan.
 
@@ -138,11 +173,26 @@ diakses; URL-nya sudah tersimpan di database.
 
 ## Catatan keamanan
 
-- Header keamanan (CSP, HSTS, `X-Frame-Options`, `Permissions-Policy`)
+- Header keamanan (CSP, HSTS, `X-Frame-Options`, `Permissions-Policy`,
+  `X-Content-Type-Options`, `Referrer-Policy`, `Cross-Origin-Opener-Policy`)
   di-set di `next.config.ts`.
-- Rate limit **in-memory per instance**: login 5×/15 menit, buat tiket
-  8×/15 menit, lacak tiket 30×/5 menit per IP. Di Vercel batas ini berlaku
-  per-isolate — untuk batas global gunakan Upstash/Redis.
+- Rate limit **in-memory per instance** (`lib/rate-limit.ts`), per IP:
+
+  | Endpoint                   | Batas         |
+  | -------------------------- | ------------- |
+  | Login                      | 5 / 15 menit  |
+  | Buat tiket                 | 8 / 15 menit  |
+  | Lacak tiket                | 30 / 5 menit  |
+  | Konfirmasi email di portal | 8 / 15 menit  |
+  | Portal pelapor             | 40 / 5 menit  |
+  | Balasan pelapor            | 15 / 15 menit |
+  | Unggah lampiran publik     | 12 / 15 menit |
+
+  IP klien diambil dari `X-Forwarded-For` dengan menghitung mundur sebanyak
+  `RATE_LIMIT_TRUSTED_PROXIES` — header yang dikarang klien hanya bisa membuat
+  dirinya sendiri over-limit, bukan melewati batas. Di Vercel batas ini tetap
+  berlaku per-isolate; untuk batas global gunakan Upstash/Redis.
+
 - Semua respons `/api/**` dikirim `Cache-Control: no-store`.
 - Pesan error dari database tidak diteruskan ke client (hanya masuk log
   server) agar struktur tabel tidak bocor.

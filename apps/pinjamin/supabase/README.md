@@ -1,106 +1,142 @@
 # Supabase untuk SIGAP
 
-> **Penting (security):** sejak migration `04-enable-rls.sql`, RLS aktif di
-> semua tabel dan browser tidak lagi mengakses tabel data langsung lewat
-> anon key. Semua baca/tulis data lewat `app/api/data/**`, yang memverifikasi
-> cookie sesi (JWT) dan menggunakan `SUPABASE_SERVICE_ROLE` di server. Wajib
-> set env berikut di server (jangan pernah expose ke client / `NEXT_PUBLIC_*`):
+> **Penting (security):** sejak `04-enable-rls.sql`, RLS aktif di semua tabel
+> dan browser tidak lagi mengakses tabel data langsung lewat anon key. Semua
+> baca/tulis data lewat `app/api/data/**`, yang memverifikasi cookie sesi (JWT)
+> dan memakai `SUPABASE_SERVICE_ROLE` di server. Wajib set env berikut di
+> server (jangan pernah expose ke client / `NEXT_PUBLIC_*`):
 >
 > ```bash
 > SUPABASE_SERVICE_ROLE=eyJ...   # Project Settings → API → service_role
 > AUTH_SECRET=$(openssl rand -base64 32)  # wajib di production, lihat lib/auth.ts
 > ```
+
+## Urutan menjalankan SQL
+
+Tidak ada migration runner untuk SIGAP (`pnpm db:*` di root milik app
+`@shelf/webapp`, bukan app ini). Semua file di folder ini dijalankan **manual
+dan berurutan** lewat SQL Editor Supabase. Semuanya aman diulang.
+
+| Urutan | File                      | Isi                                                                     |
+| ------ | ------------------------- | ----------------------------------------------------------------------- |
+| 1      | `01-schema.sql`           | Semua tabel inti                                                        |
+| 2      | `02-storage.sql`          | Bucket `assets` + policy storage awal                                   |
+| 3      | `05-auth-hardening.sql`   | Kolom `token_version` di `admins`                                       |
+| 4      | `06-tickets.sql`          | Tabel `tickets` + RLS                                                   |
+| 5      | `07-image-columns.sql`    | Kolom `image` untuk `locations`                                         |
+| 6      | `08-missing-columns.sql`  | `tags.color`, `locations.is_parent`, `custom_fields.category_ids`       |
+| 7      | `09-tickets-helpdesk.sql` | Thread percakapan, prioritas + SLA, lampiran tiket                      |
+| 8      | `10-sla-pause.sql`        | Jeda SLA (stop-the-clock saat menunggu pelapor)                         |
+| 9      | `11-admin-roles.sql`      | Kolom `role` + `working_order` di `admins`                              |
+| 10     | `12-status-simplify.sql`  | Status tiket jadi `OPEN` → `IN_PROGRESS` → `RESOLVED`                   |
+| 11     | `03-seed.sql`             | _opsional_ — data contoh (masih mengisi tabel lama `kits` & `bookings`) |
+| 12     | `04-enable-rls.sql`       | **paling akhir**, setelah app ter-deploy                                |
+
+> **`04-enable-rls.sql` wajib dijalankan, dan wajib terakhir.**
+> Ia mengunci dua hal sekaligus: `REVOKE ALL` + RLS tanpa policy di semua tabel
+> `public`, dan mencabut policy `Allow upload/update/delete` yang dibuat
+> `02-storage.sql`. Sampai file ini dijalankan, siapa pun yang memegang
+> `NEXT_PUBLIC_SUPABASE_ANON_KEY` — dan kunci itu memang ikut terkirim ke
+> browser — bisa membaca/menulis tabel dan menimpa atau menghapus isi bucket
+> `assets` langsung, tanpa melewati `/api/**`.
 >
-> Urutan jalankan SQL: `01-schema.sql` → `02-storage.sql` → `03-seed.sql`
-> (opsional) → `05-auth-hardening.sql` (token_version) → `06-tickets.sql`
-> (helpdesk) → `07-image-columns.sql` → `08-missing-columns.sql` →
-> `04-enable-rls.sql` **paling akhir**, setelah app dengan
-> `app/api/data/**` sudah ter-deploy (kalau RLS dinyalakan duluan tanpa route
-> ini, app kehilangan akses).
+> Kalau dijalankan **duluan** (sebelum `app/api/data/**` ter-deploy), app
+> kehilangan akses. Urutannya: deploy dulu, baru `04`.
 
-SIGAP support **2 mode** agar tetap jalan tanpa setup:
+Verifikasi setelah `04` jalan:
 
-- **Offline (dev/VPS):** tanpa env, data di `data/*.json` + `localStorage`,
-  upload disimpan sebagai `base64`. **Tidak boleh dipakai di Vercel** —
-  filesystem serverless read-only dan ephemeral, jadi tiket & data gagal
-  tersimpan (`/api/store` menjawab `501`).
-- **Production (wajib untuk Vercel):** set env Supabase + buat bucket
-  `assets` → semua data di Postgres, upload ke Supabase Storage.
+```sql
+-- harus hanya menyisakan "Public read"
+SELECT policyname FROM pg_policies
+WHERE schemaname = 'storage' AND tablename = 'objects';
 
-## 1. Setup cepat (5 menit)
+-- semua tabel public harus rowsecurity = true
+SELECT tablename, rowsecurity FROM pg_tables WHERE schemaname = 'public';
+```
+
+## Dua mode penyimpanan
+
+- **Offline (dev/VPS):** tanpa env Supabase, data di `data/*.json` +
+  `localStorage`, upload disimpan sebagai base64 data URL
+  (`lib/supabase.ts`). **Tidak boleh dipakai di Vercel** — filesystem
+  serverless read-only dan ephemeral, jadi `/api/store` menjawab `501`.
+- **Production (wajib untuk Vercel):** env Supabase di-set → semua data di
+  Postgres, upload ke Supabase Storage.
+
+## 1. Setup cepat
 
 1. Buat project di https://supabase.com/dashboard
-2. Copy **Project URL** dan **anon public key** dari `Project Settings → API`
+2. Copy **Project URL**, **anon public key**, dan **service_role key** dari
+   `Project Settings → API`
 3. Di Vercel (atau `.env.local` untuk lokal), set:
 
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=https://xxxxx.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOi... (anon public)
-# opsional, kompatibel dengan shelf:
-SUPABASE_URL=https://xxxxx.supabase.co
-SUPABASE_ANON_PUBLIC=eyJ...
+SUPABASE_SERVICE_ROLE=eyJhbGciOi... (service_role, server-only)
 ```
 
-4. Buat bucket `assets` (public):
-   - Dashboard → Storage → New bucket → Name: `assets` → Public: ON → Create
-   - Atau via SQL (jalankan di SQL Editor):
+`lib/supabase.ts` juga masih menerima nama env gaya shelf (`SUPABASE_URL`,
+`SUPABASE_ANON_PUBLIC`) sebagai alias — tidak perlu di-set kalau nama
+`NEXT_PUBLIC_*` di atas sudah ada.
 
-```sql
--- Buat bucket jika belum ada
-insert into storage.buckets (id, name, public)
-values ('assets', 'assets', true)
-on conflict (id) do nothing;
-
--- Policy: allow public read, authenticated upload (anon bisa upload untuk demo)
--- Jika RLS strict, pakai service_role di server. Untuk demo, izinkan anon:
-create policy "Public read"
-on storage.objects for select
-using (bucket_id = 'assets');
-
-create policy "Allow upload"
-on storage.objects for insert
-with check (bucket_id = 'assets');
-
-create policy "Allow update"
-on storage.objects for update
-using (bucket_id = 'assets');
-
-create policy "Allow delete"
-on storage.objects for delete
-using (bucket_id = 'assets');
-```
-
-5. Deploy / restart `pnpm dev` → Upload di `Assets → Tambah → Foto Aset` akan otomatis ke Supabase (badge hijau `Supabase Storage`). Jika env kosong, fallback base64 (badge kuning).
+4. Bucket `assets` dibuat oleh `02-storage.sql` (public read, batas 5MB,
+   hanya `image/jpeg|png|webp|gif`) — tidak perlu dibuat manual di dashboard.
+5. Deploy / restart `pnpm pinjamin:dev`. Unggah foto lewat
+   `Aset → Tambah → Foto Aset`; badge hijau `Supabase Storage` = sukses,
+   badge kuning `Base64 • Offline` = env belum terbaca.
 
 ## 2. Env lokal
 
-Copy `.env.example` (root) ke `.env.local` di `apps/pinjamin`:
+`.env.example` app ini ada di `apps/pinjamin` (yang di root repo milik shelf):
 
 ```bash
-cp ../../.env.example .env.local
-# lalu isi NEXT_PUBLIC_SUPABASE_URL dan ANON_KEY
+cp .env.example .env.local
+# lalu isi NEXT_PUBLIC_SUPABASE_URL, ANON_KEY, SUPABASE_SERVICE_ROLE, AUTH_SECRET
 ```
 
-## 3. Skema database
+## 3. Admin pertama
 
-Skema lengkap ada di file SQL folder ini — dijalankan manual lewat SQL Editor
-Supabase (tidak ada migration runner untuk SIGAP; `pnpm db:*` di root
-milik app `@shelf/webapp`, bukan app ini).
+`03-seed.sql` membuat baris admin contoh. Untuk admin sungguhan:
 
-Begitu `SUPABASE_SERVICE_ROLE` di-set, app otomatis beralih ke Postgres:
+```sql
+insert into admins (username, password_hash, name, role)
+values ('adminsystem', '$2b$12$...hash bcrypt anda...', 'Administrator', 'ASSET');
+```
 
-- master data & aset → `app/api/data/**`
-- tiket helpdesk → `app/api/tickets/**` (butuh `06-tickets.sql`)
-- foto aset → bucket `assets`
+Peran: `ASSET` (manajemen aset, `working_order` harus `NULL`) atau `HELPDESK`
+(panel tiket, `working_order` wajib `GA` / `Utility` / `IT`). Constraint-nya
+dijaga database — lihat `11-admin-roles.sql`.
 
-## 4. Test
+## 4. Jalur data
 
-- Buka `http://localhost:5003/assets/new` → upload gambar (drag & drop)
-- Lihat badge: `Supabase Storage` = sukses cloud, `Base64 • Offline` = fallback
-- Lihat di Supabase Dashboard → Storage → assets → file `pinjamin/<timestamp>-xxxxx.jpg`
+Begitu `SUPABASE_SERVICE_ROLE` di-set, app beralih ke Postgres:
+
+| Data               | Route                 | Butuh                  |
+| ------------------ | --------------------- | ---------------------- |
+| Master data & aset | `app/api/data/**`     | `01`, `07`, `08`       |
+| Tiket helpdesk     | `app/api/tickets/**`  | `06`, `09`, `10`, `12` |
+| Foto aset & lokasi | `/api/upload`         | `02` (bucket `assets`) |
+| Lampiran tiket     | `/api/tickets/upload` | `02` (bucket `assets`) |
+
+Keduanya menulis ke Storage memakai `service_role` di server, dengan path yang
+dibentuk server (`lib/storage.ts`) — bukan dari nama file kiriman client.
+Karena itu anon tidak butuh policy tulis apa pun ke bucket.
+
+## 5. Test
+
+- Buka `http://localhost:5003/assets/new` → unggah gambar (drag & drop)
+- Badge: `Supabase Storage` = sukses cloud, `Base64 • Offline` = fallback
+- Cek di Dashboard → Storage → `assets` → berkas ada di
+  `aset/<YYYY-MM>/<waktu>-<acak>.jpg`
 
 ## Troubleshooting
 
-- **Bucket not found:** buat bucket `assets` manual di dashboard.
-- **Policy error / 403:** jalankan SQL policy di atas atau set bucket Public.
-- **CORS:** di Storage Settings → Allowed origins tambah `http://localhost:5003` dan domain Vercel.
+- **Bucket not found:** `02-storage.sql` belum dijalankan.
+- **Upload 403 setelah `04-enable-rls.sql`:** berarti server memakai anon key,
+  bukan `service_role`. Set `SUPABASE_SERVICE_ROLE` lalu **Redeploy** —
+  deployment lama tidak membaca env baru.
+- **App tiba-tiba kosong setelah `04`:** `04` dijalankan sebelum
+  `app/api/data/**` ter-deploy. Deploy dulu, lalu ulangi `04`.
+- **CORS:** tidak perlu diatur. Unggah lewat route server (tidak kena CORS),
+  dan foto ditampilkan lewat URL publik di tag `<img>` biasa.
