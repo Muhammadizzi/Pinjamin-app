@@ -70,6 +70,7 @@ const ASSET_STATUS_KEY: Record<string, MessageKey> = {
 
 const TICKET_STATUS_KEY: Record<string, MessageKey> = {
   OPEN: "ticketOpen",
+  ON_HOLD: "ticketOnHold",
   IN_PROGRESS: "ticketInProgress",
   RESOLVED: "ticketResolved",
 };

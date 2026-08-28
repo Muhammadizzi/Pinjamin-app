@@ -513,20 +513,23 @@ export async function listRecentTickets(
 /**
  * Bentuk satu baris di daftar publik landing page.
  *
- * Sengaja JAUH lebih sempit dari publicTicketView(): tanpa isi pesan, tanpa
- * lampiran, tanpa email/telepon, tanpa token. Daftar ini tampil kepada siapa
- * pun yang membuka landing page tanpa login — termasuk orang di luar
- * Garudafood — jadi setiap kolom di sini adalah keputusan sadar untuk
- * membukanya ke publik, bukan sisa dari objek yang kebetulan lewat.
+ * ⚠️ Daftar ini tampil kepada siapa pun yang membuka landing page tanpa
+ * login — termasuk orang di luar Garudafood, dan mesin pengindeks. Setiap
+ * kolom di sini adalah keputusan sadar untuk membukanya ke publik, bukan
+ * sisa dari objek yang kebetulan lewat.
  *
- * Isi pesan TIDAK ikut: itu bagian yang paling mungkin memuat detail pribadi
- * atau rahasia operasional, dan pembaca yang memang berhak sudah bisa
- * membukanya lewat Lacak Tiket dengan nomornya.
+ * Atas permintaan pemilik produk (27 Agustus 2026), daftar ini kini memuat
+ * ISI PESAN, STATUS, dan PRIORITAS — sebelumnya ketiganya sengaja ditahan.
+ * Dua konsekuensi yang melekat pada keputusan itu, dicatat di sini supaya
+ * tidak hilang:
  *
- * STATUS dan PRIORITAS juga tidak ikut, atas keputusan pemilik produk:
- * keduanya hanya boleh dibaca lewat Lacak Tiket. Daftar ini menjawab "tiket
- * apa saja yang masuk", bukan "sudah sampai mana" — kalau statusnya sudah
- * terbaca di sini, tidak ada lagi alasan orang mengetik nomor tiketnya.
+ * 1. Isi keluhan karyawan terbaca publik. Itu bagian yang paling mungkin
+ *    memuat detail pribadi atau rahasia operasional.
+ * 2. Lacak Tiket kehilangan alasan keberadaannya: kalau status sudah
+ *    terbaca di daftar, tidak ada lagi dorongan mengetik nomor tiket.
+ *
+ * Yang TETAP tidak pernah ikut: email, nomor WhatsApp, lampiran, token
+ * portal, dan catatan admin. Hak membalas tetap tertutup.
  */
 export function publicRecentView(t: Ticket) {
   return {
@@ -534,6 +537,9 @@ export function publicRecentView(t: Ticket) {
     name: t.name,
     subject: t.subject,
     workingOrder: t.workingOrder,
+    status: t.status,
+    priority: t.priority,
+    message: t.message,
     createdAt: t.createdAt,
   };
 }

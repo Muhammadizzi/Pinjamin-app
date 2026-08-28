@@ -17,6 +17,7 @@ import type {
 
 export const STATUS_LABEL_ID: Record<TicketStatus, string> = {
   OPEN: "Open",
+  ON_HOLD: "On Hold",
   IN_PROGRESS: "Diproses",
   RESOLVED: "Selesai",
 };
@@ -26,6 +27,12 @@ export const STATUS_CLS: Record<TicketStatus, { cls: string; dot: string }> = {
   OPEN: {
     cls: "bg-red-500/15 text-red-300 border-red-500/30",
     dot: "bg-red-400",
+  },
+  // Biru-abu: sengaja bukan warna "panas" seperti Open maupun Diproses —
+  // tiket On Hold sedang menunggu pihak lain, bukan sedang telat dikerjakan.
+  ON_HOLD: {
+    cls: "bg-slate-500/15 text-slate-300 border-slate-500/30",
+    dot: "bg-slate-400",
   },
   IN_PROGRESS: {
     cls: "bg-amber-500/15 text-amber-300 border-amber-500/30",

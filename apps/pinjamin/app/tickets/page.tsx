@@ -36,6 +36,7 @@ import {
   Inbox,
   Loader2,
   CircleDot,
+  PauseCircle,
   Clock,
   MessageSquare,
   Paperclip,
@@ -68,6 +69,10 @@ const STATUS_META: Record<TicketStatus, { badge: string; dot: string }> = {
   OPEN: {
     badge: "bg-red-500/15 text-red-400 border-red-500/30",
     dot: "bg-red-400",
+  },
+  ON_HOLD: {
+    badge: "bg-slate-500/15 text-slate-300 border-slate-500/30",
+    dot: "bg-slate-400",
   },
   IN_PROGRESS: {
     badge: "bg-amber-500/15 text-amber-300 border-amber-500/30",
@@ -199,6 +204,7 @@ export default function TicketsPage() {
   const stats = useMemo(
     () => ({
       open: tickets.filter((x) => x.status === "OPEN").length,
+      onHold: tickets.filter((x) => x.status === "ON_HOLD").length,
       inProgress: tickets.filter((x) => x.status === "IN_PROGRESS").length,
       resolved: tickets.filter((x) => x.status === "RESOLVED").length,
     }),
@@ -369,6 +375,13 @@ export default function TicketsPage() {
       value: stats.open,
       icon: CircleDot,
       cls: "from-red-500/20 to-red-500/5 text-red-400",
+    },
+    {
+      key: "ON_HOLD",
+      label: ticketStatus("ON_HOLD"),
+      value: stats.onHold,
+      icon: PauseCircle,
+      cls: "from-slate-500/20 to-slate-500/5 text-slate-300",
     },
     {
       key: "IN_PROGRESS",

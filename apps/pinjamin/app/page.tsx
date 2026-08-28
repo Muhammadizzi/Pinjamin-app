@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import Image from "next/image";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,15 +21,12 @@ import {
   RECENT_TICKETS_DAYS,
   TICKET_NUMBER_RE,
   WORKING_ORDERS,
+  isWorkingOrder,
   type TicketAttachment,
   type TicketPriority,
   type WorkingOrder,
 } from "@/lib/ticket-shared";
-import {
-  PRIORITY_LABEL_ID,
-  WORKING_ORDER_HINT_ID,
-  statusMeta,
-} from "@/lib/ticket-labels-id";
+import { PRIORITY_LABEL_ID, statusMeta } from "@/lib/ticket-labels-id";
 
 import {
   LifeBuoy,
@@ -69,8 +66,13 @@ interface TiketTerbaru {
   subject: string;
   workingOrder: string;
   status: string;
+  priority: TicketPriority;
+  message: string;
   createdAt: string;
 }
+
+/** Pilihan filter daftar tiket publik: semua meja, atau satu working order. */
+type FilterMeja = "SEMUA" | WorkingOrder;
 
 /**
  * Bentuk tiket di halaman lacak — sengaja lebih sempit dari yang dikirim
@@ -161,6 +163,7 @@ export default function LandingPage() {
   // berganti perangkat, padahal tiketnya masih ada.
   const [terbaru, setTerbaru] = useState<TiketTerbaru[]>([]);
   const [terbaruLoading, setTerbaruLoading] = useState(true);
+  const [filterMeja, setFilterMeja] = useState<FilterMeja>("SEMUA");
 
   const muatTerbaru = useCallback(async () => {
     try {
@@ -177,6 +180,28 @@ export default function LandingPage() {
   useEffect(() => {
     void muatTerbaru();
   }, [muatTerbaru]);
+
+  const terbaruTersaring = useMemo(
+    () =>
+      filterMeja === "SEMUA"
+        ? terbaru
+        : terbaru.filter((r) => r.workingOrder === filterMeja),
+    [terbaru, filterMeja]
+  );
+
+  /** Jumlah tiket per tombol filter, ikut menyusut mengikuti jendela 7 hari. */
+  const hitunganMeja = useMemo(() => {
+    const out: Record<FilterMeja, number> = {
+      SEMUA: terbaru.length,
+      GA: 0,
+      Utility: 0,
+      IT: 0,
+    };
+    for (const r of terbaru) {
+      if (isWorkingOrder(r.workingOrder)) out[r.workingOrder]++;
+    }
+    return out;
+  }, [terbaru]);
 
   // --- Lacak tiket ---
   const [trackNumber, setTrackNumber] = useState("");
@@ -577,40 +602,88 @@ export default function LandingPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2.5">
+                {/* Filter per meja. Tombolnya hanya menyaring daftar yang
+                    SUDAH dikirim server — tidak ada permintaan ulang, dan
+                    tidak ada jalan mengubah data tiket dari sini. */}
+                <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                  {(["SEMUA", ...WORKING_ORDERS] as FilterMeja[]).map((f) => {
+                    const aktif = filterMeja === f;
+                    return (
+                      <button
+                        key={f}
+                        type="button"
+                        onClick={() => setFilterMeja(f)}
+                        aria-pressed={aktif}
+                        className={`shrink-0 rounded-full border px-3 py-1 text-[11px] font-semibold transition-colors ${
+                          aktif
+                            ? "border-[#CBA12C] bg-[#CBA12C] text-[#0a2240]"
+                            : "border-[#243a5e] text-slate-300 hover:border-slate-500"
+                        }`}
+                      >
+                        {f === "SEMUA" ? "Semua" : f}
+                        <span
+                          className={`ml-1.5 tabular-nums ${
+                            aktif ? "text-[#0a2240]/70" : "text-slate-500"
+                          }`}
+                        >
+                          {hitunganMeja[f]}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
                 {terbaruLoading ? (
                   <div className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-[#243a5e] px-3 py-4 text-xs text-slate-500">
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
                     Memuat…
                   </div>
-                ) : terbaru.length === 0 ? (
+                ) : terbaruTersaring.length === 0 ? (
                   <div className="rounded-xl border border-dashed border-[#243a5e] px-3 py-4 text-center text-xs text-slate-500">
-                    Belum ada tiket dalam {RECENT_TICKETS_DAYS} hari terakhir.
+                    {terbaru.length === 0
+                      ? `Belum ada tiket dalam ${RECENT_TICKETS_DAYS} hari terakhir.`
+                      : `Belum ada tiket ${filterMeja} dalam ${RECENT_TICKETS_DAYS} hari terakhir.`}
                   </div>
                 ) : (
                   <ul className="max-h-96 space-y-1.5 overflow-y-auto">
-                    {terbaru.map((r) => {
+                    {terbaruTersaring.map((r) => {
+                      const meta = statusMeta(r.status);
                       return (
                         <li
                           key={r.number}
                           className="rounded-xl border border-[#243a5e] bg-[#0f1d33] px-3 py-2"
                         >
-                          <div className="flex items-center gap-2">
+                          <div className="flex flex-wrap items-center gap-1.5">
                             <span className="font-mono text-xs font-bold text-amber-300">
                               {r.number}
+                            </span>
+                            <span
+                              className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${meta.cls}`}
+                            >
+                              <span
+                                className={`h-1.5 w-1.5 rounded-full ${meta.dot}`}
+                              />
+                              {meta.label}
+                            </span>
+                            <span className="rounded-full border border-[#243a5e] px-2 py-0.5 text-[10px] font-medium text-slate-400">
+                              {PRIORITY_LABEL_ID[r.priority]}
                             </span>
                             <span className="ml-auto shrink-0 text-[10px] text-slate-500">
                               {formatDateTime(r.createdAt)}
                             </span>
                           </div>
-                          <div className="mt-0.5 truncate text-[13px] text-slate-300">
+                          <div className="mt-1 truncate text-[13px] font-semibold text-slate-200">
                             {r.subject}
                           </div>
-                          <div className="mt-1 flex items-center gap-1.5 text-[11px] text-slate-500">
+                          <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-slate-500">
                             <UserRound className="h-3 w-3 shrink-0" />
                             <span className="truncate">{r.name}</span>
                             <span className="shrink-0">•</span>
                             <span className="shrink-0">{r.workingOrder}</span>
                           </div>
+                          <p className="mt-1 line-clamp-1 text-[11px] text-slate-500">
+                            {r.message}
+                          </p>
                         </li>
                       );
                     })}
@@ -774,7 +847,7 @@ export default function LandingPage() {
                     >
                       {WORKING_ORDERS.map((w) => (
                         <option key={w} value={w}>
-                          {w} — {WORKING_ORDER_HINT_ID[w]}
+                          {w}
                         </option>
                       ))}
                     </Select>

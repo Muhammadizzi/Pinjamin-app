@@ -9,7 +9,12 @@
  */
 
 /**
- * Siklus hidup tiket: masuk → dikerjakan → beres. Tiga keadaan, satu arah.
+ * Siklus hidup tiket: masuk → ditahan → dikerjakan → beres.
+ *
+ * ON_HOLD berarti tiket sudah dilihat tapi belum bisa dikerjakan — menunggu
+ * vendor, suku cadang, atau keputusan di luar kendali admin. Tidak ada jam
+ * SLA yang perlu dijeda: penilaian SLA sudah dihapus (lihat catatan di
+ * bawah), jadi ini murni penanda keadaan.
  *
  * Dua status lama dihapus, keduanya karena kehilangan arti:
  *
@@ -21,10 +26,11 @@
  *   sama akan dipakai tidak konsisten antar admin — sementara setiap laporan
  *   harus selalu ingat menghitung keduanya. Tiket sampah lebih tepat dihapus.
  */
-export type TicketStatus = "OPEN" | "IN_PROGRESS" | "RESOLVED";
+export type TicketStatus = "OPEN" | "ON_HOLD" | "IN_PROGRESS" | "RESOLVED";
 
 export const TICKET_STATUSES: TicketStatus[] = [
   "OPEN",
+  "ON_HOLD",
   "IN_PROGRESS",
   "RESOLVED",
 ];

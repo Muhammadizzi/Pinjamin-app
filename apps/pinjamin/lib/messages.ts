@@ -102,6 +102,7 @@ export const messages = {
   bookingComplete: ["Selesai", "Complete"],
   bookingCancelled: ["Dibatalkan", "Cancelled"],
   ticketOpen: ["Open", "Open"],
+  ticketOnHold: ["On Hold", "On Hold"],
   ticketInProgress: ["Diproses", "In Progress"],
   ticketResolved: ["Selesai", "Resolved"],
   priorityLow: ["Rendah", "Low"],
