@@ -84,11 +84,12 @@ export default function HalamanAsetPublik({
       <header className="border-b border-[#243a5e] px-4 py-3">
         <div className="mx-auto flex max-w-2xl items-center gap-2">
           <Image
-            src="/logo-sigap.png"
+            src="/sigap-logo.png"
             alt="SIGAP"
-            width={28}
-            height={28}
-            className="rounded"
+            width={32}
+            height={32}
+            priority
+            className="h-8 w-8 object-contain"
           />
           <div className="leading-tight">
             <div className="text-sm font-bold">SIGAP</div>
