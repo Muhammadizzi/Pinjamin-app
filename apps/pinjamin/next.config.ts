@@ -86,9 +86,17 @@ const nextConfig: NextConfig = {
         headers: securityHeaders,
       },
       {
-        // Respons API tidak boleh di-cache CDN/browser: semuanya
+        // Respons API tidak boleh di-cache CDN/browser: hampir semuanya
         // per-sesi (cookie admin) atau data yang berubah terus.
-        source: "/api/(.*)",
+        //
+        // DDOS-03: /api/tickets/recent adalah satu-satunya pengecualian, dan
+        // alasan di atas memang tidak berlaku untuknya — isinya identik untuk
+        // setiap pengunjung dan sudah publik dengan sengaja. Dengan no-store,
+        // setiap request menembus ke Postgres dan CDN tidak menyerap apa pun;
+        // padahal endpoint inilah yang paling murah dibanjiri (GET, tanpa
+        // body, tanpa sesi). Header cache-nya di-set di route handler-nya
+        // sendiri, jadi ia harus dikecualikan di sini agar tidak ditimpa.
+        source: "/api/((?!tickets/recent).*)",
         headers: [
           {
             key: "Cache-Control",

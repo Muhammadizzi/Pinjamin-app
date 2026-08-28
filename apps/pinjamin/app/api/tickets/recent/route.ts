@@ -7,6 +7,25 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
+ * DDOS-03: satu-satunya respons API yang boleh diserap CDN.
+ *
+ * Daftar ini identik untuk setiap pengunjung dan memang publik, jadi tidak ada
+ * yang bocor dengan menyimpannya di edge — sementara tanpa itu, tiap request
+ * menembus sampai Postgres. Endpoint inilah yang paling murah dibanjiri: GET,
+ * tanpa body, tanpa sesi, dan alamatnya tertulis di landing page.
+ *
+ * 30 detik dipilih karena tiket baru tidak perlu tampil seketika; yang penting
+ * ia muncul tanpa pelapor merasa daftarnya macet. `stale-while-revalidate`
+ * membuat edge tetap menjawab dari salinan lama selama salinan barunya
+ * diambil, sehingga lonjakan tidak pernah berubah menjadi antrean query.
+ *
+ * Pengecualiannya di-set juga di next.config.ts — header `no-store` untuk
+ * `/api/**` di sana akan menimpa nilai ini kalau route ini tidak dikeluarkan
+ * dari pola sumbernya.
+ */
+const CACHE_CONTROL = "public, s-maxage=30, stale-while-revalidate=120";
+
+/**
  * GET /api/tickets/recent — PUBLIK, TANPA identitas apa pun.
  *
  * Daftar tiket yang masuk RECENT_TICKETS_DAYS hari terakhir, tampil di
@@ -35,21 +54,33 @@ export async function GET(req: NextRequest) {
       {
         error: `Terlalu banyak permintaan. Coba lagi dalam ${rate.retryAfter} detik.`,
       },
-      { status: 429, headers: { "Retry-After": String(rate.retryAfter) } }
+      {
+        status: 429,
+        headers: {
+          "Retry-After": String(rate.retryAfter),
+          // Penolakan tidak boleh ikut tersimpan di edge: satu 429 yang
+          // ter-cache akan disajikan ulang kepada pengunjung lain yang tidak
+          // melanggar apa pun.
+          "Cache-Control": "no-store",
+        },
+      }
     );
   }
 
   try {
     const tickets = await listRecentTickets();
-    return NextResponse.json({
-      tickets: tickets.map(publicRecentView),
-      days: RECENT_TICKETS_DAYS,
-    });
+    return NextResponse.json(
+      {
+        tickets: tickets.map(publicRecentView),
+        days: RECENT_TICKETS_DAYS,
+      },
+      { headers: { "Cache-Control": CACHE_CONTROL } }
+    );
   } catch (e) {
     console.error("[tickets recent]", e);
     return NextResponse.json(
       { error: "Gagal memuat daftar tiket." },
-      { status: 500 }
+      { status: 500, headers: { "Cache-Control": "no-store" } }
     );
   }
 }
