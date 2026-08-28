@@ -2,6 +2,12 @@
  * Rate limiter in-memory per-proses.
  * Cukup untuk 1 instance / demo. Di serverless multi-instance, batas
  * berlaku per isolate — tetap menahan brute-force dari 1 IP ke 1 instance.
+ *
+ * Memorinya dibatasi (MAX_KEYS) dan biaya pembersihannya teramortisasi, jadi
+ * banjir dari banyak IP tidak bisa menjadikan limiter ini bottleneck-nya
+ * sendiri. Untuk batas yang berlaku lintas-isolate, penyimpanannya harus
+ * dipindah ke Redis — antarmuka createRateLimiter() sengaja dibuat sempit
+ * supaya penggantinya cukup menyentuh berkas ini.
  */
 
 export type RateLimitResult =
@@ -10,16 +16,62 @@ export type RateLimitResult =
 
 type Bucket = { count: number; firstAt: number };
 
+/**
+ * Batas atas jumlah kunci yang disimpan satu limiter, dan tinggi air yang
+ * dituju saat membuangnya.
+ *
+ * DDOS-01: versi sebelumnya menyapu SELURUH Map pada setiap check() begitu
+ * ukurannya melewati 500. Selama banjir dari banyak IP, entri di dalam window
+ * belum kedaluwarsa — sapuan itu tidak menghapus apa pun, Map terus tumbuh,
+ * dan tiap request membayar sapuan yang makin panjang. Pertahanannya melemah
+ * justru ketika paling dibutuhkan, dan Map tanpa batas bisa menghabiskan
+ * memori isolate.
+ *
+ * Jarak MAX ke TARGET-lah yang membuat biayanya teramortisasi: satu sapuan
+ * menyediakan ruang untuk 2.000 kunci berikutnya, jadi biaya per request
+ * kembali ~O(1). Membuang tepat sampai MAX (tanpa jarak) akan memicu sapuan
+ * penuh lagi pada request berikutnya — persis bug yang diperbaiki di sini.
+ */
+const MAX_KEYS = 20_000;
+const TARGET_KEYS = 18_000;
+
+/** Sapuan terjadwal paling sering sekali per interval ini. */
+const PRUNE_INTERVAL_MS = 30_000;
+
 export function createRateLimiter(opts: {
   maxAttempts: number;
   windowMs: number;
 }) {
   const attempts = new Map<string, Bucket>();
+  let lastPrune = 0;
 
+  /**
+   * Buang entri kedaluwarsa, lalu — bila masih sesak — entri tertua sampai
+   * TARGET_KEYS. Map JavaScript menjaga urutan penyisipan, dan setiap window
+   * baru selalu di-set ulang, jadi kunci terdepan adalah window yang paling
+   * dekat kedaluwarsa. Itu urutan pembuangan yang tepat: yang dikorbankan
+   * adalah kuota yang memang hampir pulih dengan sendirinya.
+   */
   function prune(now: number) {
-    if (attempts.size < 500) return;
+    const terjadwal = now - lastPrune >= PRUNE_INTERVAL_MS;
+    const sesak = attempts.size > MAX_KEYS;
+    if (!terjadwal && !sesak) return;
+    lastPrune = now;
+
     for (const [k, v] of attempts) {
       if (now - v.firstAt > opts.windowMs) attempts.delete(k);
+    }
+
+    // Semua entri masih di dalam window (tanda banjir dari banyak IP): buang
+    // yang tertua. Kehilangan hitungan berarti IP itu dapat kuota baru —
+    // konsekuensi yang disengaja. Limiter yang memakan memori sampai isolate
+    // mati melindungi lebih sedikit daripada limiter yang sesekali lupa.
+    if (attempts.size > TARGET_KEYS) {
+      let sisa = attempts.size - TARGET_KEYS;
+      for (const k of attempts.keys()) {
+        attempts.delete(k);
+        if (--sisa <= 0) break;
+      }
     }
   }
 
