@@ -134,6 +134,22 @@ export const messages = {
   allSafe: ["Semua peminjaman aman 🎉", "All bookings are on track 🎉"],
   due: ["Jatuh tempo", "Due"],
   needsCheck: ["Perlu pengecekan", "Needs a check"],
+  needsRepair: ["Perlu diperbaiki", "Needs repair"],
+  noDamagedAssets: ["Tidak ada yang rusak", "Nothing damaged"],
+  allAssetsGood: [
+    "Semua aset kondisi baik 🎉",
+    "All assets in good condition 🎉",
+  ],
+  needsCompleting: ["Perlu Dilengkapi", "Needs Completing"],
+  needsCompletingSub: [
+    "Aset yang stikernya sudah bisa dipindai tapi datanya masih kosong.",
+    "Assets whose sticker already scans but whose data is still empty.",
+  ],
+  allAssetsComplete: [
+    "Semua aset sudah lengkap datanya 🎉",
+    "Every asset has complete data 🎉",
+  ],
+  missingFields: ["belum: {fields}", "missing: {fields}"],
   maintenanceCount: ["{count} aset perawatan", "{count} assets in maintenance"],
   lastActivity: ["Aktivitas Terakhir", "Recent Activity"],
   noActivity: ["Belum ada aktivitas", "No activity yet"],

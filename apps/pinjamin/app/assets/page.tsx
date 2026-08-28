@@ -1,5 +1,5 @@
 "use client";
-import { useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { AppShell } from "@/components/layout/sidebar";
 import { Card, CardContent } from "@/components/ui/card";
@@ -60,6 +60,22 @@ export default function AssetsPage() {
   } | null>(null);
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("ALL");
+
+  /**
+   * Terima filter awal dari URL: /assets?status=DAMAGED.
+   *
+   * Dipakai kartu kondisi di dasbor supaya angkanya bisa diklik. Dibaca dari
+   * window, bukan useSearchParams(): halaman ini di-prerender statis, dan
+   * useSearchParams() akan memaksanya jadi dinamis atau menuntut pembungkus
+   * <Suspense> di sekitar komponen 800 baris ini — harga yang tidak sepadan
+   * untuk satu parameter opsional.
+   */
+  useEffect(() => {
+    const dari = new URLSearchParams(window.location.search).get("status");
+    if (dari && ["GOOD", "DAMAGED", "MAINTENANCE", "RETIRED"].includes(dari)) {
+      setStatus(dari);
+    }
+  }, []);
   const [cat, setCat] = useState("ALL");
   const [loc, setLoc] = useState("ALL");
   const [tag, setTag] = useState("ALL");
