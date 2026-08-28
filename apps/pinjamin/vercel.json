@@ -8,5 +8,11 @@
     "app/api/**/*": {
       "maxDuration": 30
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/tickets/gc",
+      "schedule": "0 19 * * *"
+    }
+  ]
 }

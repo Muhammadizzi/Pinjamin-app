@@ -16,6 +16,9 @@ import { isPublicPage, homeFor, isPageAllowedFor } from "./lib/public-paths";
  *   GET  /api/tickets/portal          (portal pelapor — butuh token tiket)
  *   POST /api/tickets/upload          (lampiran tiket)
  *
+ * Dilewatkan tapi TIDAK publik:
+ *   GET  /api/tickets/gc              (cron/admin — dijaga di handler-nya)
+ *
  * API admin lainnya dicek lagi di handler (gerbang peran + token version).
  *
  * Peran: proxy ini hanya mengalihkan HALAMAN berdasarkan `role` di dalam JWT.
@@ -49,6 +52,19 @@ function isSameOrigin(req: NextRequest) {
   }
 }
 
+/**
+ * Endpoint yang menjaga dirinya sendiri, bukan yang publik.
+ *
+ * Vercel Cron memanggil tanpa cookie sesi, jadi gerbang "harus ada sesi" di
+ * bawah akan menolaknya sebelum handler-nya sempat memeriksa CRON_SECRET.
+ * Path ini dilewatkan di sini DAN diperiksa lebih ketat di handler-nya
+ * (CRON_SECRET atau admin ASET) — melewatkannya tanpa itu berarti
+ * menyerahkan penghapus berkas kepada siapa saja.
+ */
+function isSelfGuardedApi(pathname: string, method: string) {
+  return pathname === "/api/tickets/gc" && method === "GET";
+}
+
 function isPublicApi(pathname: string, method: string) {
   if (pathname === "/api/auth/login" && method === "POST") return true;
   if (pathname === "/api/tickets" && method === "POST") return true;
@@ -76,6 +92,7 @@ export default async function proxy(req: NextRequest) {
       );
     }
     if (isPublicApi(pathname, method)) return NextResponse.next();
+    if (isSelfGuardedApi(pathname, method)) return NextResponse.next();
     if (pathname === "/api/auth/logout") return NextResponse.next();
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

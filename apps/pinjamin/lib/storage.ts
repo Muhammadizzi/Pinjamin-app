@@ -85,3 +85,74 @@ export async function removeByPublicUrl(
   }
   return paths.length;
 }
+
+/** Satu objek di bucket, sebatas yang dibutuhkan penyapu berkas yatim. */
+export type StoredObject = { path: string; createdAt: number };
+
+/** Banyaknya entri per panggilan list(). 1000 = batas atas Supabase Storage. */
+const LIST_PAGE = 1000;
+
+/**
+ * Semua objek di bawah satu prefix jenis unggahan, menembus partisi bulanan.
+ *
+ * `list()` Supabase tidak rekursif: memanggilnya pada `tiket` mengembalikan
+ * folder bulan (`2026-08`, …), bukan berkasnya. Jadi penelusuran di sini dua
+ * lapis — daftar bulan dulu, lalu isi tiap bulan. Entri folder dikenali dari
+ * `id === null`.
+ *
+ * Melempar bila Supabase menjawab error, dan itu disengaja: pemanggilnya
+ * menghapus berkas berdasarkan hasil fungsi ini. Daftar yang diam-diam
+ * terpotong akan tampak seperti "berkasnya sudah tidak ada" dan berujung pada
+ * penghapusan yang salah.
+ */
+export async function listObjectsByKind(
+  kind: UploadKind
+): Promise<StoredObject[]> {
+  const supa = getSupabaseAdmin();
+  if (!supa) return [];
+  const bucket = supa.storage.from(BUCKET);
+
+  const { data: folders, error: errFolder } = await bucket.list(kind, {
+    limit: LIST_PAGE,
+  });
+  if (errFolder) throw new Error(errFolder.message);
+
+  const hasil: StoredObject[] = [];
+  for (const folder of folders || []) {
+    if (folder.id !== null) continue; // berkas nyasar di akar prefix
+    for (let offset = 0; ; offset += LIST_PAGE) {
+      const dir = `${kind}/${folder.name}`;
+      const { data: files, error } = await bucket.list(dir, {
+        limit: LIST_PAGE,
+        offset,
+      });
+      if (error) throw new Error(error.message);
+      for (const f of files || []) {
+        if (f.id === null) continue;
+        hasil.push({
+          path: `${dir}/${f.name}`,
+          createdAt: Date.parse(f.created_at ?? "") || 0,
+        });
+      }
+      if (!files || files.length < LIST_PAGE) break;
+    }
+  }
+  return hasil;
+}
+
+/**
+ * Hapus objek berdasarkan path-nya. Dipisah dari removeByPublicUrl() karena
+ * penyapu bekerja dari hasil list() — ia memegang path, bukan URL publik.
+ */
+export async function removeByPath(paths: string[]): Promise<number> {
+  if (paths.length === 0) return 0;
+  const supa = getSupabaseAdmin();
+  if (!supa) return 0;
+
+  const { error } = await supa.storage.from(BUCKET).remove(paths);
+  if (error) {
+    console.warn("[storage] gagal menghapus objek:", error.message);
+    return 0;
+  }
+  return paths.length;
+}

@@ -7,7 +7,13 @@ import { BUCKET, buildObjectPath } from "@/lib/storage";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const MAX_SIZE = 5 * 1024 * 1024; // 5MB — sama dengan file_size_limit bucket
+/**
+ * DDOS-02: lebih ketat daripada /api/upload (5MB) dan daripada batas bucket,
+ * karena endpoint ini satu-satunya yang menulis ke Storage TANPA login. Foto
+ * keluhan dari kamera ponsel muat di 2MB; selisih 3MB itu tidak menambah
+ * kegunaan apa pun bagi pelapor, tapi melipattigakan biaya banjir unggahan.
+ */
+const MAX_SIZE = 2 * 1024 * 1024;
 
 /** Hanya tipe gambar yang memang dilayani bucket `assets` (02-storage.sql). */
 const ALLOWED: Record<string, string> = {
@@ -54,7 +60,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Berkas kosong." }, { status: 400 });
     }
     if (file.size > MAX_SIZE) {
-      return NextResponse.json({ error: "Maksimal 5MB." }, { status: 400 });
+      return NextResponse.json({ error: "Maksimal 2MB." }, { status: 400 });
     }
 
     // Ekstensi diturunkan dari MIME type yang di-allowlist — TIDAK pernah

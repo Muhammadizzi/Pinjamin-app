@@ -23,6 +23,12 @@ import crypto from "node:crypto";
 import { buildDemoTickets, buildDemoMessages } from "./ticket-seed";
 import { getSupabaseAdmin } from "./supabase-server";
 import {
+  listObjectsByKind,
+  objectPathFromPublicUrl,
+  removeByPath,
+  removeByPublicUrl,
+} from "./storage";
+import {
   ATTACHMENTS_MAX,
   MESSAGE_MAX,
   RECENT_TICKETS_DAYS,
@@ -723,17 +729,51 @@ export async function updateTicket(
   return next;
 }
 
+/**
+ * Semua URL lampiran milik satu tiket — pada tiketnya sendiri maupun pada
+ * setiap pesan di thread-nya, termasuk catatan internal.
+ *
+ * `includeNotes` sengaja true di sini: fungsi ini dipakai untuk MEMBERSIHKAN,
+ * bukan untuk menampilkan. Lampiran pada baris NOTE lama tetap menempati
+ * ruang di bucket, dan melewatkannya berarti menyisakan berkas yatim yang
+ * tidak ada lagi barisnya di database.
+ */
+async function attachmentUrlsOf(ticket: Ticket): Promise<string[]> {
+  const urls = ticket.attachments.map((a) => a.url);
+  const messages = await listMessages(ticket.id, true).catch(() => []);
+  for (const m of messages) urls.push(...m.attachments.map((a) => a.url));
+  return urls;
+}
+
+/**
+ * DDOS-02: hapus tiket BESERTA objek lampirannya di Storage.
+ *
+ * Sebelumnya penghapusan hanya menyentuh database. `ticket_messages` memang
+ * ikut terhapus lewat ON DELETE CASCADE, tapi berkas di bucket tidak dirujuk
+ * cascade mana pun — ia tertinggal selamanya, tanpa satu pun baris yang
+ * menunjuknya. Bucket `assets` dengan demikian hanya pernah bertambah.
+ *
+ * URL dikumpulkan SEBELUM baris dihapus: setelah cascade berjalan, tidak ada
+ * lagi cara mengetahui berkas mana milik tiket ini.
+ */
 export async function deleteTicket(id: string): Promise<boolean> {
   const supa = getSupabaseAdmin();
   if (supa) {
-    // ticket_messages punya ON DELETE CASCADE — pesan ikut terhapus di DB.
+    const sebelum = await getTicketById(id);
+    const urls = sebelum ? await attachmentUrlsOf(sebelum) : [];
+
     const { data, error } = await supa
       .from(TABLE)
       .delete()
       .eq("id", id)
       .select("id");
     if (error) throw new Error(error.message);
-    return (data || []).length > 0;
+    const terhapus = (data || []).length > 0;
+
+    // Best-effort, sama seperti penghapusan foto aset: berkas yang gagal
+    // dihapus tidak boleh membatalkan penghapusan tiket yang sudah terjadi.
+    if (terhapus && urls.length) await removeByPublicUrl(urls);
+    return terhapus;
   }
 
   const all = loadFile();
@@ -742,6 +782,111 @@ export async function deleteTicket(id: string): Promise<boolean> {
   persistFile(next);
   persistMessagesFile(loadMessagesFile().filter((m) => m.ticketId !== id));
   return true;
+}
+
+/* ------------------------------------------------------------------ */
+/* Penyapu lampiran yatim (DDOS-02)                                    */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Umur minimum sebuah berkas sebelum boleh dianggap yatim.
+ *
+ * Lampiran diunggah SEBELUM tiketnya ada — pelapor masih mengisi formulir —
+ * jadi selalu ada jendela ketika sebuah berkas sah tapi belum dirujuk baris
+ * mana pun. Jendela itu tidak boleh sempit: formulir yang ditinggal semalam
+ * lalu dilanjutkan pagi harinya masih harus menemukan lampirannya utuh.
+ */
+export const ORPHAN_GRACE_MS = 24 * 60 * 60 * 1000;
+
+/** Baris per halaman saat mengumpulkan rujukan. */
+const REF_PAGE = 1000;
+
+export type SweepResult = {
+  diperiksa: number;
+  dihapus: number;
+  dipertahankan: number;
+};
+
+/**
+ * Semua path objek yang masih dirujuk sebuah baris, dari tiket maupun pesan.
+ *
+ * Dipaginasi eksplisit. PostgREST memotong hasil di 1.000 baris secara diam-
+ * diam, dan di sinilah pemotongan itu paling berbahaya: rujukan yang tidak
+ * ikut terbaca membuat berkasnya tampak yatim, lalu terhapus padahal masih
+ * dipakai tiket yang hidup.
+ */
+async function collectReferencedPaths(): Promise<Set<string>> {
+  const supa = getSupabaseAdmin();
+  const dirujuk = new Set<string>();
+  if (!supa) return dirujuk;
+
+  for (const tabel of [TABLE, MSG_TABLE]) {
+    for (let dari = 0; ; dari += REF_PAGE) {
+      const { data, error } = await supa
+        .from(tabel)
+        .select("attachments")
+        .range(dari, dari + REF_PAGE - 1);
+      if (error) throw new Error(error.message);
+      for (const row of data || []) {
+        const lampiran = (row as { attachments?: TicketAttachment[] })
+          .attachments;
+        for (const a of lampiran || []) {
+          const p = objectPathFromPublicUrl(a?.url);
+          if (p) dirujuk.add(p);
+        }
+      }
+      if (!data || data.length < REF_PAGE) break;
+    }
+  }
+  return dirujuk;
+}
+
+/**
+ * Hapus berkas di folder `tiket/` yang tidak dirujuk baris mana pun.
+ *
+ * DDOS-02: `/api/tickets/upload` menerima berkas tanpa login dan sebelum
+ * tiketnya ada, sementara tidak ada satu pun jalur yang pernah menghapusnya.
+ * Formulir yang ditinggal — atau permintaan berulang dari satu penyerang —
+ * menaruh objek permanen di bucket. Tanpa penyapu ini, bucket `assets` hanya
+ * pernah bertambah sampai kuota Supabase habis, dan yang gagal setelah itu
+ * adalah lampiran pelapor yang sah.
+ *
+ * Urutannya penting dan tidak boleh dibalik: rujukan dikumpulkan LEBIH DULU,
+ * baru isi bucket didaftar. Terbalik, berkas yang diunggah di antara kedua
+ * langkah akan terlihat yatim. Dengan urutan ini, yang terburuk terjadi
+ * adalah berkas baru terlewat pada sapuan ini dan tersapu pada sapuan
+ * berikutnya — kesalahan yang bisa dipulihkan, tidak seperti menghapus
+ * lampiran hidup.
+ *
+ * Melempar bila pengumpulan rujukan gagal. Menyapu berdasarkan daftar rujukan
+ * yang tidak lengkap jauh lebih buruk daripada tidak menyapu sama sekali.
+ */
+export async function sweepOrphanAttachments(
+  now = Date.now()
+): Promise<SweepResult> {
+  const supa = getSupabaseAdmin();
+  if (!supa) return { diperiksa: 0, dihapus: 0, dipertahankan: 0 };
+
+  const dirujuk = await collectReferencedPaths();
+  const objek = await listObjectsByKind("tiket");
+
+  const yatim = objek
+    .filter((o) => !dirujuk.has(o.path))
+    .filter((o) => now - o.createdAt > ORPHAN_GRACE_MS)
+    .map((o) => o.path);
+
+  // Supabase membatasi jumlah path per panggilan remove(); dipecah supaya
+  // sapuan pertama pada bucket yang sudah menumpuk tidak gagal seluruhnya.
+  let dihapus = 0;
+  for (let i = 0; i < yatim.length; i += 100) {
+    dihapus += await removeByPath(yatim.slice(i, i + 100));
+  }
+
+  return {
+    diperiksa: objek.length,
+    dihapus,
+    dipertahankan: objek.length - dihapus,
+  };
 }
 
 /* ------------------------------------------------------------------ */

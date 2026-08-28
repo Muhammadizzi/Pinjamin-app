@@ -815,7 +815,7 @@ export default function LandingPage() {
                     <div className="flex items-center justify-between gap-2">
                       <Label>Lampiran (opsional)</Label>
                       <span className="text-[11px] text-slate-500">
-                        Gambar, maks. 5MB
+                        Gambar, maks. 2MB
                       </span>
                     </div>
                     <input
