@@ -17,22 +17,22 @@ Tidak ada migration runner untuk SIGAP (`pnpm db:*` di root milik app
 `@shelf/webapp`, bukan app ini). Semua file di folder ini dijalankan **manual
 dan berurutan** lewat SQL Editor Supabase. Semuanya aman diulang.
 
-| Urutan | File                      | Isi                                                               |
-| ------ | ------------------------- | ----------------------------------------------------------------- |
-| 1      | `01-schema.sql`           | Semua tabel inti                                                  |
-| 2      | `02-storage.sql`          | Bucket `assets` + policy storage awal                             |
-| 3      | `05-auth-hardening.sql`   | Kolom `token_version` di `admins`                                 |
-| 4      | `06-tickets.sql`          | Tabel `tickets` + RLS                                             |
-| 5      | `07-image-columns.sql`    | Kolom `image` untuk `locations`                                   |
-| 6      | `08-missing-columns.sql`  | `tags.color`, `locations.is_parent`, `custom_fields.category_ids` |
-| 7      | `09-tickets-helpdesk.sql` | Thread percakapan, prioritas + SLA, lampiran tiket                |
-| 8      | `10-sla-pause.sql`        | Jeda SLA (stop-the-clock saat menunggu pelapor)                   |
-| 9      | `11-admin-roles.sql`      | Kolom `role` + `working_order` di `admins`                        |
-| 10     | `12-status-simplify.sql`  | Status tiket jadi `OPEN` → `IN_PROGRESS` → `RESOLVED`             |
-| 11     | `13-status-on-hold.sql`   | Status tiket `ON_HOLD` di antara Open dan Diproses                |
-| 12     | `14-registri-aset.sql`    | Kondisi aset, kolom `owner` & `spec`, tabel `asset_holders`       |
-| 13     | `03-seed.sql`             | _opsional_ — data contoh                                          |
-| 14     | `04-enable-rls.sql`       | **paling akhir**, setelah app ter-deploy                          |
+| Urutan | File                      | Isi                                                         |
+| ------ | ------------------------- | ----------------------------------------------------------- |
+| 1      | `01-schema.sql`           | Semua tabel inti                                            |
+| 2      | `02-storage.sql`          | Bucket `assets` + policy storage awal                       |
+| 3      | `05-auth-hardening.sql`   | Kolom `token_version` di `admins`                           |
+| 4      | `06-tickets.sql`          | Tabel `tickets` + RLS                                       |
+| 5      | `07-image-columns.sql`    | Kolom `image` untuk `locations`                             |
+| 6      | `08-missing-columns.sql`  | `tags.color`, `locations.is_parent`                         |
+| 7      | `09-tickets-helpdesk.sql` | Thread percakapan, prioritas + SLA, lampiran tiket          |
+| 8      | `10-sla-pause.sql`        | Jeda SLA (stop-the-clock saat menunggu pelapor)             |
+| 9      | `11-admin-roles.sql`      | Kolom `role` + `working_order` di `admins`                  |
+| 10     | `12-status-simplify.sql`  | Status tiket jadi `OPEN` → `IN_PROGRESS` → `RESOLVED`       |
+| 11     | `13-status-on-hold.sql`   | Status tiket `ON_HOLD` di antara Open dan Diproses          |
+| 12     | `14-registri-aset.sql`    | Kondisi aset, kolom `owner` & `spec`, tabel `asset_holders` |
+| 13     | `03-seed.sql`             | _opsional_ — data contoh                                    |
+| 14     | `04-enable-rls.sql`       | **paling akhir**, setelah app ter-deploy                    |
 
 `15-drop-modul-lama.sql` **tidak** termasuk urutan setup. Itu skrip pembersih
 tabel `bookings`/`kits`/`audits`/`custom_fields`/`custodians`/`asset_models`

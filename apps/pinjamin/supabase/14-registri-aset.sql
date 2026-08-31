@@ -46,10 +46,21 @@ ALTER TABLE assets ADD COLUMN IF NOT EXISTS spec TEXT;
 --    Pemilik lama tersimpan sebagai relasi ke tabel custodians. Salin namanya
 --    ke kolom teks baru supaya data yang sudah ada tidak hilang saat relasi
 --    itu ditinggalkan.
-UPDATE assets a
-SET owner = c.name
-FROM custodians c
-WHERE a.custodian_id = c.id AND a.owner IS NULL;
+--    Dijaga keberadaan tabelnya: instalasi BARU tidak pernah punya
+--    custodians (01-schema.sql tidak lagi membuatnya), dan UPDATE tanpa
+--    penjaga ini akan menggagalkan seluruh skrip di database yang bersih.
+DO $$
+BEGIN
+  IF to_regclass('public.custodians') IS NOT NULL
+     AND EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name = 'assets' AND column_name = 'custodian_id')
+  THEN
+    UPDATE assets a
+    SET owner = c.name
+    FROM custodians c
+    WHERE a.custodian_id = c.id AND a.owner IS NULL;
+  END IF;
+END $$;
 
 -- 3. Riwayat pemakai ----------------------------------------------------
 --    to_date NULL = pemakai sekarang. Saat admin mengganti pemilik, baris

@@ -1,5 +1,5 @@
 -- ============================================================
--- PINJAMIN - 07 KOLOM GAMBAR untuk locations & kits
+-- SIGAP - 07 KOLOM GAMBAR untuk locations
 -- Jalankan SETELAH 01-schema.sql. Aman diulang (IF NOT EXISTS).
 --
 -- Kenapa perlu: halaman Lokasi dan Kit sudah punya komponen unggah foto, dan
@@ -11,17 +11,14 @@
 -- ============================================================
 
 ALTER TABLE locations ADD COLUMN IF NOT EXISTS image TEXT;
-ALTER TABLE kits      ADD COLUMN IF NOT EXISTS image TEXT;
 
 COMMENT ON COLUMN locations.image IS
   'URL publik Supabase Storage (folder lokasi/) atau data URL base64 mode offline.';
-COMMENT ON COLUMN kits.image IS
-  'URL publik Supabase Storage (folder kit/) atau data URL base64 mode offline.';
 
 -- Verifikasi
 SELECT table_name, column_name, data_type
 FROM information_schema.columns
 WHERE table_schema = 'public'
   AND column_name = 'image'
-  AND table_name IN ('locations', 'kits')
+  AND table_name = 'locations'
 ORDER BY table_name;
