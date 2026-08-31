@@ -1,7 +1,7 @@
 -- ============================================================
--- PINJAMIN - 01 SCHEMA (BUAT DATABASE BARU SESUAI PRD §9)
+-- SIGAP - 01 SCHEMA (BUAT DATABASE BARU SESUAI PRD §9)
 -- Jalankan SETELAH 00-reset-drop.sql
--- PRD v1.1 - Garuda Food - Single workspace
+-- PRD v2.0 - Garudafood - Single workspace
 -- ============================================================
 
 -- Extensions
@@ -19,7 +19,7 @@ CREATE TABLE admins (
   created_at TIMESTAMPTZ DEFAULT now() NOT NULL,
   updated_at TIMESTAMPTZ DEFAULT now() NOT NULL
 );
-COMMENT ON TABLE admins IS 'Admin login - PRD §4.1 hanya 1 role';
+COMMENT ON TABLE admins IS 'Admin login - PRD §4.1: peran ASSET & HELPDESK';
 
 -- 2. CATEGORIES
 CREATE TABLE categories (

@@ -1,5 +1,5 @@
 /**
- * Auth admin SIGAP (PRD §6.1 / §15).
+ * Auth admin SIGAP (PRD §6.1).
  *
  * - Login username + password (bukan email).
  * - Password bcrypt, tidak pernah plaintext.
