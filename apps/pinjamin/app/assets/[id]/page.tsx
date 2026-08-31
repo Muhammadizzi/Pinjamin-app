@@ -25,6 +25,7 @@ import {
   Printer,
 } from "lucide-react";
 import { AssetImage } from "@/components/ui/asset-image";
+import { AssetHoldersCard } from "@/components/asset-holders-card";
 
 export default function AssetDetailPage() {
   const params = useParams();
@@ -164,6 +165,8 @@ export default function AssetDetailPage() {
                 </div>
               </CardContent>
             </Card>
+
+            <AssetHoldersCard assetId={asset.id} />
 
             <Card>
               <CardHeader>

@@ -374,6 +374,33 @@ export const messages = {
   assetName: ["Nama Aset", "Asset Name"],
   descriptionPlaceholder: ["Deskripsi aset...", "Asset description..."],
   ownerLabel: ["Pemilik", "Owner"],
+  holderHistory: ["Riwayat Pemakai", "Holder History"],
+  addHandover: ["Serah Terima", "Handover"],
+  holderName: ["Nama Pemakai", "Holder Name"],
+  holderDepartment: ["Departemen", "Department"],
+  holderDepartmentPlaceholder: ["QC, Produksi, IT...", "QC, Production, IT..."],
+  holderFromDate: ["Sejak Tanggal", "Held Since"],
+  holderFromDateHint: [
+    "Kosongkan untuk hari ini. Isi tanggal lampau untuk mencatat pemakai lama.",
+    "Leave empty for today. Set a past date to record a previous holder.",
+  ],
+  holderSince: [
+    "Pemakai sekarang, sejak {date}",
+    "Current holder, since {date}",
+  ],
+  noHolderYet: [
+    "Belum ada riwayat pemakai untuk aset ini.",
+    "No holder history for this asset yet.",
+  ],
+  loadingShort: ["Memuat…", "Loading…"],
+  confirmDeleteHolder: [
+    'Hapus riwayat "{name}"?',
+    'Delete "{name}" from history?',
+  ],
+  confirmDeleteHolderBody: [
+    "Baris riwayat ini dihapus permanen. Kolom Pemilik akan mengikuti baris yang tersisa.",
+    "This history row is deleted permanently. The Owner field follows whichever row remains.",
+  ],
   ownerPlaceholder: ["Nama pemegang aset", "Asset holder name"],
   specLabel: ["Spesifikasi", "Specification"],
   specPlaceholder: [
