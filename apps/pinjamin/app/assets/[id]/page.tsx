@@ -149,6 +149,9 @@ export default function AssetDetailPage() {
                       <Calendar className="h-4 w-4 text-muted-foreground" />{" "}
                       {t("createdLabel")}: {formatDate(asset.createdAt)}
                     </div>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      {t("lastUpdate", { date: formatDate(asset.updatedAt) })}
+                    </div>
                   </div>
                   <div className="space-y-3">
                     <div>
@@ -167,36 +170,6 @@ export default function AssetDetailPage() {
             </Card>
 
             <AssetHoldersCard assetId={asset.id} />
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">
-                  {t("historyAndNotes")}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {asset.notes.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    {t("noNotesYet")}
-                  </p>
-                ) : (
-                  asset.notes.map((n) => (
-                    <div
-                      key={n.id}
-                      className="rounded-xl border p-3 bg-slate-50 dark:bg-slate-800/50"
-                    >
-                      <div className="text-sm">{n.content}</div>
-                      <div className="text-xs text-muted-foreground mt-1">
-                        {formatDate(n.createdAt)} • {n.type}
-                      </div>
-                    </div>
-                  ))
-                )}
-                <div className="text-xs text-muted-foreground">
-                  {t("lastUpdate", { date: formatDate(asset.updatedAt) })}
-                </div>
-              </CardContent>
-            </Card>
           </div>
 
           <div className="space-y-6">

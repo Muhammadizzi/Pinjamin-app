@@ -374,7 +374,7 @@ export const messages = {
   assetName: ["Nama Aset", "Asset Name"],
   descriptionPlaceholder: ["Deskripsi aset...", "Asset description..."],
   ownerLabel: ["Pemilik", "Owner"],
-  holderHistory: ["Riwayat Pemakai", "Holder History"],
+  holderHistory: ["Riwayat & Catatan", "History & Notes"],
   addHandover: ["Serah Terima", "Handover"],
   holderName: ["Nama Pemakai", "Holder Name"],
   holderDepartment: ["Departemen", "Department"],
@@ -442,8 +442,6 @@ export const messages = {
   noDescription: ["Tanpa deskripsi", "No description"],
   createdLabel: ["Dibuat", "Created"],
   serialLabel: ["Serial", "Serial"],
-  historyAndNotes: ["Riwayat & Catatan", "History & Notes"],
-  noNotesYet: ["Belum ada catatan.", "No notes yet."],
   lastUpdate: ["Update terakhir: {date}", "Last updated: {date}"],
   scanForQuickAction: ["Scan untuk aksi cepat", "Scan for quick actions"],
   qrPngFailed: [
