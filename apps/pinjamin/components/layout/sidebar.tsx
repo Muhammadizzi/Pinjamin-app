@@ -355,7 +355,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
             SIGAP
           </div>
           <div className="text-[11px] text-[#fbd38d] font-medium tracking-widest uppercase">
-            Garuda Food
+            Garudafood
           </div>
         </div>
         <div
@@ -546,13 +546,13 @@ export function TopBar({ onMenu }: { onMenu: () => void }) {
         {/* Badge disembunyikan di layar <640px: bersama switcher mode dan
             avatar, header jadi pecah dua baris di ponsel 375px. */}
         <span className="hidden sm:inline text-[10px] px-1.5 py-0.5 rounded bg-[#CBA12C] text-[#1a365d] font-bold whitespace-nowrap">
-          GARUDA FOOD
+          GARUDAFOOD
         </span>
       </Link>
       <div className="hidden lg:flex items-center gap-2 text-sm">
         <span className="text-[#CBA12C] font-bold tracking-wide">SIGAP</span>
         <span className="text-white/20">/</span>
-        <span className="text-white/60 font-medium">Garuda Food</span>
+        <span className="text-white/60 font-medium">Garudafood</span>
         <span className="ml-3 hidden xl:inline-flex items-center gap-2 text-xs text-white/40">
           <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
           {t("systemActive")}

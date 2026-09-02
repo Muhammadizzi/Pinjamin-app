@@ -94,7 +94,7 @@ export default function HalamanAsetPublik({
           <div className="leading-tight">
             <div className="text-sm font-bold">SIGAP</div>
             <div className="text-[10px] tracking-widest text-slate-400">
-              GARUDA FOOD
+              GARUDAFOOD
             </div>
           </div>
         </div>

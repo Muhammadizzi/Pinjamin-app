@@ -394,7 +394,7 @@ export default function LandingPage() {
                 SIGAP
               </div>
               <div className="text-[10px] text-[#fbd38d] font-medium tracking-widest uppercase whitespace-nowrap">
-                Garuda Food
+                Garudafood
               </div>
             </div>
           </div>
@@ -439,7 +439,7 @@ export default function LandingPage() {
             </span>
           </h1>
           <p className="mt-3 sm:mt-4 text-[13px] sm:text-base text-slate-300/90 leading-relaxed">
-            Portal helpdesk Garuda Food untuk kendala aset, IT, dan fasilitas.
+            Portal helpdesk Garudafood untuk kendala aset, IT, dan fasilitas.
             Laporkan tanpa akun, dapatkan nomor tiket, lalu pantau statusnya
             kapan saja.
           </p>

@@ -8,7 +8,7 @@
  *   │   │  QR  CODE  │     │
  *   │   └────────────┘     │
  *   │    PIN-XXXXXX        │   ← code (bold, mono)
- *   │    Garuda Food       │   ← org (bold)
+ *   │    Garudafood       │   ← org (bold)
  *   └──────────────────────┘
  *
  * Output `.png` resolusi tinggi (1080px) supaya hasil print tajam. Dipakai
@@ -93,7 +93,7 @@ export async function renderQrPngDataUrl({
   svgSelector,
   code,
   title,
-  org = "Garuda Food",
+  org = "Garudafood",
 }: QrPngOptions): Promise<string> {
   if (typeof document === "undefined") throw new Error("Browser only");
   const svgEl = document.querySelector(svgSelector);

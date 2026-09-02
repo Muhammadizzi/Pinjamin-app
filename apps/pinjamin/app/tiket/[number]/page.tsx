@@ -80,7 +80,7 @@ function PortalHeader() {
               SIGAP
             </div>
             <div className="whitespace-nowrap text-[10px] font-medium uppercase tracking-widest text-[#fbd38d]">
-              Garuda Food
+              Garudafood
             </div>
           </div>
         </Link>

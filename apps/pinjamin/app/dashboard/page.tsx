@@ -132,7 +132,7 @@ export default function DashboardPage() {
             <div className="inline-flex items-center gap-2 rounded-full bg-[#1a365d]/5 dark:bg-white/5 border border-[#1a365d]/10 dark:border-white/10 px-3 py-1.5 text-xs backdrop-blur">
               <Sparkles className="h-3 w-3 text-[#CBA12C]" strokeWidth={1.5} />
               <span className="font-semibold tracking-wide">
-                {t("dashboard")} • Garuda Food
+                {t("dashboard")} • Garudafood
               </span>
               <span className="h-3 w-px bg-slate-200 dark:bg-white/10" />
               <span className="text-muted-foreground">

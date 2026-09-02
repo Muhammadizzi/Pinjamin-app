@@ -28,7 +28,7 @@ ON CONFLICT (id) DO NOTHING;
 
 -- LOCATIONS (hierarki)
 INSERT INTO locations (id, name, description, address, parent_id) VALUES
-('30000000-0000-0000-0000-000000000001', 'Gedung Utama', 'Kantor Pusat Garuda Food', 'Jl. Bintaro No.1', NULL),
+('30000000-0000-0000-0000-000000000001', 'Gedung Utama', 'Kantor Pusat Garudafood', 'Jl. Bintaro No.1', NULL),
 ('30000000-0000-0000-0000-000000000002', 'Lantai 2 - IT', 'Ruang IT', 'Gedung Utama Lt.2', '30000000-0000-0000-0000-000000000001'),
 ('30000000-0000-0000-0000-000000000003', 'Gudang A', 'Gudang penyimpanan', 'Area Gudang', NULL),
 ('30000000-0000-0000-0000-000000000004', 'Ruang Meeting Garuda', 'Ruang meeting besar', 'Lt.1', '30000000-0000-0000-0000-000000000001')
