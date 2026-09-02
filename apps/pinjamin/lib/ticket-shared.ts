@@ -166,8 +166,29 @@ export function slaDeadlines(createdAt: string, priority: TicketPriority) {
 /* Daftar tiket terbaru (publik)                                       */
 /* ------------------------------------------------------------------ */
 
-/** Rentang daftar tiket terbaru di landing page. */
-export const RECENT_TICKETS_DAYS = 7;
+/**
+ * Rentang daftar tiket terbaru di landing page, dalam hari.
+ *
+ * Tiket berstatus OPEN DIKECUALIKAN dari batas ini — ia tetap tampil berapa
+ * pun umurnya dan justru naik ke puncak daftar. Daftar publik dengan begitu
+ * bukan sekadar "yang baru masuk", melainkan juga papan tekanan: makin lama
+ * sebuah keluhan diabaikan, makin menonjol ia di halaman yang dibaca semua
+ * karyawan.
+ */
+export const RECENT_TICKETS_DAYS = 1;
+
+/**
+ * Umur tiket SELESAI sebelum dihapus permanen, dalam hari.
+ *
+ * Hanya RESOLVED yang kena. OPEN, ON_HOLD, dan IN_PROGRESS tidak pernah
+ * dihapus otomatis — menghapus tiket yang masih dikerjakan berarti pekerjaan
+ * berjalan lenyap dari panel admin di tengah jalan.
+ *
+ * ⚠️ Penghapusannya PERMANEN dan mencakup seluruh balasan admin. Pelapor yang
+ * membuka Lacak Tiket setelah tenggat ini akan mendapat "tiket tidak
+ * ditemukan". Ini keputusan pemilik produk, 2 September 2026.
+ */
+export const TICKET_RETENTION_DAYS = 1;
 
 /** Batas jumlah baris yang dikirim ke landing page. */
 export const RECENT_TICKETS_MAX = 30;

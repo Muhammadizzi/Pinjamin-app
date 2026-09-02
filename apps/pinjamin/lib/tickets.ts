@@ -32,6 +32,7 @@ import {
   ATTACHMENTS_MAX,
   MESSAGE_MAX,
   RECENT_TICKETS_DAYS,
+  TICKET_RETENTION_DAYS,
   RECENT_TICKETS_MAX,
   TICKET_TOKEN_RE,
   WORKING_ORDER_PREFIX,
@@ -493,21 +494,40 @@ export async function listRecentTickets(
     now - RECENT_TICKETS_DAYS * 24 * 60 * 60 * 1000
   ).toISOString();
 
+  /**
+   * Urutan daftar publik: yang BELUM dikerjakan lebih dulu, dan di antara
+   * sesamanya yang paling lama menunggu di puncak. Sisanya menyusul dari yang
+   * terbaru.
+   *
+   * Urutannya dihitung di sini, bukan lewat ORDER BY: kriterianya gabungan
+   * status dan arah tanggal yang berlawanan antar kelompok — naik untuk yang
+   * terlantar, turun untuk sisanya — dan menuliskannya sebagai satu ekspresi
+   * SQL justru lebih sulit dibaca daripada dua baris ini.
+   */
+  const urutkan = (rows: Ticket[]) =>
+    rows.sort((a, b) => {
+      const aOpen = a.status === "OPEN";
+      const bOpen = b.status === "OPEN";
+      if (aOpen !== bOpen) return aOpen ? -1 : 1;
+      return aOpen
+        ? a.createdAt.localeCompare(b.createdAt) // terlama dulu
+        : b.createdAt.localeCompare(a.createdAt); // terbaru dulu
+    });
+
   const supa = getSupabaseAdmin();
   if (supa) {
+    // OPEN lolos dari batas umur, apa pun tanggalnya.
     const { data, error } = await supa
       .from(TABLE)
       .select("*")
-      .gte("created_at", batas)
-      .order("created_at", { ascending: false })
+      .or(`created_at.gte.${batas},status.eq.OPEN`)
       .limit(RECENT_TICKETS_MAX);
     if (error) throw new Error(error.message);
-    return (data || []).map(rowToTicket);
+    return urutkan((data || []).map(rowToTicket)).slice(0, RECENT_TICKETS_MAX);
   }
-  return [...loadFile()]
-    .filter((t) => t.createdAt >= batas)
-    .sort(byNewest)
-    .slice(0, RECENT_TICKETS_MAX);
+  return urutkan(
+    [...loadFile()].filter((t) => t.createdAt >= batas || t.status === "OPEN")
+  ).slice(0, RECENT_TICKETS_MAX);
 }
 
 /**
@@ -865,6 +885,56 @@ async function collectReferencedPaths(): Promise<Set<string>> {
  * Melempar bila pengumpulan rujukan gagal. Menyapu berdasarkan daftar rujukan
  * yang tidak lengkap jauh lebih buruk daripada tidak menyapu sama sekali.
  */
+/**
+ * Hapus permanen tiket SELESAI yang umurnya lewat TICKET_RETENTION_DAYS.
+ *
+ * ⚠️ Ini menghancurkan data, bukan menyembunyikannya. Balasan admin ikut
+ * terbawa lewat ON DELETE CASCADE di ticket_messages, dan lampirannya menjadi
+ * yatim — karena itu pemanggilnya (cron gc) menjalankan sapuan lampiran
+ * SETELAH ini, dalam proses yang sama, supaya berkasnya tidak tertinggal di
+ * bucket.
+ *
+ * Hanya RESOLVED yang disentuh. Tiket yang masih OPEN, ON_HOLD, atau
+ * IN_PROGRESS tidak pernah dihapus otomatis berapa pun umurnya: menghapus
+ * pekerjaan yang sedang berjalan jauh lebih merugikan daripada menyimpan
+ * beberapa baris lebih lama.
+ */
+export async function purgeResolvedTickets(
+  now = Date.now()
+): Promise<{ dihapus: number }> {
+  const supa = getSupabaseAdmin();
+  if (!supa) return { dihapus: 0 };
+
+  const batas = new Date(
+    now - TICKET_RETENTION_DAYS * 24 * 60 * 60 * 1000
+  ).toISOString();
+
+  // Patokannya resolved_at kalau ada — kapan tiket BERES, bukan kapan ia
+  // dibuat. Tiket yang dikerjakan tiga hari lalu dan baru selesai tadi pagi
+  // belum boleh hilang hari ini. created_at hanya cadangan untuk baris lama
+  // yang resolved_at-nya tidak pernah terisi.
+  const { data, error } = await supa
+    .from(TABLE)
+    .delete()
+    .eq("status", "RESOLVED")
+    .lt("resolved_at", batas)
+    .select("number");
+
+  if (error) throw new Error(error.message);
+
+  const { data: tanpaTanggal, error: err2 } = await supa
+    .from(TABLE)
+    .delete()
+    .eq("status", "RESOLVED")
+    .is("resolved_at", null)
+    .lt("created_at", batas)
+    .select("number");
+
+  if (err2) throw new Error(err2.message);
+
+  return { dihapus: (data?.length || 0) + (tanpaTanggal?.length || 0) };
+}
+
 export async function sweepOrphanAttachments(
   now = Date.now()
 ): Promise<SweepResult> {

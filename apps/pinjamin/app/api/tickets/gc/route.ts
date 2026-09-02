@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "node:crypto";
 import { gateAssetAdmin } from "@/lib/auth";
-import { sweepOrphanAttachments } from "@/lib/tickets";
+import { purgeResolvedTickets, sweepOrphanAttachments } from "@/lib/tickets";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -48,12 +48,16 @@ export async function GET(req: NextRequest) {
   }
 
   try {
+    // Urutannya penting: tiket dibuang DULU, baru lampiran disapu. Terbalik,
+    // lampiran milik tiket yang baru saja dihapus akan tertinggal di bucket
+    // sampai sapuan besok.
+    const tiket = await purgeResolvedTickets();
     const hasil = await sweepOrphanAttachments();
     console.info(
-      `[tickets gc] diperiksa=${hasil.diperiksa} dihapus=${hasil.dihapus}`
+      `[tickets gc] tiket_dihapus=${tiket.dihapus} lampiran_diperiksa=${hasil.diperiksa} lampiran_dihapus=${hasil.dihapus}`
     );
     return NextResponse.json(
-      { ok: true, ...hasil },
+      { ok: true, tiketDihapus: tiket.dihapus, ...hasil },
       { headers: { "Cache-Control": "no-store" } }
     );
   } catch (e) {
