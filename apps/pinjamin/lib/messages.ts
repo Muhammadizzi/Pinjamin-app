@@ -375,15 +375,7 @@ export const messages = {
   descriptionPlaceholder: ["Deskripsi aset...", "Asset description..."],
   ownerLabel: ["Pemilik", "Owner"],
   holderHistory: ["Riwayat & Catatan", "History & Notes"],
-  addHandover: ["Serah Terima", "Handover"],
-  holderName: ["Nama Pemakai", "Holder Name"],
-  holderDepartment: ["Departemen", "Department"],
-  holderDepartmentPlaceholder: ["QC, Produksi, IT...", "QC, Production, IT..."],
-  holderFromDate: ["Sejak Tanggal", "Held Since"],
-  holderFromDateHint: [
-    "Kosongkan untuk hari ini. Isi tanggal lampau untuk mencatat pemakai lama.",
-    "Leave empty for today. Set a past date to record a previous holder.",
-  ],
+  loadingShort: ["Memuat…", "Loading…"],
   holderSince: [
     "Pemakai sekarang, sejak {date}",
     "Current holder, since {date}",
@@ -392,7 +384,6 @@ export const messages = {
     "Belum ada riwayat pemakai untuk aset ini.",
     "No holder history for this asset yet.",
   ],
-  loadingShort: ["Memuat…", "Loading…"],
   confirmDeleteHolder: [
     'Hapus riwayat "{name}"?',
     'Delete "{name}" from history?',
@@ -567,6 +558,17 @@ export const messages = {
   reportsSub: [
     "Laporan & ekspor — SIGAP Garudafood",
     "Reports & exports — SIGAP Garudafood",
+  ],
+  exportCsv: ["Ekspor CSV", "Export CSV"],
+  reportConditionTitle: ["Aset per Kondisi", "Assets by Condition"],
+  reportConditionSub: [
+    "Rekap jumlah aset untuk tiap kondisi barang.",
+    "Asset counts for each physical condition.",
+  ],
+  reportLocationTitle: ["Aset per Lokasi", "Assets by Location"],
+  reportLocationSub: [
+    "Sebaran aset di tiap ruang, gedung, dan area.",
+    "How assets are spread across rooms, buildings, and areas.",
   ],
   reportInventoryTitle: ["Inventaris Aset", "Asset Inventory"],
   reportInventorySub: [

@@ -1,12 +1,9 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { useT } from "@/lib/i18n";
 import { useConfirmDialog } from "@/components/ui/confirm-dialog";
-import { History, Plus, Trash2, Loader2 } from "lucide-react";
+import { History, Trash2 } from "lucide-react";
 
 interface Pemakai {
   id: string;
@@ -20,21 +17,18 @@ interface Pemakai {
 /**
  * Riwayat pemakai aset — sisi admin.
  *
+ * Daftar ini terisi OTOMATIS saat kolom Pemilik pada form aset diubah —
+ * tidak ada pencatatan manual. Yang tersisa di sini hanya menampilkan dan
+ * menghapus baris yang keliru.
+ *
  * Riwayat adalah sumber kebenaran "siapa pemilik sekarang"; kolom
- * `assets.owner` disamakan server setiap kali daftar ini berubah. Karena itu
- * form ini tidak menyentuh kolom owner secara langsung — kalau ia ikut
- * menulis, dua tempat akan saling menimpa dan yang menang tergantung urutan
- * request.
+ * `assets.owner` disamakan server setiap kali daftar ini berubah.
  */
 export function AssetHoldersCard({ assetId }: { assetId: string }) {
   const { t, formatDate } = useT();
   const { ask, confirmDialog } = useConfirmDialog();
   const [daftar, setDaftar] = useState<Pemakai[]>([]);
   const [memuat, setMemuat] = useState(true);
-  const [menyimpan, setMenyimpan] = useState(false);
-  const [galat, setGalat] = useState<string | null>(null);
-  const [buka, setBuka] = useState(false);
-  const [form, setForm] = useState({ name: "", department: "", fromDate: "" });
 
   const muat = useCallback(async () => {
     try {
@@ -54,36 +48,6 @@ export function AssetHoldersCard({ assetId }: { assetId: string }) {
     void muat();
   }, [muat]);
 
-  const simpan = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!form.name.trim()) return;
-    setMenyimpan(true);
-    setGalat(null);
-    try {
-      const res = await fetch(`/api/data/assets/${assetId}/holders`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: form.name,
-          department: form.department,
-          fromDate: form.fromDate || undefined,
-        }),
-      });
-      const j = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setGalat(j.error || t("genericFailed"));
-        return;
-      }
-      setForm({ name: "", department: "", fromDate: "" });
-      setBuka(false);
-      await muat();
-    } catch {
-      setGalat(t("genericFailed"));
-    } finally {
-      setMenyimpan(false);
-    }
-  };
-
   const hapus = (p: Pemakai) =>
     ask({
       title: t("confirmDeleteHolder", { name: p.name }),
@@ -99,86 +63,12 @@ export function AssetHoldersCard({ assetId }: { assetId: string }) {
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between gap-2">
+      <CardHeader>
         <CardTitle className="text-base flex items-center gap-2">
           <History className="h-4 w-4" /> {t("holderHistory")}
         </CardTitle>
-        <Button
-          size="sm"
-          variant="outline"
-          className="rounded-xl"
-          onClick={() => setBuka((v) => !v)}
-        >
-          <Plus className="h-4 w-4" /> {t("addHandover")}
-        </Button>
       </CardHeader>
       <CardContent className="space-y-3">
-        {buka && (
-          <form
-            onSubmit={simpan}
-            className="rounded-xl border bg-slate-50 dark:bg-slate-800/50 p-3 space-y-3"
-          >
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label>{t("holderName")}</Label>
-                <Input
-                  value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  placeholder={t("ownerPlaceholder")}
-                  className="h-10 rounded-xl"
-                  required
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>{t("holderDepartment")}</Label>
-                <Input
-                  value={form.department}
-                  onChange={(e) =>
-                    setForm({ ...form, department: e.target.value })
-                  }
-                  placeholder={t("holderDepartmentPlaceholder")}
-                  className="h-10 rounded-xl"
-                />
-              </div>
-              <div className="space-y-1.5 sm:col-span-2">
-                <Label>{t("holderFromDate")}</Label>
-                <Input
-                  type="date"
-                  value={form.fromDate}
-                  onChange={(e) =>
-                    setForm({ ...form, fromDate: e.target.value })
-                  }
-                  className="h-10 rounded-xl"
-                />
-                <p className="text-xs text-muted-foreground">
-                  {t("holderFromDateHint")}
-                </p>
-              </div>
-            </div>
-            {galat && <p className="text-xs text-red-500">{galat}</p>}
-            <div className="flex gap-2">
-              <Button
-                type="submit"
-                size="sm"
-                disabled={menyimpan}
-                className="rounded-xl"
-              >
-                {menyimpan && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                {t("save")}
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="rounded-xl"
-                onClick={() => setBuka(false)}
-              >
-                {t("cancel")}
-              </Button>
-            </div>
-          </form>
-        )}
-
         {memuat ? (
           <p className="text-sm text-muted-foreground">{t("loadingShort")}</p>
         ) : daftar.length === 0 ? (
