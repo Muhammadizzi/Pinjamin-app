@@ -169,11 +169,11 @@ export function slaDeadlines(createdAt: string, priority: TicketPriority) {
 /**
  * Rentang daftar tiket terbaru di landing page, dalam hari.
  *
- * Tiket berstatus OPEN DIKECUALIKAN dari batas ini — ia tetap tampil berapa
- * pun umurnya dan justru naik ke puncak daftar. Daftar publik dengan begitu
- * bukan sekadar "yang baru masuk", melainkan juga papan tekanan: makin lama
- * sebuah keluhan diabaikan, makin menonjol ia di halaman yang dibaca semua
- * karyawan.
+ * Tiket yang BELUM SELESAI dikecualikan dari batas ini — Open, On Hold, dan
+ * Diproses tetap tampil berapa pun umurnya, dan naik ke puncak dengan urutan
+ * itu. Daftar publik dengan begitu bukan sekadar "yang baru masuk", melainkan
+ * juga papan tekanan: makin lama sebuah keluhan menggantung, makin menonjol
+ * ia di halaman yang dibaca semua karyawan.
  */
 export const RECENT_TICKETS_DAYS = 1;
 

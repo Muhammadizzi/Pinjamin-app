@@ -495,38 +495,51 @@ export async function listRecentTickets(
   ).toISOString();
 
   /**
-   * Urutan daftar publik: yang BELUM dikerjakan lebih dulu, dan di antara
-   * sesamanya yang paling lama menunggu di puncak. Sisanya menyusul dari yang
-   * terbaru.
+   * Peringkat status di daftar publik. Makin kecil, makin ke atas.
    *
-   * Urutannya dihitung di sini, bukan lewat ORDER BY: kriterianya gabungan
-   * status dan arah tanggal yang berlawanan antar kelompok — naik untuk yang
-   * terlantar, turun untuk sisanya — dan menuliskannya sebagai satu ekspresi
-   * SQL justru lebih sulit dibaca daripada dua baris ini.
+   * Urutannya mengikuti seberapa jauh sebuah keluhan dari tuntas: yang belum
+   * disentuh sama sekali di puncak, lalu yang tertahan menunggu pihak lain,
+   * lalu yang sedang dikerjakan. Yang sudah beres turun paling bawah dan
+   * hanya bertahan sehari.
+   */
+  const PERINGKAT: Record<string, number> = {
+    OPEN: 0,
+    ON_HOLD: 1,
+    IN_PROGRESS: 2,
+    RESOLVED: 3,
+  };
+
+  /**
+   * Di dalam kelompok yang BELUM selesai, yang paling lama menunggu naik ke
+   * atas — itu yang membuat daftar ini berfungsi sebagai tekanan. Kelompok
+   * yang sudah selesai justru sebaliknya: yang terbaru dulu, karena di sana
+   * yang menarik adalah kabar terkini, bukan tunggakan.
    */
   const urutkan = (rows: Ticket[]) =>
     rows.sort((a, b) => {
-      const aOpen = a.status === "OPEN";
-      const bOpen = b.status === "OPEN";
-      if (aOpen !== bOpen) return aOpen ? -1 : 1;
-      return aOpen
-        ? a.createdAt.localeCompare(b.createdAt) // terlama dulu
-        : b.createdAt.localeCompare(a.createdAt); // terbaru dulu
+      const pa = PERINGKAT[a.status] ?? 9;
+      const pb = PERINGKAT[b.status] ?? 9;
+      if (pa !== pb) return pa - pb;
+      return a.status === "RESOLVED"
+        ? b.createdAt.localeCompare(a.createdAt)
+        : a.createdAt.localeCompare(b.createdAt);
     });
 
   const supa = getSupabaseAdmin();
   if (supa) {
-    // OPEN lolos dari batas umur, apa pun tanggalnya.
+    // Semua yang belum selesai lolos dari batas umur, apa pun tanggalnya.
     const { data, error } = await supa
       .from(TABLE)
       .select("*")
-      .or(`created_at.gte.${batas},status.eq.OPEN`)
+      .or(`created_at.gte.${batas},status.neq.RESOLVED`)
       .limit(RECENT_TICKETS_MAX);
     if (error) throw new Error(error.message);
     return urutkan((data || []).map(rowToTicket)).slice(0, RECENT_TICKETS_MAX);
   }
   return urutkan(
-    [...loadFile()].filter((t) => t.createdAt >= batas || t.status === "OPEN")
+    [...loadFile()].filter(
+      (t) => t.createdAt >= batas || t.status !== "RESOLVED"
+    )
   ).slice(0, RECENT_TICKETS_MAX);
 }
 
