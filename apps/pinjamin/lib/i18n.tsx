@@ -43,7 +43,7 @@ type I18nValue = {
   formatNumber: (n: number, opts?: Intl.NumberFormatOptions) => string;
   /** Rupiah — mata uangnya tetap IDR, hanya format angkanya yang ikut bahasa. */
   formatCurrency: (n: number) => string;
-  /** Label kondisi aset (GOOD, DAMAGED, MAINTENANCE, RETIRED). */
+  /** Label kondisi aset (GOOD, DAMAGED, MAINTENANCE). */
   assetStatus: (status: string) => string;
   /** Label status tiket helpdesk (OPEN, IN_PROGRESS, RESOLVED). */
   ticketStatus: (status: string) => string;
@@ -63,7 +63,6 @@ const ASSET_STATUS_KEY: Record<string, MessageKey> = {
   GOOD: "statusGood",
   DAMAGED: "statusDamaged",
   MAINTENANCE: "statusMaintenance",
-  RETIRED: "statusRetired",
 };
 
 const TICKET_STATUS_KEY: Record<string, MessageKey> = {

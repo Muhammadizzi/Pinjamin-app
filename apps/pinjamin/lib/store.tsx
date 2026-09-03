@@ -565,12 +565,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         tagsCreated: 0,
       };
       const now = new Date().toISOString();
-      const VALID_STATUS: AssetStatus[] = [
-        "GOOD",
-        "DAMAGED",
-        "MAINTENANCE",
-        "RETIRED",
-      ];
+      const VALID_STATUS: AssetStatus[] = ["GOOD", "DAMAGED", "MAINTENANCE"];
       const supa = isSupabaseConfigured();
       const PALETTE = [
         "#123367",

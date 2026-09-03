@@ -1,9 +1,9 @@
 /**
- * Kondisi fisik aset — menggantikan status peminjaman (AVAILABLE/CHECKED_OUT).
- * MAINTENANCE & RETIRED dipertahankan apa adanya karena maknanya memang sudah
- * soal kondisi barang, bukan soal siapa yang sedang memegang.
+ * Kondisi fisik aset. Tiga keadaan saja — DIHAPUSKAN dibuang atas permintaan
+ * pemilik produk: aset yang tidak dipakai lagi dihapus dari registri, bukan
+ * disimpan dengan penanda, karena stikernya pun sudah dicabut dari barangnya.
  */
-export type AssetStatus = "GOOD" | "DAMAGED" | "MAINTENANCE" | "RETIRED";
+export type AssetStatus = "GOOD" | "DAMAGED" | "MAINTENANCE";
 
 export interface Category {
   id: string;

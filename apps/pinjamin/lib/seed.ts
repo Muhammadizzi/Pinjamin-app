@@ -467,7 +467,7 @@ const assets: Asset[] = [
     id: "gf-ast-016",
     name: "Forklift Diesel Rembang",
     description: "Unit lama — dijadwalkan pensiun",
-    status: "RETIRED",
+    status: "DAMAGED",
     categoryId: "gf-cat-gudang",
     locationId: "gf-loc-rembang",
     qrCode: "PIN-FRK016",

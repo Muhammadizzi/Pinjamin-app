@@ -152,7 +152,6 @@ export default function NewAssetPage() {
                     <option value="MAINTENANCE">
                       {assetStatus("MAINTENANCE")}
                     </option>
-                    <option value="RETIRED">{assetStatus("RETIRED")}</option>
                   </Select>
                 </div>
                 <div className="space-y-2">

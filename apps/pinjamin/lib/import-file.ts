@@ -163,11 +163,6 @@ const STATUS_ALIASES: Record<string, AssetStatus> = {
   perbaikan: "MAINTENANCE",
   servis: "MAINTENANCE",
   service: "MAINTENANCE",
-  retired: "RETIRED",
-  pensiun: "RETIRED",
-  dihapuskan: "RETIRED",
-  scrap: "RETIRED",
-  disposed: "RETIRED",
 };
 
 export type ColumnMapping = Record<number, ImportFieldKey>;

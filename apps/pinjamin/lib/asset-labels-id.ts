@@ -13,7 +13,6 @@ export const STATUS_LABEL_ID: Record<string, string> = {
   GOOD: "Baik",
   DAMAGED: "Rusak",
   MAINTENANCE: "Dalam Perbaikan",
-  RETIRED: "Dihapuskan",
 } satisfies Record<AssetStatus, string>;
 
 /** Kelas warna badge kondisi — dipakai halaman hasil pindai QR. */
@@ -29,9 +28,5 @@ export const STATUS_CLS_ASET: Record<string, { cls: string; dot: string }> = {
   MAINTENANCE: {
     cls: "bg-amber-500/15 text-amber-300 border-amber-500/30",
     dot: "bg-amber-400",
-  },
-  RETIRED: {
-    cls: "bg-slate-500/15 text-slate-300 border-slate-500/30",
-    dot: "bg-slate-400",
   },
 } satisfies Record<AssetStatus, { cls: string; dot: string }>;

@@ -40,8 +40,6 @@ const STATUS_ALIASES: Record<string, AssetStatus> = {
   rusak: "DAMAGED",
   maintenance: "MAINTENANCE",
   perbaikan: "MAINTENANCE",
-  retired: "RETIRED",
-  dihapuskan: "RETIRED",
 };
 
 export function normalizeHeader(h: string) {

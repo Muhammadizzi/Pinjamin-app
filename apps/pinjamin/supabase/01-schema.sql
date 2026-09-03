@@ -55,7 +55,7 @@ CREATE TABLE assets (
   description TEXT,
   -- Kondisi FISIK barang, bukan status peminjaman. Lihat 14-registri-aset.sql
   -- untuk database yang sudah berjalan dengan nilai lama.
-  status VARCHAR(20) NOT NULL DEFAULT 'GOOD' CHECK (status IN ('GOOD','DAMAGED','MAINTENANCE','RETIRED')),
+  status VARCHAR(20) NOT NULL DEFAULT 'GOOD' CHECK (status IN ('GOOD','DAMAGED','MAINTENANCE')),
   category_id UUID REFERENCES categories(id) ON DELETE SET NULL,
   location_id UUID REFERENCES locations(id) ON DELETE SET NULL,
   qr_code VARCHAR(50) UNIQUE NOT NULL,

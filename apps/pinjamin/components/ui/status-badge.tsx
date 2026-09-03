@@ -12,7 +12,6 @@ const VARIANT: Record<string, string> = {
   GOOD: "success",
   DAMAGED: "destructive",
   MAINTENANCE: "warning",
-  RETIRED: "secondary",
 };
 
 export function StatusBadge({

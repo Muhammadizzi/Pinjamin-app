@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { Select } from "@/components/ui/select";
 import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useStore } from "@/lib/store";
@@ -72,7 +73,7 @@ export default function AssetsPage() {
    */
   useEffect(() => {
     const dari = new URLSearchParams(window.location.search).get("status");
-    if (dari && ["GOOD", "DAMAGED", "MAINTENANCE", "RETIRED"].includes(dari)) {
+    if (dari && ["GOOD", "DAMAGED", "MAINTENANCE"].includes(dari)) {
       setStatus(dari);
     }
   }, []);
@@ -253,7 +254,6 @@ export default function AssetsPage() {
                       <option value="MAINTENANCE">
                         {assetStatus("MAINTENANCE")}
                       </option>
-                      <option value="RETIRED">{assetStatus("RETIRED")}</option>
                     </Select>
                   </div>
                   <Select
@@ -804,15 +804,6 @@ export default function AssetsPage() {
   );
 }
 
-function StatusBadge({ status, label }: { status: string; label: string }) {
-  const map: Record<string, string> = {
-    AVAILABLE: "success",
-    CHECKED_OUT: "info",
-    MAINTENANCE: "warning",
-    RETIRED: "secondary",
-  };
-  return <Badge variant={(map[status] as any) || "secondary"}>{label}</Badge>;
-}
 function PackageIcon() {
   return (
     <svg

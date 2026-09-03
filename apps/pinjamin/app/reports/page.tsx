@@ -10,7 +10,7 @@ import { Download, FileSpreadsheet, FileText, BarChart3 } from "lucide-react";
 import Papa from "papaparse";
 
 /** Urutan kondisi di laporan — dari paling sehat ke akhir masa pakai. */
-const CONDITIONS = ["GOOD", "DAMAGED", "MAINTENANCE", "RETIRED"] as const;
+const CONDITIONS = ["GOOD", "DAMAGED", "MAINTENANCE"] as const;
 
 export default function ReportsPage() {
   const { assets, categories, locations } = useStore();

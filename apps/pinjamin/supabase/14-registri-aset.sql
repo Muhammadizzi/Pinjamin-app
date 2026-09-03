@@ -30,14 +30,14 @@ BEGIN
 END $$;
 
 --    AVAILABLE & CHECKED_OUT sama-sama jadi GOOD: keduanya bicara soal siapa
---    yang sedang memegang, bukan soal barangnya rusak. MAINTENANCE & RETIRED
+--    yang sedang memegang, bukan soal barangnya rusak. MAINTENANCE
 --    memang sudah bicara kondisi — dibiarkan.
 UPDATE assets SET status = 'GOOD'
 WHERE status IN ('AVAILABLE', 'CHECKED_OUT');
 
 ALTER TABLE assets ALTER COLUMN status SET DEFAULT 'GOOD';
 ALTER TABLE assets ADD CONSTRAINT assets_status_check
-  CHECK (status IN ('GOOD', 'DAMAGED', 'MAINTENANCE', 'RETIRED'));
+  CHECK (status IN ('GOOD', 'DAMAGED', 'MAINTENANCE'));
 
 -- 2. Pemilik & spesifikasi ---------------------------------------------
 ALTER TABLE assets ADD COLUMN IF NOT EXISTS owner VARCHAR(150);
