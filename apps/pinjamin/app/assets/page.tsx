@@ -16,7 +16,6 @@ import {
   Search,
   Plus,
   Download,
-  Upload,
   QrCode,
   MapPin,
   Tag as TagIcon,
@@ -32,7 +31,6 @@ import {
   AlertCircle,
 } from "lucide-react";
 import * as XLSX from "xlsx";
-import { ImportDialog } from "@/components/import-dialog";
 import { AssetImage } from "@/components/ui/asset-image";
 
 export default function AssetsPage() {
@@ -42,13 +40,11 @@ export default function AssetsPage() {
     locations,
     tags,
     deleteAsset,
-    importAssets,
     loadDemoData,
     isSupabase,
   } = useStore();
   const { t, formatDate, assetStatus } = useT();
   const { ask, confirmDialog } = useConfirmDialog();
-  const [importOpen, setImportOpen] = useState(false);
   /**
    * Panel filter (kategori/lokasi/tag/per-halaman) makan ~280px tinggi di
    * ponsel — daftar aset baru terlihat setelah scroll panjang. Di layar kecil
@@ -167,16 +163,7 @@ export default function AssetsPage() {
           </div>
           {/* Di ponsel: 3 tombol dibagi rata satu baris, label Import
               dipendekkan agar muat tanpa membungkus. */}
-          <div className="grid grid-cols-3 gap-2 sm:flex sm:gap-2">
-            <Button
-              variant="outline"
-              onClick={() => setImportOpen(true)}
-              className="rounded-xl px-2 sm:px-6"
-            >
-              <Upload className="h-4 w-4" />
-              <span className="sm:hidden">{t("importShort")}</span>
-              <span className="hidden sm:inline">{t("importExcel")}</span>
-            </Button>
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:gap-2">
             <Button
               variant="outline"
               onClick={exportCSV}
@@ -514,9 +501,6 @@ export default function AssetsPage() {
                 <Link href="/assets/new">
                   <Button>{t("createFirstAsset")}</Button>
                 </Link>
-                <Button variant="outline" onClick={() => setImportOpen(true)}>
-                  <Upload className="h-4 w-4" /> {t("importExcel")}
-                </Button>
                 {/* Mode Supabase: data contoh dimuat lewat SQL seed, bukan
                     dari sini — loadDemoData tidak menulis ke database. */}
                 {!isSupabase && (
@@ -785,21 +769,6 @@ export default function AssetsPage() {
       </div>
 
       {confirmDialog}
-      <ImportDialog
-        open={importOpen}
-        onClose={() => setImportOpen(false)}
-        onImport={(rows) => {
-          const r = importAssets(rows);
-          setNotice({
-            kind: r.imported > 0 ? "success" : "error",
-            msg:
-              r.imported > 0
-                ? t("importDone", { count: r.imported })
-                : t("importNone"),
-          });
-          return r;
-        }}
-      />
     </AppShell>
   );
 }

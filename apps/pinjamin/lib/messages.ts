@@ -42,7 +42,6 @@ export const messages = {
   delete: ["Hapus", "Delete"],
   save: ["Simpan", "Save"],
   cancel: ["Batal", "Cancel"],
-  close: ["Tutup", "Close"],
   update: ["Perbarui", "Update"],
   detail: ["Detail", "Detail"],
   back: ["Kembali", "Back"],
@@ -289,8 +288,6 @@ export const messages = {
     "{filtered} aset • {total} total",
     "{filtered} assets • {total} total",
   ],
-  importShort: ["Impor", "Import"],
-  importExcel: ["Impor Excel", "Import Excel"],
   exportLabel: ["Ekspor", "Export"],
   newShort: ["Baru", "New"],
   closeNotification: ["Tutup notifikasi", "Close notification"],
@@ -343,14 +340,6 @@ export const messages = {
   exportDone: [
     "{count} aset diekspor ke Excel (.xlsx).",
     "{count} assets exported to Excel (.xlsx).",
-  ],
-  importDone: [
-    "{count} aset diimpor dari spreadsheet.",
-    "{count} assets imported from the spreadsheet.",
-  ],
-  importNone: [
-    "Tidak ada baris yang masuk (mungkin semua duplikat).",
-    "No rows were imported (they may all be duplicates).",
   ],
   colName: ["Nama", "Name"],
   colStatus: ["Kondisi", "Condition"],
@@ -729,57 +718,7 @@ export const messages = {
   rememberDurationShort: ["12 jam", "12 hours"],
 
   // ---------- Dialog impor ----------
-  importTitle: ["Impor dari Excel / CSV", "Import from Excel / CSV"],
-  importSubtitle: [
-    "Tidak perlu template — kolom dideteksi otomatis, bisa Anda sesuaikan.",
-    "No template needed — columns are detected automatically and you can adjust them.",
-  ],
-  readingFile: ["Membaca file…", "Reading file…"],
-  dropOrPickFile: ["Jatuhkan atau pilih file", "Drop a file or choose one"],
-  importFileHint: [
-    ".xlsx · .xls · .csv · .ods — header bebas (Nama / Barang / Asset, Lokasi, Kategori, …)",
-    ".xlsx · .xls · .csv · .ods — any headers (Name / Item / Asset, Location, Category, …)",
-  ],
-  importReadFailed: ["Gagal membaca file.", "Could not read the file."],
-  sheetLabel: ["Sheet: {name}", "Sheet: {name}"],
-  rowsReady: ["{count} baris siap impor", "{count} rows ready to import"],
-  rowsSkippedNoName: [
-    " · {count} tanpa nama dilewati",
-    " · {count} without a name skipped",
-  ],
-  changeFile: ["Ganti file", "Change file"],
-  nameNotMapped: [
-    "Kolom Nama aset belum terpetakan. Pilih kolom yang berisi nama barang di bawah.",
-    "The Asset name column is not mapped yet. Pick the column holding item names below.",
-  ],
-  columnMapping: ["Pemetaan kolom", "Column mapping"],
-  columnN: ["Kolom {n}", "Column {n}"],
-  previewCount: [
-    "Pratinjau ({shown} dari {total})",
-    "Preview ({shown} of {total})",
-  ],
-  colPic: ["PIC", "PIC"],
-  importNRows: ["Impor {count} baris", "Import {count} rows"],
-  importedSummary: ["{count} aset masuk", "{count} assets imported"],
-  createdCategories: ["{count} kategori baru", "{count} new categories"],
-  createdLocations: ["{count} lokasi baru", "{count} new locations"],
-  createdTags: ["{count} tag baru", "{count} new tags"],
-  skippedRows: [
-    " {count} baris dilewati (duplikat QR / nama kosong).",
-    " {count} rows skipped (duplicate QR / empty name).",
-  ],
   // Label field pemetaan impor
-  importFieldName: ["Nama aset", "Asset name"],
-  importFieldStatus: ["Status", "Status"],
-  importFieldCategory: ["Kategori", "Category"],
-  importFieldLocation: ["Lokasi", "Location"],
-  importFieldQr: ["Kode QR / kode aset", "QR code / asset code"],
-  importFieldValue: ["Nilai / harga", "Value / price"],
-  importFieldSerial: ["Nomor seri", "Serial number"],
-  importFieldDescription: ["Deskripsi / keterangan", "Description / notes"],
-  importFieldCustodian: ["Peminjam / PIC", "Custodian / PIC"],
-  importFieldTags: ["Tag", "Tags"],
-  importFieldSkip: ["Abaikan kolom ini", "Ignore this column"],
 
   // ---------- Lain-lain ----------
   assetPhotoAlt: ["Foto aset", "Asset photo"],
