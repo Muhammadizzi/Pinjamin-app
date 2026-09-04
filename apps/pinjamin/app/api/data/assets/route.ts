@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { gateAssetAdmin, unauthorized } from "@/lib/auth";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
-import { recordOwnerChange } from "@/lib/asset-holders";
 import {
   ASSET_FIELDS,
   pickAllowed,
@@ -58,7 +57,6 @@ export async function POST(req: NextRequest) {
   }
 
   const tagIds: unknown = (body as Record<string, unknown>).tagIds;
-  if (row.owner) await recordOwnerChange(supa, asset.id, row.owner as string);
 
   const validTagIds = Array.isArray(tagIds) ? tagIds.filter(isUuid) : [];
   if (validTagIds.length) {

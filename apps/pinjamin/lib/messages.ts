@@ -380,7 +380,43 @@ export const messages = {
     "Baris riwayat ini dihapus permanen. Kolom Pemilik akan mengikuti baris yang tersisa.",
     "This history row is deleted permanently. The Owner field follows whichever row remains.",
   ],
-  ownerPlaceholder: ["Nama pemegang aset", "Asset holder name"],
+  holderSaveFailed: [
+    "Gagal menyimpan riwayat pemakai.",
+    "Failed to save the holder record.",
+  ],
+  addHolder: ["Catat Pemakai", "Record Holder"],
+  holderName: ["Nama pemakai", "Holder name"],
+  holderDept: ["Departemen", "Department"],
+  holderDeptPlaceholder: ["mis. Produksi, IT, GA", "e.g. Production, IT, GA"],
+  holderFrom: ["Dipakai sejak", "In use since"],
+  holderNote: ["Catatan", "Note"],
+  holderNotePlaceholder: [
+    "Catatan internal, tidak tampil di halaman hasil pindai",
+    "Internal note, not shown on the scan page",
+  ],
+  holderNameRequired: ["Nama pemakai wajib diisi.", "Holder name is required."],
+  endHolder: ["Akhiri", "End"],
+  confirmEndHolder: [
+    'Akhiri pemakaian oleh "{name}"?',
+    'End usage by "{name}"?',
+  ],
+  confirmEndHolderBody: [
+    "Barisnya tetap tersimpan sebagai riwayat, hanya ditutup hari ini. Aset jadi tanpa pemakai sampai dicatat penggantinya.",
+    "The row stays in the history and is simply closed today. The asset has no holder until a successor is recorded.",
+  ],
+  yesEnd: ["Ya, akhiri", "Yes, end it"],
+  holderIsOwner: [
+    "Pemilik aset mengikuti pemakai yang masih berjalan di daftar ini.",
+    "The asset owner follows whichever holder is still active in this list.",
+  ],
+  holderAfterCreate: [
+    "Pemakai aset dicatat lewat kartu Riwayat & Catatan setelah aset tersimpan.",
+    "Asset holders are recorded in the History & Notes card after the asset is saved.",
+  ],
+  holderOnDetail: [
+    "Pemakai aset dicatat lewat kartu Riwayat & Catatan di halaman detail aset, bukan di form ini.",
+    "Asset holders are recorded in the History & Notes card on the asset detail page, not in this form.",
+  ],
   specLabel: ["Spesifikasi", "Specification"],
   specPlaceholder: [
     "Core i5-1135G7, RAM 8GB, SSD 512GB",

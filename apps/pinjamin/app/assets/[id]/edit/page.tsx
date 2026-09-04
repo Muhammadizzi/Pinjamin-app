@@ -184,16 +184,10 @@ export default function EditAssetPage() {
                 </div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>{t("ownerLabel")}</Label>
-                  <Input
-                    value={form.owner || ""}
-                    onChange={(e) =>
-                      setForm({ ...form, owner: e.target.value })
-                    }
-                    placeholder={t("ownerPlaceholder")}
-                    className="h-11 rounded-xl"
-                  />
+                <div className="sm:col-span-2 rounded-xl border border-dashed bg-muted/40 px-3 py-2.5">
+                  <p className="text-xs text-muted-foreground">
+                    {t("holderOnDetail")}
+                  </p>
                 </div>
                 <div className="space-y-2">
                   <Label>{t("specLabel")}</Label>

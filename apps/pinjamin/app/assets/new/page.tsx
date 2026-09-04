@@ -24,7 +24,6 @@ export default function NewAssetPage() {
     name: "",
     description: "",
     status: "GOOD",
-    owner: "",
     spec: "",
     categoryId: "",
     locationId: "",
@@ -52,7 +51,6 @@ export default function NewAssetPage() {
           locationId: form.locationId || undefined,
           // Nilai dihilangkan sesuai request
           serialNumber: nextSerial,
-          owner: form.owner.trim() || undefined,
           spec: form.spec.trim() || undefined,
           tagIds: form.tagIds,
           mainImage: form.mainImage,
@@ -154,16 +152,10 @@ export default function NewAssetPage() {
                     </option>
                   </Select>
                 </div>
-                <div className="space-y-2">
-                  <Label>{t("ownerLabel")}</Label>
-                  <Input
-                    value={form.owner}
-                    onChange={(e) =>
-                      setForm({ ...form, owner: e.target.value })
-                    }
-                    placeholder={t("ownerPlaceholder")}
-                    className="h-11 rounded-xl"
-                  />
+                <div className="sm:col-span-2 rounded-xl border border-dashed bg-muted/40 px-3 py-2.5">
+                  <p className="text-xs text-muted-foreground">
+                    {t("holderAfterCreate")}
+                  </p>
                 </div>
                 <div className="sm:col-span-2 space-y-2">
                   <Label>{t("specLabel")}</Label>

@@ -41,7 +41,9 @@ export const ASSET_FIELDS = [
   "main_image",
   "value",
   "serial_number",
-  "owner",
+  // "owner" sengaja tidak di sini: kolom itu cermin dari asset_holders,
+  // ditulis hanya oleh syncOwnerFromHolders(). Kalau form boleh menulisnya
+  // langsung, nama pemilik dan riwayat bisa mulai bercerita berbeda.
   "spec",
 ];
 

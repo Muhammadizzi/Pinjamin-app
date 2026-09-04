@@ -8,7 +8,6 @@ import {
   isUuid,
 } from "@/lib/resource-config";
 import { removeByPublicUrl } from "@/lib/storage";
-import { recordOwnerChange } from "@/lib/asset-holders";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -55,13 +54,6 @@ export async function PATCH(
       );
     }
     asset = data;
-
-    // Pemilik berubah -> riwayat pemakai menyusul. Hanya saat kolomnya benar-
-    // benar ikut dikirim, supaya penyimpanan yang tidak menyentuh pemilik
-    // tidak menghasilkan baris riwayat palsu.
-    if (Object.prototype.hasOwnProperty.call(patch, "owner")) {
-      await recordOwnerChange(supa, id, patch.owner as string | null);
-    }
   }
 
   const tagIds: unknown = (body as Record<string, unknown>).tagIds;

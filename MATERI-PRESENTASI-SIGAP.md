@@ -1,15 +1,4 @@
-# Materi Presentasi — SIGAP
 
-> Bahan seminar Kerja Praktik, disusun mengikuti kerangka baku laporan KP:
-> analisis kebutuhan → tools → perancangan → hasil → pengujian → kendala.
->
-> Diagram Mermaid bisa di-render lalu di-screenshot ke PPT (GitHub, VS Code +
-> ekstensi Mermaid, atau https://mermaid.live).
->
-> Usulan durasi: **20 menit presentasi + 10 menit tanya jawab**.
-> Total 18 slide. Bagian bertanda ⭑ tidak boleh dilewat.
-
----
 
 # 1. Analisis Kebutuhan & Peran
 
