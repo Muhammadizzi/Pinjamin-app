@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { clientIp, trackLimiter } from "@/lib/auth";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { fromDbRow, isQrCode } from "@/lib/resource-config";
@@ -57,7 +58,7 @@ export async function GET(
     .select(
       `id, qr_code, name, description, status, main_image, serial_number,
        owner, spec, created_at, updated_at,
-       categories(name, color), locations(name)`
+       categories(name, color), locations(name, parent_id)`
     )
     .eq("qr_code", code)
     .maybeSingle();
@@ -89,9 +90,11 @@ export async function GET(
     ...aman
   } = row as typeof row & {
     categories: { name: string; color?: string } | null;
-    locations: { name: string } | null;
+    locations: { name: string; parent_id: string | null } | null;
   };
   void _id;
+
+  const locationPath = await susunJalurLokasi(supa, locations);
 
   return NextResponse.json({
     asset: {
@@ -99,7 +102,62 @@ export async function GET(
       category: categories?.name ?? null,
       categoryColor: categories?.color ?? null,
       location: locations?.name ?? null,
+      locationPath,
     },
     holders: (holders || []).map(fromDbRow),
   });
+}
+
+/**
+ * Rangkai jalur lokasi dari induk terluar sampai ruangannya sendiri.
+ *
+ * Nama ruangan berulang antar pabrik — "Gudang B" bisa ada di Pati maupun
+ * Sumedang. Tanpa jalurnya, orang yang memindai stiker membaca nama yang
+ * benar tapi tidak tahu tempatnya di mana.
+ *
+ * Lokasi tanpa induk tidak memicu kueri tambahan sama sekali; itu kasus yang
+ * paling sering, dan halaman ini dibuka orang di lapangan lewat data seluler.
+ *
+ * Seluruh pohon diambil sekali, bukan satu kueri per tingkat: tabel lokasi
+ * berukuran puluhan baris, dan satu perjalanan bolak-balik jauh lebih murah
+ * daripada beberapa.
+ */
+async function susunJalurLokasi(
+  supa: SupabaseClient,
+  lokasi: { name: string; parent_id: string | null } | null
+): Promise<string[]> {
+  if (!lokasi) return [];
+  if (!lokasi.parent_id) return [lokasi.name];
+
+  const { data, error } = await supa
+    .from("locations")
+    .select("id, name, parent_id");
+  if (error || !data) {
+    console.warn("[public asset] jalur lokasi:", error?.message);
+    return [lokasi.name];
+  }
+
+  const peta = new Map(
+    data.map((l) => [
+      l.id as string,
+      { name: l.name as string, parentId: l.parent_id as string | null },
+    ])
+  );
+
+  const jalur = [lokasi.name];
+  const dilewati = new Set<string>();
+  let naik: string | null = lokasi.parent_id;
+
+  // `parent_id` bisa saling menunjuk kalau kelak ada yang menyusun induk
+  // secara keliru. Tanpa penjagaan ini, halaman publik akan menggantung —
+  // jadi rantai yang berputar dipotong, bukan diikuti.
+  while (naik && !dilewati.has(naik) && jalur.length < 10) {
+    dilewati.add(naik);
+    const induk = peta.get(naik);
+    if (!induk) break;
+    jalur.unshift(induk.name);
+    naik = induk.parentId;
+  }
+
+  return jalur;
 }

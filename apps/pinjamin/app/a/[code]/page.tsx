@@ -26,6 +26,8 @@ interface AsetPublik {
   category?: string | null;
   categoryColor?: string | null;
   location?: string | null;
+  /** Induk terluar sampai ruangannya sendiri. Kosong bila lokasinya belum diisi. */
+  locationPath?: string[] | null;
 }
 
 interface Pemakai {
@@ -157,7 +159,7 @@ export default function HalamanAsetPublik({
 
               <dl className="mt-5 grid grid-cols-1 gap-x-6 gap-y-3 border-t border-[#243a5e] pt-4 text-sm sm:grid-cols-2">
                 <Baris ikon={Tag} label="Kategori" nilai={aset.category} />
-                <Baris ikon={MapPin} label="Lokasi" nilai={aset.location} />
+                <BarisLokasi jalur={aset.locationPath} nama={aset.location} />
                 <Baris ikon={User} label="Pemilik" nilai={aset.owner} />
                 <Baris
                   ikon={Calendar}
@@ -222,6 +224,49 @@ export default function HalamanAsetPublik({
           </div>
         )}
       </main>
+    </div>
+  );
+}
+
+/**
+ * Lokasi berikut induknya — "Pabrik Pati › Gudang B", bukan "Gudang B" saja.
+ *
+ * Nama ruangan berulang antar pabrik, jadi nama daun sendirian tidak cukup
+ * menjawab "ini di mana". Induknya diredupkan supaya yang dicari mata tetap
+ * ruangannya, bukan jalurnya.
+ */
+function BarisLokasi({
+  jalur,
+  nama,
+}: {
+  jalur?: string[] | null;
+  nama?: string | null;
+}) {
+  const rantai = jalur?.length ? jalur : nama ? [nama] : [];
+  return (
+    <div className={rantai.length > 1 ? "sm:col-span-2" : undefined}>
+      <dt className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-slate-500">
+        <MapPin className="h-3.5 w-3.5" strokeWidth={1.5} /> Lokasi
+      </dt>
+      <dd className="mt-0.5">
+        {rantai.length === 0 ? (
+          "-"
+        ) : (
+          <span className="inline-flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+            {rantai.map((nm, i) => (
+              <span
+                key={`${nm}-${i}`}
+                className="inline-flex items-center gap-1.5"
+              >
+                {i > 0 && <span className="text-slate-600">›</span>}
+                <span className={i < rantai.length - 1 ? "text-slate-400" : ""}>
+                  {nm}
+                </span>
+              </span>
+            ))}
+          </span>
+        )}
+      </dd>
     </div>
   );
 }

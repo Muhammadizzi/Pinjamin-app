@@ -50,7 +50,20 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const next = await setAdminPassword(current, newPassword);
+  // Sama seperti ganti profil: kalau tulisannya gagal, jangan bilang berhasil.
+  // Respons "ok" dengan cookie ber-token_version baru sementara database masih
+  // memegang yang lama akan menendang admin keluar begitu cache profil habis,
+  // dengan password yang sebenarnya tidak pernah berubah.
+  let next;
+  try {
+    next = await setAdminPassword(current, newPassword);
+  } catch (e) {
+    console.error("[auth password POST]", e);
+    return NextResponse.json(
+      { error: "Gagal menyimpan password baru." },
+      { status: 500 }
+    );
+  }
   // Token version naik → sesi lain milik admin INI mati. Sesi ini
   // diterbitkan ulang. Admin lain tidak tersentuh: token_version dibaca
   // per baris admin, bukan global.

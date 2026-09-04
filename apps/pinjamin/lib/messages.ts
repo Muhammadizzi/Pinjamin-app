@@ -738,6 +738,10 @@ export const messages = {
     "Password saat ini salah.",
     "The current password is incorrect.",
   ],
+  errUsernameTaken: [
+    "Username itu sudah dipakai admin lain. Pilih yang lain.",
+    "That username is already taken by another admin. Pick another one.",
+  ],
   errSamePassword: [
     "Password baru tidak boleh sama dengan password lama.",
     "The new password must differ from the old one.",

@@ -326,6 +326,23 @@ const ADMIN_SELECTS = [
   "id, username, password_hash, name, avatar_url",
 ];
 
+/** Postgres menolak baris yang menabrak indeks unik. */
+const PG_UNIQUE_VIOLATION = "23505";
+
+/**
+ * Username yang diminta sudah dipegang admin lain.
+ *
+ * Dibedakan dari kegagalan simpan biasa karena penanganannya berbeda: ini
+ * bukan gangguan yang perlu dicoba lagi, melainkan pilihan admin yang harus
+ * diganti — dan pemanggil menerjemahkannya jadi 409, bukan 500.
+ */
+export class UsernameTakenError extends Error {
+  constructor() {
+    super("Username sudah dipakai admin lain.");
+    this.name = "UsernameTakenError";
+  }
+}
+
 /** Error Postgres saat kolom yang diminta belum ada. */
 const isMissingColumn = (message: string) =>
   /column .* does not exist|token_version|working_order|\brole\b/i.test(
@@ -418,19 +435,58 @@ async function saveToSupabase(profile: AdminProfile) {
     working_order: profile.workingOrder,
   };
   const { error } = await supa.from("admins").upsert(row, { onConflict: "id" });
-  if (error) {
-    // Kolom peran / token_version mungkin belum ada di schema lama. Yang
-    // dibuang hanya kolom, bukan barisnya — admin tetap bisa ganti nama dan
-    // password sebelum supabase/11-admin-roles.sql dijalankan.
-    const { role: _r, working_order: _w, token_version: _tv, ...rest } = row;
-    const retry = await supa.from("admins").upsert(rest, { onConflict: "id" });
-    if (retry.error) {
-      console.warn(
-        "[auth] gagal menyimpan admin ke Supabase:",
-        retry.error.message
-      );
-    }
+  if (!error) return;
+  if (error.code === PG_UNIQUE_VIOLATION) throw new UsernameTakenError();
+
+  // Kolom peran / token_version mungkin belum ada di schema lama. Yang dibuang
+  // hanya kolom, bukan barisnya — admin tetap bisa ganti nama dan password
+  // sebelum supabase/11-admin-roles.sql dijalankan. Percobaan ulang ini HANYA
+  // untuk kolom yang hilang: mengulang galat jenis lain cuma menunda kabar
+  // buruknya.
+  if (!isMissingColumn(error.message)) {
+    console.error("[auth] gagal menyimpan admin:", error.message);
+    throw new Error("Gagal menyimpan ke database.");
   }
+
+  const { role: _r, working_order: _w, token_version: _tv, ...rest } = row;
+  const retry = await supa.from("admins").upsert(rest, { onConflict: "id" });
+  if (retry.error) {
+    if (retry.error.code === PG_UNIQUE_VIOLATION)
+      throw new UsernameTakenError();
+    console.error("[auth] gagal menyimpan admin:", retry.error.message);
+    throw new Error("Gagal menyimpan ke database.");
+  }
+}
+
+/**
+ * Apakah username sudah dipegang admin LAIN, tanpa membedakan huruf besar-kecil.
+ *
+ * Indeks unik di database membedakan huruf besar-kecil, sedangkan pencarian
+ * saat login memakai ILIKE. Celah di antara keduanya nyata: "Budi" dan "budi"
+ * boleh hidup berdampingan, lalu ILIKE menemukan dua baris sekaligus dan
+ * .maybeSingle() gagal — kedua admin itu sama-sama tidak bisa masuk.
+ * Pemeriksaan ini menutup celah tersebut sebelum barisnya sempat ditulis.
+ */
+async function usernameDipakaiLain(
+  username: string,
+  selfId: string
+): Promise<boolean> {
+  const supa = getSupabaseAdmin();
+  if (!supa) return false;
+  const pattern = username.replace(/[\\%_]/g, (m) => `\\${m}`);
+  const { data, error } = await supa
+    .from("admins")
+    .select("id")
+    .ilike("username", pattern)
+    .neq("id", selfId)
+    .limit(1);
+  if (error) {
+    // Gagal memeriksa bukan berarti aman. Mengizinkan penggantian di sini
+    // bisa mengunci dua akun sekaligus, jadi yang ditolak adalah penggantiannya.
+    console.error("[auth] cek username bentrok:", error.message);
+    throw new Error("Gagal memeriksa ketersediaan username.");
+  }
+  return (data?.length ?? 0) > 0;
 }
 
 /**
@@ -464,10 +520,13 @@ export async function getAdminByUsername(
 }
 
 async function persistProfile(next: AdminProfile): Promise<AdminProfile> {
-  setProfileCache(next);
   // admin.json hanya sanggup menampung SATU admin. Selama Supabase ada, ia
   // yang jadi sumber kebenaran dan menulis ke file hanya akan menimpa
   // admin.json dengan siapa pun yang terakhir mengubah profilnya.
+  //
+  // Cache diisi SETELAH simpan berhasil, bukan sebelumnya: kalau tulisannya
+  // gagal, cache yang sudah terlanjur berisi profil baru membuat aplikasi
+  // yakin perubahan itu jadi, padahal database masih memegang yang lama.
   if (getSupabaseAdmin()) {
     await saveToSupabase(next);
   } else {
@@ -475,6 +534,7 @@ async function persistProfile(next: AdminProfile): Promise<AdminProfile> {
       console.warn("[auth] gagal tulis admin.json:", (e as Error).message)
     );
   }
+  setProfileCache(next);
   return next;
 }
 
@@ -552,6 +612,12 @@ export async function updateAdminProfile(
   current: AdminProfile,
   patch: Partial<Pick<AdminProfile, "fullName" | "username" | "avatar">>
 ): Promise<AdminProfile> {
+  const namaBaru = patch.username?.trim();
+  if (namaBaru && namaBaru.toLowerCase() !== current.username.toLowerCase()) {
+    if (await usernameDipakaiLain(namaBaru, current.id)) {
+      throw new UsernameTakenError();
+    }
+  }
   return persistProfile({ ...current, ...patch });
 }
 

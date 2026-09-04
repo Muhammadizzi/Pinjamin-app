@@ -88,6 +88,7 @@ const SERVER_ERROR_KEY: Record<string, MessageKey> = {
   serverMisconfigured: "errServerMisconfigured",
   wrongCurrentPassword: "errWrongCurrentPassword",
   samePassword: "errSamePassword",
+  usernameTaken: "errUsernameTaken",
 };
 
 export function I18nProvider({ children }: { children: React.ReactNode }) {

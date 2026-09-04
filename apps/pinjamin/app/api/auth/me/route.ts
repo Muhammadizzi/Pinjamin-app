@@ -6,6 +6,7 @@ import {
   toPublicAdmin,
   unauthorized,
   updateAdminProfile,
+  UsernameTakenError,
 } from "@/lib/auth";
 
 export const runtime = "nodejs";
@@ -42,14 +43,35 @@ export async function PUT(req: NextRequest) {
   }
 
   const { fullName, username, avatar } = parsed.data;
-  const next = await updateAdminProfile(admin, {
-    fullName,
-    username,
-    ...(avatar !== undefined ? { avatar } : {}),
-  });
+
+  // Kegagalan simpan WAJIB sampai ke admin. Sebelumnya galat hanya dicatat di
+  // log lalu respons tetap "ok", padahal cookie sesi sudah diterbitkan ulang
+  // memakai username baru yang tidak pernah masuk database — admin melihat
+  // "profil tersimpan", lalu request berikutnya menendangnya keluar dan nama
+  // barunya tidak bisa dipakai login.
+  let next;
+  try {
+    next = await updateAdminProfile(admin, {
+      fullName,
+      username,
+      ...(avatar !== undefined ? { avatar } : {}),
+    });
+  } catch (e) {
+    if (e instanceof UsernameTakenError) {
+      return NextResponse.json(
+        { code: "usernameTaken", error: e.message },
+        { status: 409 }
+      );
+    }
+    console.error("[auth me PUT]", e);
+    return NextResponse.json(
+      { error: "Gagal menyimpan profil." },
+      { status: 500 }
+    );
+  }
 
   const res = NextResponse.json({ ok: true, profile: toPublicAdmin(next) });
-  if (username !== admin.username) {
+  if (next.username !== admin.username) {
     // Username ada di dalam JWT dan dipakai memuat profil pada request
     // berikutnya — tanpa cookie baru, admin langsung kehilangan sesinya.
     await attachSessionCookie(res, next);
