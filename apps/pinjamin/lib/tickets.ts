@@ -1110,34 +1110,6 @@ async function applyMessageSideEffects(
   return merged;
 }
 
-/** Timpa semua tiket + thread dengan dataset demo Garudafood. */
-export async function loadDemoTickets(): Promise<Ticket[]> {
-  const demo = buildDemoTickets();
-  const demoMessages = buildDemoMessages();
-
-  const supa = getSupabaseAdmin();
-  if (supa) {
-    // Kosongkan dulu (delete butuh filter di PostgREST — id selalu terisi).
-    // ticket_messages ikut terhapus lewat ON DELETE CASCADE.
-    const { error: delErr } = await supa
-      .from(TABLE)
-      .delete()
-      .not("id", "is", null);
-    if (delErr) throw new Error(delErr.message);
-    const { error } = await supa.from(TABLE).insert(demo.map(ticketToRow));
-    if (error) throw new Error(error.message);
-    const { error: msgErr } = await supa
-      .from(MSG_TABLE)
-      .insert(demoMessages.map(messageToRow));
-    if (msgErr) throw new Error(msgErr.message);
-    return listTickets();
-  }
-
-  persistFile(demo);
-  persistMessagesFile(demoMessages);
-  return [...demo].sort(byNewest);
-}
-
 /* ------------------------------------------------------------------ */
 /* Payload publik                                                      */
 /* ------------------------------------------------------------------ */

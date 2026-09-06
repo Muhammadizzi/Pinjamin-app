@@ -432,44 +432,6 @@ export default function TicketsPage() {
               />
               {t("reload")}
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={refreshing}
-              className="rounded-xl flex-1 sm:flex-none"
-              onClick={() =>
-                ask({
-                  title: t("confirmLoadDemoTickets"),
-                  description: t("confirmLoadDemoTicketsBody"),
-                  confirmLabel: t("yesLoadDemo"),
-                  variant: "primary",
-                  action: async () => {
-                    setRefreshing(true);
-                    try {
-                      const res = await fetch("/api/tickets/seed", {
-                        method: "POST",
-                      });
-                      const j = await res.json().catch(() => ({}));
-                      if (!res.ok) {
-                        showNotice("err", j.error || t("demoTicketsFailed"));
-                        return;
-                      }
-                      setTickets(j.tickets || []);
-                      showNotice(
-                        "ok",
-                        t("demoTicketsLoaded", {
-                          count: j.count ?? j.tickets?.length ?? 0,
-                        })
-                      );
-                    } finally {
-                      setRefreshing(false);
-                    }
-                  },
-                })
-              }
-            >
-              <Inbox className="h-4 w-4" /> {t("loadDemoData")}
-            </Button>
           </div>
         </div>
 

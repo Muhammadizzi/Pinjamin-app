@@ -258,13 +258,17 @@ export default function ReportsPage() {
                 {t("reportLocationSub")}
               </p>
             </CardHeader>
-            <CardContent className="space-y-2">
+            {/* Dulu dipotong di 8 lokasi tanpa keterangan apa pun. Laporan yang
+                menghilangkan baris diam-diam lebih berbahaya daripada laporan
+                yang panjang — jadi semuanya ditampilkan, dan daftarnya yang
+                digulung bila kebanyakan. */}
+            <CardContent className="max-h-96 space-y-2 overflow-y-auto">
               {locations.length === 0 && (
                 <p className="text-sm text-muted-foreground">
                   {t("noLocationsYet")}
                 </p>
               )}
-              {locations.slice(0, 8).map((l) => {
+              {locations.map((l) => {
                 const total = assets.filter(
                   (a) => a.locationId === l.id
                 ).length;

@@ -66,7 +66,6 @@ export type StoreContextType = AppData & {
   deleteLocation: (id: string) => void;
   resetData: () => void;
   /** Timpa store dengan data contoh Garudafood (seed). */
-  loadDemoData: () => void;
   isHydrated: boolean;
   isSupabase: boolean;
 };
@@ -634,11 +633,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           "[Supabase] reset requested - clear local only, use SQL 00-reset for DB"
         );
       }
-    },
-    loadDemoData: () => {
-      const next = seedData;
-      setData(next);
-      saveToStorage(next);
     },
   };
 

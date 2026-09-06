@@ -8,16 +8,7 @@ import { Label } from "@/components/ui/label";
 import { useT } from "@/lib/i18n";
 import { useAuth } from "@/lib/auth-client";
 import { uploadImage } from "@/lib/supabase";
-import { useStore } from "@/lib/store";
-import { useConfirmDialog } from "@/components/ui/confirm-dialog";
-import {
-  UserCog,
-  KeyRound,
-  ImagePlus,
-  Trash2,
-  Check,
-  Database,
-} from "lucide-react";
+import { UserCog, KeyRound, ImagePlus, Trash2, Check } from "lucide-react";
 
 type Profile = { username: string; fullName: string; avatar: string };
 
@@ -28,11 +19,6 @@ function initials(p: Profile) {
 export default function AccountSettingsPage() {
   const { t, serverError } = useT();
   const { user, loading: authLoading, setUser } = useAuth();
-  const { loadDemoData, assets, isSupabase } = useStore();
-  const { ask, confirmDialog } = useConfirmDialog();
-  const [demoMsg, setDemoMsg] = useState<{ ok: boolean; text: string } | null>(
-    null
-  );
 
   // --- Profil ------------------------------------------------------------
   const [profile, setProfile] = useState<Profile>({
@@ -340,102 +326,7 @@ export default function AccountSettingsPage() {
             </Button>
           </CardContent>
         </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <Database className="h-4 w-4" /> {t("demoDataSection")}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              {t("demoDataSectionHint")}
-            </p>
-            <p className="text-xs text-slate-500">
-              {t("currentAssetCount", { count: assets.length })}
-            </p>
-            {isSupabase && (
-              /* Mode Supabase: loadDemoData hanya mengubah state di browser
-                 ini dan tidak menulis ke database, jadi data asli kembali
-                 begitu halaman dimuat ulang. Lebih jujur dimatikan daripada
-                 menjanjikan sesuatu yang tidak terjadi. */
-              <div className="text-xs rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-300 px-3 py-2">
-                {t("supabaseSeedNote")}
-              </div>
-            )}
-            {demoMsg && (
-              <div
-                className={`text-sm rounded-xl border px-3 py-2 ${
-                  demoMsg.ok
-                    ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
-                    : "bg-red-500/10 border-red-500/30 text-red-300"
-                }`}
-              >
-                {demoMsg.text}
-              </div>
-            )}
-            <div className="flex flex-wrap gap-2">
-              <Button
-                variant="outline"
-                className="rounded-xl"
-                disabled={isSupabase}
-                onClick={() =>
-                  ask({
-                    title: t("confirmLoadDemoAssets"),
-                    description: t("confirmLoadDemoAssetsBody"),
-                    confirmLabel: t("yesLoadDemoAssets"),
-                    variant: "primary",
-                    action: () => {
-                      loadDemoData();
-                      setDemoMsg({ ok: true, text: t("demoAssetsLoaded") });
-                    },
-                  })
-                }
-              >
-                <Database className="h-4 w-4" /> {t("demoAssetsBtn")}
-              </Button>
-              <Button
-                variant="outline"
-                className="rounded-xl"
-                onClick={() =>
-                  ask({
-                    title: t("confirmLoadDemoTickets"),
-                    description: t("confirmLoadDemoTicketsShortBody"),
-                    confirmLabel: t("yesLoadDemoTickets"),
-                    variant: "primary",
-                    action: async () => {
-                      try {
-                        const res = await fetch("/api/tickets/seed", {
-                          method: "POST",
-                        });
-                        const j = await res.json().catch(() => ({}));
-                        if (!res.ok) {
-                          setDemoMsg({
-                            ok: false,
-                            text: j.error || t("demoTicketsFailed"),
-                          });
-                          return;
-                        }
-                        setDemoMsg({
-                          ok: true,
-                          text: t("demoTicketsLoadedSettings", {
-                            count: j.count ?? 0,
-                          }),
-                        });
-                      } catch {
-                        setDemoMsg({ ok: false, text: t("serverUnreachable") });
-                      }
-                    },
-                  })
-                }
-              >
-                <Database className="h-4 w-4" /> {t("demoTicketsBtn")}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
       </div>
-      {confirmDialog}
     </AppShell>
   );
 }

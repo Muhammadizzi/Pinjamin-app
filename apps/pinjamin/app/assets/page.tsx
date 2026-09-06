@@ -35,15 +35,7 @@ import * as XLSX from "xlsx";
 import { AssetImage } from "@/components/ui/asset-image";
 
 export default function AssetsPage() {
-  const {
-    assets,
-    categories,
-    locations,
-    tags,
-    deleteAsset,
-    loadDemoData,
-    isSupabase,
-  } = useStore();
+  const { assets, categories, locations, tags, deleteAsset } = useStore();
   const { t, formatDate, assetStatus } = useT();
 
   // Jalur lokasi dipetakan sekali, bukan dirakit ulang tiap baris tabel —
@@ -510,22 +502,6 @@ export default function AssetsPage() {
                 <Link href="/assets/new">
                   <Button>{t("createFirstAsset")}</Button>
                 </Link>
-                {/* Mode Supabase: data contoh dimuat lewat SQL seed, bukan
-                    dari sini — loadDemoData tidak menulis ke database. */}
-                {!isSupabase && (
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      loadDemoData();
-                      setNotice({
-                        kind: "success",
-                        msg: t("demoDataLoaded"),
-                      });
-                    }}
-                  >
-                    {t("loadDemoData")}
-                  </Button>
-                )}
               </div>
             </CardContent>
           </Card>
