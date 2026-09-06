@@ -24,6 +24,24 @@ import { useT } from "./i18n";
 
 const STORAGE_KEY = "pinjamin_data_v3_gf";
 
+/**
+ * Keadaan awal sebelum data sungguhan sampai.
+ *
+ * Dulu tempat ini diisi `seedData` — 28 aset contoh. Akibatnya render pertama
+ * setiap halaman admin memuat angka yang tidak ada hubungannya dengan isi
+ * database, dan angka itu sempat terlihat sekejap sebelum data asli menimpanya.
+ *
+ * Kosong lebih jujur. Nol yang berubah jadi angka benar terbaca sebagai "sedang
+ * memuat"; angka salah yang berubah jadi angka benar terbaca sebagai "sistemnya
+ * keliru". Data contoh tetap tersedia lewat tombol yang memang diminta admin.
+ */
+const dataKosong: AppData = {
+  categories: [],
+  tags: [],
+  locations: [],
+  assets: [],
+};
+
 /** Baris hasil parse CSV impor aset (lihat app/assets/page.tsx). */
 
 export type StoreContextType = AppData & {
@@ -68,7 +86,7 @@ function toDbRow(obj: any): any {
 }
 
 function loadFromStorage(): AppData {
-  if (typeof window === "undefined") return seedData;
+  if (typeof window === "undefined") return dataKosong;
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
@@ -129,7 +147,7 @@ async function pushServerStore(data: AppData): Promise<void> {
   if (!res.ok) throw new Error(`PUT /api/store -> ${res.status}`);
 }
 
-/** Ada isi nyata di salah satu koleksi? (seedData = semuanya kosong) */
+/** Ada isi nyata di salah satu koleksi? (dataKosong = semuanya kosong) */
 function hasAnyItems(d: AppData): boolean {
   return Object.values(d).some((v) => Array.isArray(v) && v.length > 0);
 }
@@ -262,7 +280,7 @@ async function apiMutate(
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   // StoreProvider berada DI DALAM I18nProvider (app/layout.tsx), jadi pesan
   const { t } = useT();
-  const [data, setData] = useState<AppData>(seedData);
+  const [data, setData] = useState<AppData>(dataKosong);
   const [isHydrated, setHydrated] = useState(false);
   const [isSupabase, setIsSupabase] = useState(false);
   const [supaError, setSupaError] = useState<string | null>(null);

@@ -50,7 +50,7 @@ export const messages = {
   description: ["Deskripsi", "Description"],
   category: ["Kategori", "Category"],
   location: ["Lokasi", "Location"],
-  custodian: ["Peminjam", "Custodian"],
+  custodian: ["Pemakai", "Holder"],
   value: ["Nilai", "Value"],
   serialNumber: ["Serial Number", "Serial Number"],
   actions: ["Aksi", "Actions"],
@@ -86,8 +86,8 @@ export const messages = {
   // ---------- Dasbor ----------
   dashboard: ["Dasbor", "Dashboard"],
   dashboardSub: [
-    "Ringkasan aset & peminjaman — glass modern, responsif",
-    "Asset & lending overview — modern glass, responsive",
+    "Ringkasan kondisi aset dan data yang masih perlu dilengkapi",
+    "Asset condition overview and data that still needs completing",
   ],
   todayIs: ["Hari ini {date}", "Today {date}"],
   newAsset: ["Aset Baru", "New Asset"],
@@ -311,13 +311,13 @@ export const messages = {
   perPageOption: ["{count} / halaman", "{count} / page"],
   noAssetsYet: ["Belum ada aset", "No assets yet"],
   noAssetsHint: [
-    "Buat manual, impor Excel apa adanya, atau muat data contoh Garudafood.",
-    "Create one manually, import an Excel file as-is, or load the Garudafood sample data.",
+    "Tambahkan aset pertama lewat tombol Aset Baru, atau muat data contoh Garudafood.",
+    "Add your first asset with the New Asset button, or load the Garudafood sample data.",
   ],
   createFirstAsset: ["Buat aset pertama", "Create the first asset"],
   demoDataLoaded: [
-    "Data contoh Garudafood dimuat (aset, lokasi pabrik, peminjaman, audit).",
-    "Garudafood sample data loaded (assets, plant locations, bookings, audits).",
+    "Data contoh Garudafood dimuat (aset, kategori, tag, dan lokasi pabrik).",
+    "Garudafood sample data loaded (assets, categories, tags, and plant locations).",
   ],
   photo: ["Foto", "Photo"],
   viewItem: ["Lihat {name}", "View {name}"],
@@ -458,7 +458,10 @@ export const messages = {
   createdLabel: ["Dibuat", "Created"],
   serialLabel: ["Serial", "Serial"],
   lastUpdate: ["Update terakhir: {date}", "Last updated: {date}"],
-  scanForQuickAction: ["Scan untuk aksi cepat", "Scan for quick actions"],
+  scanForQuickAction: [
+    "Tempel di aset — pindai untuk melihat datanya",
+    "Stick it on the asset — scan to see its data",
+  ],
   qrPngFailed: [
     "Gagal membuat PNG QR. Coba lagi.",
     "Failed to generate the QR PNG. Please try again.",
@@ -676,8 +679,8 @@ export const messages = {
   resetPassword: ["Reset Password", "Reset Password"],
   demoDataSection: ["Data contoh Garudafood", "Garudafood Sample Data"],
   demoDataSectionHint: [
-    "Muat ulang dataset demo: 28 aset, pabrik Pati/Rembang, DC Cikarang, peminjaman, kit, dan audit. Data aset yang ada akan ditimpa.",
-    "Reload the demo dataset: 28 assets, the Pati/Rembang plants, the Cikarang DC, bookings, kits, and audits. Existing asset data is overwritten.",
+    "Muat ulang dataset demo: 28 aset, pabrik Pati/Rembang, dan DC Cikarang. PERINGATAN: seluruh data aset yang ada sekarang akan ditimpa dan tidak bisa dikembalikan.",
+    "Reload the demo dataset: 28 assets, the Pati/Rembang plants, and the Cikarang DC. WARNING: all existing asset data is overwritten and cannot be restored.",
   ],
   currentAssetCount: [
     "Saat ini ada {count} aset di sistem.",
@@ -689,8 +692,8 @@ export const messages = {
   ],
   confirmLoadDemoAssets: ["Muat data aset contoh?", "Load sample asset data?"],
   confirmLoadDemoAssetsBody: [
-    "Seluruh aset, booking, dan master data saat ini akan diganti dengan data dummy Garudafood.",
-    "All current assets, bookings, and master data will be replaced with Garudafood sample data.",
+    "Seluruh aset, kategori, tag, dan lokasi yang ada sekarang akan DIGANTI dengan data contoh Garudafood. Tindakan ini tidak bisa dibatalkan.",
+    "All current assets, categories, tags, and locations will be REPLACED with Garudafood sample data. This cannot be undone.",
   ],
   yesLoadDemoAssets: ["Ya, muat demo aset", "Yes, load demo assets"],
   demoAssetsLoaded: [
