@@ -6,13 +6,14 @@
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Nama Produk**      | SIGAP — Sistem Integrasi Guna Aset & Pelayanan                                                                                                          |
 | **Organisasi**       | Garudafood                                                                                                                                              |
-| **Versi Dokumen**    | 2.0                                                                                                                                                     |
-| **Tanggal**          | 29 Agustus 2026                                                                                                                                         |
+| **Versi Dokumen**    | 2.1 |
+| **Tanggal**          | 6 September 2026 |
 | **Status**           | Menggambarkan sistem yang sudah berjalan di produksi                                                                                                     |
 | **Jenis Aplikasi**   | Web App — registri aset ber-QR (publik, baca-saja) + panel admin + helpdesk                                                                              |
 | **Produksi**         | https://sigapgf.vercel.app                                                                                                                              |
 | **Pembaca dokumen**  | Mentor & tim Garudafood                                                                                                                                 |
 | **Perubahan v2.0**   | Penulisan ulang. v1.1 menggambarkan sistem **peminjaman aset**; modul itu sudah dihapus seluruhnya dan produk berganti arah menjadi **registri aset ber-QR** dengan helpdesk. |
+| **Perubahan v2.1**   | Penyelarasan dengan kode. Pemilik aset tidak lagi diketik dan kini dihitung dari riwayat pemakaian; impor massal dihapus; kondisi `RETIRED` dihapus; daftar tiket publik jadi 1 hari; lokasi tampil sebagai jalur lengkap. |
 
 > **Catatan tentang v1.1.** Dokumen sebelumnya berjudul _"Pinjamin — Smart Asset
 > Lending"_ dan menempatkan Bookings sebagai modul inti. Enam dari tiga belas
@@ -80,7 +81,7 @@ ini punya** — bukan perkiraan yang harus dikumpulkan manual.
 | ------------------------------------------------------------------------- | -------------------------------------------------------------------- | ------ |
 | Kelengkapan data aset — punya pemilik, lokasi, dan foto                    | Kartu **Perlu Dilengkapi** di halaman Home menghitungnya otomatis     | 100%   |
 | Cakupan stiker QR — aset terdaftar yang stikernya sudah tertempel          | Dicatat manual saat penempelan; diverifikasi dengan memindai          | 100%   |
-| Aset dengan riwayat pemakai terisi                                         | Jumlah baris di `asset_holders` dibanding jumlah aset                 | ≥ 80%  |
+| Aset dengan riwayat pemakaian terisi                                         | Jumlah baris di `asset_holders` dibanding jumlah aset                 | ≥ 80%  |
 | Tiket yang berpindah dari Open dalam 1 hari kerja                          | Dihitung dari perubahan status di panel Tiket                         | ≥ 90%  |
 
 > Target waktu tanggap tiket **dihitung manual**. Penilaian SLA otomatis pernah
@@ -98,10 +99,9 @@ ini punya** — bukan perkiraan yang harus dikumpulkan manual.
 - Autentikasi admin (username + password), dua peran terpisah.
 - Home: sebaran kondisi aset dan daftar aset yang datanya belum lengkap.
 - Manajemen **Aset**: tambah, ubah, hapus, unggah foto, cetak stiker QR.
-- **Riwayat pemakai** per aset: catat serah terima berikut departemen dan tanggal.
-- Master data: **Kategori, Tag, Lokasi** (lokasi mendukung hierarki induk–anak).
+- **Riwayat pemakaian** per aset: catat pemakai berikut departemen, tanggal mulai, dan catatan internal. Ini **satu-satunya** tempat pemilik aset ditentukan.
+- Master data: **Kategori, Tag, Lokasi**. Lokasi berjenjang **dua tingkat** (induk → anak) dan tampil sebagai **jalur lengkap** (`Pabrik Pati › Gudang B`) di setiap halaman yang menyebut lokasi.
 - **Laporan** inventaris dengan ekspor CSV, Excel, dan PDF.
-- Impor aset massal dari berkas CSV/Excel.
 - **Panel Tiket** helpdesk, dibatasi per working order.
 
 **Sisi publik — tanpa login:**
@@ -109,7 +109,7 @@ ini punya** — bukan perkiraan yang harus dikumpulkan manual.
 - Halaman **hasil pindai QR** (`/a/<kode>`): data aset, baca-saja.
 - **Buat tiket** tanpa akun, dapat nomor tiket.
 - **Lacak tiket** dengan nomor: status, isi tiket, dan seluruh balasan admin.
-- Daftar tiket 7 hari terakhir di halaman depan.
+- Daftar tiket 1 hari terakhir di halaman depan; tiket yang **belum selesai** tetap tampil berapa pun umurnya.
 
 ### 3.2 Di Luar Scope (Out-of-Scope)
 
@@ -122,7 +122,8 @@ ini punya** — bukan perkiraan yang harus dikumpulkan manual.
 | Registrasi / login untuk karyawan umum          | Pelapor tiket tidak perlu akun; halaman aset publik tidak perlu identitas.                                                                                                     |
 | Multi-workspace / multi-tenant                  | Hanya satu organisasi: Garudafood.                                                                                                                                             |
 | Aplikasi mobile native                          | Cukup web yang mobile-friendly — jalur utamanya justru kamera HP bawaan.                                                                                                        |
-| Approval berjenjang                             | Tidak ada alur persetujuan.                                                                                                                                                    |
+| **Impor aset massal (CSV/Excel)**               | Pernah ada lalu dihapus. Pendataan aset selalu diikuti pencetakan dan penempelan stiker satu per satu, jadi impor massal menciptakan ratusan aset yang tidak punya stiker. Ekspor tetap ada. |
+| Approval berjenjang                             | Tidak ada alur persetujuan.                                                                                                                                                     |
 
 ---
 
@@ -154,9 +155,9 @@ akses, bukan terlalu banyak.
 | ------------------ | ------------------------------------------------------------------------------------------------------------- |
 | **Aset**           | Barang fisik milik Garudafood yang didata: perangkat IT, alat lab, mesin, kendaraan, furnitur.                 |
 | **Kode QR**        | Penanda unik aset berawalan `PIN-`, tercetak di stiker dan tersimpan di kolom `qr_code`.                       |
-| **Kondisi**        | Keadaan fisik aset: Baik, Rusak, Dalam Perbaikan, Dihapuskan. Menggantikan status peminjaman versi lama.       |
-| **Pemilik**        | Orang yang memegang aset sekarang. Teks bebas, dan selalu sama dengan baris riwayat pemakai yang masih terbuka. |
-| **Riwayat pemakai** | Daftar serah terima aset: siapa, dari departemen apa, sejak dan sampai kapan.                                  |
+| **Kondisi**        | Keadaan fisik aset: Baik, Rusak, Dalam Perbaikan. Menggantikan status peminjaman versi lama.                    |
+| **Pemilik**        | Orang yang memegang aset sekarang. **Tidak diketik** — dihitung dari baris riwayat pemakaian yang masih terbuka. |
+| **Riwayat pemakaian** | Daftar siapa memakai aset, dari departemen apa, sejak dan sampai kapan. Sumber kebenaran atas pemilik aset.  |
 | **Working order**  | Meja yang mengerjakan tiket: **GA**, **Utility**, atau **IT**. Menentukan juga awalan nomor tiket.             |
 | **Nomor tiket**    | Mis. `GA-0007`, `IT-0012`. Satu-satunya kunci pelapor untuk membuka kembali tiketnya.                          |
 
@@ -168,7 +169,10 @@ akses, bukan terlalu banyak.
 
 - Login dengan username + password; sesi disimpan di cookie `httpOnly`.
 - Password di-hash dengan bcrypt.
-- Ganti password menaikkan `token_version`, sehingga **sesi di perangkat lain otomatis keluar**.
+- Ganti password menaikkan `token_version`, sehingga **sesi di perangkat lain otomatis keluar**. Admin lain tidak tersentuh — `token_version` dibaca per baris admin, bukan global.
+- Ganti password wajib menyertakan password lama dan menolak password baru yang sama dengan yang lama. Minimal 8 karakter berisi huruf dan angka.
+- Ganti username diperiksa **tanpa membedakan huruf besar-kecil**, dan ditolak bila sudah dipakai admin lain. Aturan yang sama ditegakkan database lewat indeks unik pada `lower(username)`.
+- Kegagalan menyimpan profil atau password **selalu dilaporkan ke admin**, tidak pernah dijawab "berhasil". Cookie sesi diterbitkan ulang setelah ganti username, supaya admin tidak terlempar keluar oleh namanya sendiri.
 - Pintu login tidak ditaut mencolok dari halaman depan (lewat simbol © di footer atau `/login`).
 
 ### 6.2 Home (Admin Aset)
@@ -179,25 +183,38 @@ akses, bukan terlalu banyak.
 
 ### 6.3 Aset
 
-- CRUD aset: nama, deskripsi, kondisi, kategori, lokasi, tag, foto, nomor seri, nilai, **pemilik**, **spesifikasi**.
-- Kode QR dibuat otomatis saat aset ditambahkan.
+- CRUD aset: nama, deskripsi, kondisi, kategori, lokasi, tag, foto, nomor seri, **spesifikasi**.
+- **Pemilik tidak ada di form ini.** Kolomnya dihapus pada v2.1; pemilik ditentukan lewat kartu Riwayat & Catatan di halaman detail aset (lihat 6.4).
+- Kode QR dibuat otomatis saat aset ditambahkan, berbentuk `PIN-XXXXXXXX`.
 - Nomor seri diusulkan otomatis berurutan.
 - Cetak & unduh stiker QR sebagai PNG resolusi tinggi.
-- Daftar aset: pencarian, filter kondisi/kategori/lokasi, dan ekspor.
-- Impor massal dari CSV/Excel dengan pemetaan kolom.
+- Daftar aset: pencarian, filter kondisi/kategori/lokasi, dan ekspor. Pilihan lokasi — baik saat mengisi form maupun saat memfilter — menampilkan **jalur lengkapnya**, diurutkan menurut jalur sehingga sub-lokasi berbaris tepat di bawah induknya.
 
-### 6.4 Riwayat Pemakai
+### 6.4 Riwayat Pemakaian
 
-- Setiap aset punya daftar serah terima: nama, departemen, tanggal mulai, tanggal selesai.
+Kartu **Riwayat & Catatan** di halaman detail aset. Sejak v2.1 ini satu-satunya
+tempat pemilik aset ditentukan.
+
+- Setiap baris memuat nama, departemen, tanggal mulai, tanggal selesai, dan catatan internal.
 - Baris tanpa tanggal selesai = **pemakai sekarang**. Database menegakkan hanya boleh ada satu per aset.
-- Admin dapat mencatat serah terima baru, termasuk **tanggal mundur** untuk mendata pemakai lama.
-- Mengubah kolom Pemilik di form aset otomatis menutup baris lama dan membuka baris baru.
-- Menghapus baris riwayat menyesuaikan kembali kolom Pemilik.
+- Mencatat pemakai baru otomatis menutup baris sebelumnya. Urutannya wajib begitu — indeks unik parsial hanya mengizinkan satu baris terbuka per aset.
+- **Tanggal mundur** boleh, untuk mendata pemakai lama. Tanggal yang lebih awal dari pemakai sebelumnya digeser agar riwayat tidak pernah memuat rentang yang mustahil.
+- Tombol **Akhiri** menutup pemakaian tanpa menunjuk pengganti — untuk aset yang kembali ke gudang. Barisnya tetap tersimpan sebagai riwayat.
+- Kolom `assets.owner` adalah **cerminan**, bukan sumber. Ia disamakan server setiap kali daftar ini berubah, dan sengaja **tidak ada di allowlist tulis** — tidak ada permintaan API yang bisa mengubahnya langsung. Dua tempat yang bisa menentukan satu fakta selalu berakhir saling bertentangan.
+- Catatan internal **tidak dikirim** ke halaman hasil pindai QR; departemen dikirim.
+
+**Ini bukan peminjaman.** Tidak ada tanggal kembali yang ditunggu sistem, tidak
+ada status terlambat, dan pencatatannya dilakukan setelah perpindahan terjadi —
+bukan sebelum, dan bukan oleh pemakainya.
 
 ### 6.5 Kategori, Tag, Lokasi
 
 - CRUD masing-masing; kategori dan tag punya warna badge.
-- Lokasi mendukung hierarki: sebuah lokasi bisa ditandai sebagai gedung/area induk.
+- Lokasi berjenjang **dua tingkat**: sebuah lokasi berdiri sendiri, ditandai sebagai gedung/area **induk**, atau ditempatkan sebagai **anak** di bawah sebuah induk. Ketiganya saling meniadakan — menandai sebuah lokasi sebagai induk otomatis melepasnya dari induk yang lama.
+- Kedalaman berhenti di dua **karena pilihan antarmuka, bukan karena skema**: dropdown induk hanya memuat lokasi yang sudah menjadi induk, sehingga sebuah anak tidak bisa diberi anak lagi. Kolom `parent_id` sendiri tidak membatasi kedalaman, dan perangkai jalur maupun tampilan daftar sanggup menangani susunan yang lebih dalam bila kelak dibutuhkan.
+- Dua tingkat dipilih karena cukup untuk pabrik dan kantor — pabrik lalu ruangan. Menambah tingkat ketiga menuntut admin memutuskan kedalaman yang tepat setiap kali mendata, dan itu memperlambat pekerjaan yang seharusnya cepat.
+- Saat menyunting lokasi, dirinya sendiri beserta seluruh turunannya disembunyikan dari pilihan induk, sehingga siklus tidak bisa dibentuk lewat antarmuka.
+- Lokasi yang induknya terhapus turun menjadi lokasi biasa, bukan menghilang dari daftar.
 
 ### 6.6 Laporan
 
@@ -207,7 +224,8 @@ akses, bukan terlalu banyak.
 ### 6.7 Halaman Hasil Pindai QR (Publik)
 
 - Dibuka lewat `/a/<kode>` — isi stiker QR mengarah ke sini.
-- Menampilkan: foto, nama, deskripsi, kondisi, kategori, lokasi, **pemilik**, **spesifikasi**, nomor seri, tanggal terdaftar, dan **riwayat pemakai**.
+- Menampilkan: foto, nama, deskripsi, kondisi, kategori, **lokasi berikut jalur induknya**, pemilik, **spesifikasi**, nomor seri, tanggal terdaftar, dan **riwayat pemakaian** berikut departemennya.
+- Jalur lokasi dirangkai di server. Lokasi tanpa induk tidak memicu kueri tambahan sama sekali — jalur ini dibuka orang di lapangan lewat data seluler.
 - **Tidak menampilkan** nilai/harga aset maupun id internal database.
 - Baca-saja: tidak ada satu pun jalur mengubah data dari halaman ini.
 - Tidak ditaut dari halaman depan dan diberi penanda `noindex` — jalan masuknya hanya stiker.
@@ -217,7 +235,9 @@ akses, bukan terlalu banyak.
 - Buat tiket tanpa akun: nama, email, nomor WhatsApp, working order, subjek, pesan, lampiran gambar opsional.
 - Nomor tiket diberikan seketika.
 - Lacak tiket dengan nomor: status, isi tiket, dan seluruh balasan admin.
-- Daftar tiket 7 hari terakhir di halaman depan, dengan filter per working order. Daftar ini memuat nomor, nama pelapor, subjek, status, dan prioritas — **isi pesan tidak ikut**.
+- Daftar tiket di halaman depan memuat tiket **1 hari terakhir**, dengan filter per working order (Semua/GA/Utility/IT). Daftar ini memuat nomor, nama pelapor, subjek, status, dan prioritas — **isi pesan tidak ikut**.
+- Tiket yang **belum selesai tetap tampil berapa pun umurnya**, dan naik ke puncak daftar dengan urutan Open → On Hold → Diproses, masing-masing terlama dulu. Tiket yang menggantung jadi terlihat seluruh karyawan, bukan tenggelam karena lewat sehari.
+- Tiket berstatus Selesai dihapus permanen beserta lampirannya setelah 1 hari, dijalankan cron harian pukul 02.00 WIB.
 
 ### 6.9 Helpdesk — Sisi Admin
 
@@ -272,7 +292,7 @@ Peramban ──► /api/** (server)  ──► Supabase (service role)
 
 ## 9. Skema Database
 
-Delapan tabel. Skema lengkap ada di `apps/pinjamin/supabase/01-schema.sql`;
+Sepuluh tabel. Skema lengkap ada di `apps/pinjamin/supabase/01-schema.sql`;
 tabel tiket dibuat oleh `06-tickets.sql` dan `09-tickets-helpdesk.sql`.
 
 | Tabel            | Isi                                                                     |
@@ -281,10 +301,10 @@ tabel tiket dibuat oleh `06-tickets.sql` dan `09-tickets-helpdesk.sql`.
 | `categories`     | Kategori aset + warna                                                    |
 | `tags`           | Tag bebas + warna                                                        |
 | `locations`      | Lokasi, mendukung hierarki lewat `parent_id`                             |
-| `assets`         | Inti: identitas, kondisi, kode QR, foto, nilai, nomor seri, pemilik, spesifikasi |
+| `assets`         | Inti: identitas, kondisi, kode QR, foto, nomor seri, spesifikasi, dan `owner` sebagai cerminan riwayat |
 | `asset_tags`     | Relasi banyak-ke-banyak aset ↔ tag                                       |
-| `asset_holders`  | Riwayat pemakai. `to_date` kosong = pemakai sekarang                     |
-| `asset_notes`    | Catatan bebas per aset                                                   |
+| `asset_holders`  | Riwayat pemakaian: nama, departemen, tanggal, catatan. `to_date` kosong = pemakai sekarang |
+| `asset_notes`    | Sisa versi lama. Masih dibaca saat memuat data, tapi tidak ada antarmuka yang mengisinya |
 | `tickets`        | Tiket helpdesk: pelapor, working order, status, prioritas, lampiran      |
 | `ticket_messages`| Balasan admin pada sebuah tiket                                          |
 
@@ -293,6 +313,10 @@ tabel tiket dibuat oleh `06-tickets.sql` dan `09-tickets-helpdesk.sql`.
 - Indeks unik parsial pada `asset_holders(asset_id) WHERE to_date IS NULL` —
   satu aset hanya boleh punya satu pemakai aktif. Kalau logika aplikasi kelak
   keliru, hasilnya error, bukan riwayat bercabang yang diam-diam salah.
+- Indeks unik pada `lower(username)` di `admins` — dua akun tidak bisa memakai
+  nama yang sama walau berbeda huruf besar-kecil. Tanpa ini, pencarian login
+  yang memakai `ILIKE` menemukan dua baris sekaligus dan **kedua** admin itu
+  sama-sama tidak bisa masuk.
 - Batasan `CHECK` pada kondisi aset dan status/prioritas tiket.
 - Row Level Security aktif di semua tabel **tanpa satu pun policy**, sehingga
   hanya `service_role` di server yang bisa membacanya.
@@ -338,16 +362,26 @@ Pelapor isi form (tanpa akun)
 | `GOOD`        | Baik             | Layak pakai                                |
 | `DAMAGED`     | Rusak            | Perlu diperbaiki                           |
 | `MAINTENANCE` | Dalam Perbaikan  | Sedang ditangani                           |
-| `RETIRED`     | Dihapuskan       | Tidak dipakai lagi, datanya tetap disimpan |
 
 Bebas berpindah ke mana saja — tidak ada urutan yang dipaksakan.
+
+Kondisi `RETIRED` (Dihapuskan) **dihapus pada v2.1**. Aset yang tidak dipakai
+lagi dihapus datanya, bukan disimpan dengan label mati — registri yang memuat
+barang yang sudah tidak ada membuat hasil pemindaian menyesatkan.
 
 ### 11.2 Status Tiket
 
 ```
-OPEN ──► ON_HOLD ──► IN_PROGRESS ──► RESOLVED
-  └──────────────────────┘
+                ┌──────────────┐
+OPEN ──────────►│  IN_PROGRESS │──────► RESOLVED
+ │              └──────────────┘
+ │                     ▲
+ └────► ON_HOLD ───────┘
 ```
+
+Tidak ada urutan yang dipaksakan sistem: tiket boleh langsung dikerjakan, atau
+tertahan dulu menunggu vendor. Yang penting dibedakan adalah **tertahan** dan
+**terabaikan** — itulah gunanya On Hold.
 
 | Nilai         | Label     | Arti                                                     |
 | ------------- | --------- | -------------------------------------------------------- |
@@ -378,6 +412,7 @@ OPEN ──► ON_HOLD ──► IN_PROGRESS ──► RESOLVED
 | `/categories` | ASSET      |
 | `/tags`       | ASSET      |
 | `/locations`  | ASSET      |
+| `/locations/new` | ASSET   |
 | `/reports`    | ASSET      |
 | `/tickets`    | HELPDESK   |
 | `/settings`   | keduanya   |
@@ -426,14 +461,17 @@ Dicatat supaya tidak ditemukan sebagai kejutan.
 
 | Batasan                                                                                                    | Dampak                                                                          |
 | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| Halaman hasil pindai terbuka untuk siapa pun yang memegang stikernya, termasuk tamu dan bekas karyawan.     | Nama pemilik dan riwayat pemakai terbaca tanpa identitas. Diputuskan sadar.      |
+| Halaman hasil pindai terbuka untuk siapa pun yang memegang stikernya, termasuk tamu dan bekas karyawan.     | Nama pemilik dan riwayat pemakaian terbaca tanpa identitas. Diputuskan sadar.      |
 | Tidak ada pencatatan siapa yang memindai dan kapan.                                                        | Tidak ada jejak audit atas pembacaan data aset.                                  |
 | Daftar tiket publik memuat nama pelapor dan subjek.                                                        | Subjek tiket sebaiknya tidak memuat detail pribadi.                              |
 | Penilaian SLA tidak aktif.                                                                                 | Keterlambatan penanganan tiket harus dipantau manual.                            |
-| Riwayat pemakai baru terisi sejak fitur ini ada.                                                           | Pemakai sebelum itu harus dimasukkan manual oleh admin.                          |
+| Riwayat pemakaian baru terisi sejak fitur ini ada.                                                           | Pemakai sebelum itu harus dimasukkan manual oleh admin.                          |
 | Satu database dipakai bersama oleh pengembangan lokal dan produksi.                                        | Uji coba di lokal mengubah data yang tampil di produksi.                         |
+| Peringatan saat menghapus lokasi belum menyebut jumlah aset yang terdampak.                                | Foreign key-nya `ON DELETE SET NULL`, jadi aset di lokasi itu kehilangan lokasinya tanpa peringatan berapa banyak. |
+| Pencegahan siklus induk lokasi hanya ada di antarmuka, belum di server.                                    | Siklus yang dibuat dari luar aplikasi membuat lokasi terkait hilang dari daftar dan tidak bisa diperbaiki lewat UI. |
+| Tabel `asset_notes` dan kolom `assets.value` masih ada tapi tidak lagi punya antarmuka.                    | Sisa versi lama; tidak mengganggu, tapi menyesatkan pembaca skema.               |
 
 ---
 
-_Dokumen ini menggambarkan sistem sebagaimana berjalan pada 29 Agustus 2026.
+_Dokumen ini menggambarkan sistem sebagaimana berjalan pada 6 September 2026.
 Dokumen keamanan dibuat terpisah._

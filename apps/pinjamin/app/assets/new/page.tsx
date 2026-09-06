@@ -12,6 +12,7 @@ import { Select } from "@/components/ui/select";
 import { useStore } from "@/lib/store";
 import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useT } from "@/lib/i18n";
+import { locationOptions } from "@/lib/location-path";
 import { contrastTextColor } from "@/lib/utils";
 import { ImageUpload } from "@/components/ui/image-upload";
 
@@ -130,9 +131,9 @@ export default function NewAssetPage() {
                     }
                   >
                     <option value="">{t("selectPlaceholder")}</option>
-                    {locations.map((l) => (
+                    {locationOptions(locations).map((l) => (
                       <option key={l.id} value={l.id}>
-                        {l.name}
+                        {l.label}
                       </option>
                     ))}
                   </Select>

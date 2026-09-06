@@ -29,11 +29,11 @@ perkembangannya.
 | Kode | Kebutuhan | Dijawab dengan |
 | --- | --- | --- |
 | K-1 | Data aset bisa dibaca langsung di lokasi barangnya | Stiker QR di tiap aset → halaman publik |
-| K-2 | Tahu siapa pemegang aset, sekarang dan sebelumnya | Kolom Pemilik + tabel riwayat pemakai |
+| K-2 | Tahu siapa pemegang aset, sekarang dan sebelumnya | Riwayat pemakaian per aset; pemilik sekarang dihitung dari baris yang masih terbuka |
 | K-3 | Orang luar tidak boleh mengubah data aset | Halaman publik baca-saja, mutasi wajib sesi admin |
 | K-4 | Karyawan bisa melapor tanpa membuat akun | Form tiket publik + nomor tiket |
 | K-5 | Keluhan masuk ke meja yang tepat | Working order GA / Utility / IT, antrean terpisah |
-| K-6 | Data inventaris bisa diekspor | Laporan CSV / Excel / PDF |
+| K-6 | Data inventaris bisa diekspor | Laporan CSV / Excel / PDF, lokasi tertulis lengkap dengan induknya |
 
 ## 1.4 Peran Saya dalam Kerja Praktik ⭑
 
@@ -108,13 +108,20 @@ flowchart TD
 
 ```mermaid
 flowchart LR
-    A["Admin mendaftarkan aset"] --> B["Sistem menerbitkan kode<br/>PIN-XXXXXXXX"]
-    B --> C["Stiker QR dicetak"]
+    A["Admin mendaftarkan aset<br/>nama, kategori, lokasi,<br/>kondisi, spesifikasi"] --> B["Sistem menerbitkan kode<br/>PIN-XXXXXXXX"]
+    B --> H["Admin mencatat pemakai<br/>di Riwayat &amp; Catatan"]
+    H --> C["Stiker QR dicetak"]
     C --> D["Ditempel di aset fisik"]
     D --> E["Siapa pun mengarahkan<br/>kamera HP bawaan"]
     E --> F["Browser membuka<br/>/a/PIN-XXXXXXXX"]
     F --> G["Data aset tampil<br/>— baca-saja"]
 ```
+
+**Kenapa pemakai dicatat terpisah, bukan diketik di form aset.** Form aset
+menjawab *"barang ini apa"*; itu jarang berubah. Riwayat pemakaian menjawab
+*"sekarang di tangan siapa"*; itu sering berubah. Menyatukan keduanya di satu
+kolom membuat jawaban lama tertimpa setiap kali yang baru diisi — dan
+pertanyaan "dulu dipegang siapa" jadi tidak punya jawaban.
 
 **Kenapa tidak perlu aplikasi pemindai.** QR code isinya cuma teks. Karena teks
 itu berbentuk alamat web, kamera bawaan HP langsung menawarkan membukanya. Itu
@@ -166,10 +173,20 @@ erDiagram
     locations ||--o{ locations : "induk-anak"
 ```
 
-Delapan tabel. Aturan penting yang ditegakkan **database**, bukan aplikasi:
-indeks unik parsial pada `asset_holders` memastikan satu aset hanya punya satu
-pemakai aktif — kalau logika program kelak keliru, hasilnya error, bukan riwayat
-bercabang yang diam-diam salah.
+Sepuluh tabel. Dua aturan penting ditegakkan **database**, bukan aplikasi:
+
+**Satu pemakai aktif per aset** — indeks unik parsial pada `asset_holders`
+`WHERE to_date IS NULL`. Kalau logika program kelak keliru, hasilnya error,
+bukan riwayat bercabang yang diam-diam salah.
+
+**Username admin unik tanpa membedakan huruf besar-kecil** — indeks unik pada
+`lower(username)`. Tanpa itu "Budi" dan "budi" bisa hidup berdampingan, lalu
+pencarian login yang memakai `ILIKE` menemukan dua baris sekaligus dan **kedua**
+admin itu sama-sama terkunci di luar.
+
+Keduanya contoh prinsip yang sama: aturan yang tidak boleh dilanggar diletakkan
+di lapisan yang tidak bisa dilewati siapa pun, bukan dititipkan ke kode
+aplikasi yang bisa lupa memanggilnya.
 
 ---
 
@@ -183,11 +200,11 @@ Ambil dalam mode **layar penuh, tema gelap**. Sensor data pribadi pelapor
 | # | Layar | Alamat | Yang harus terlihat |
 | --- | --- | --- | --- |
 | S-1 | Halaman depan | `/` | Form buat tiket + kartu History Ticket dengan tombol Semua/GA/Utility/IT |
-| S-2 | **Halaman hasil pindai QR** | `/a/PIN-XXXXXXXX` | Kondisi, pemilik, spesifikasi, dan Riwayat Pemakai — ambil aset yang riwayatnya terisi |
+| S-2 | **Halaman hasil pindai QR** | `/a/PIN-XXXXXXXX` | Kondisi, **lokasi berikut jalur induknya**, spesifikasi, dan Riwayat Pemakai — ambil aset yang riwayatnya terisi |
 | S-3 | Lacak tiket | `/` → Lacak Tiket | Status tiket + balasan admin |
 | S-4 | Home admin | `/dashboard` | Empat kartu kondisi + kartu Perlu Dilengkapi |
-| S-5 | Daftar aset | `/assets` | Tabel aset dengan badge kondisi |
-| S-6 | Detail aset + QR | `/assets/<id>` | QR code, tombol cetak, dan kartu Riwayat Pemakai |
+| S-5 | Daftar aset | `/assets` | Tabel aset dengan badge kondisi dan lokasi berjalur penuh |
+| S-6 | Detail aset + QR | `/assets/<id>` | QR code, tombol cetak, dan kartu Riwayat & Catatan berisi beberapa baris pemakai |
 | S-7 | Panel tiket admin | `/tickets` | Filter status + daftar tiket |
 
 **Minimal 4 slide** (S-2, S-4, S-6, S-7 adalah yang paling menjelaskan). Kalau
@@ -224,8 +241,11 @@ bermasalah.
 | U-3 | Harga aset tidak bocor ke publik | Periksa kunci pada respons `/api/public/asset/<kode>` | `value` dan `id` tidak ada di respons |
 | U-4 | Halaman aset tidak terindeks | Periksa HTML yang dikirim server | Penanda `noindex` ada |
 | U-5 | Filter tiket per meja | Bandingkan hitungan tiap tombol | Semua 9 = GA 2 + Utility 4 + IT 3 |
-| U-6 | Daftar tiket publik dibatasi 7 hari | Bandingkan umur tiket dengan yang tampil | Tiket 6,9 hari tampil; 7,3 hari tidak |
-| U-7 | Riwayat pemakai sinkron dengan kolom Pemilik | Ganti pemilik, periksa tabel riwayat | Baris lama tertutup, baris baru terbuka |
+| U-6 | Daftar tiket publik dibatasi 1 hari, tapi tiket belum selesai bertahan | Bandingkan umur & status tiket dengan yang tampil | Tiket Selesai >1 hari hilang; tiket Open lama tetap tampil di puncak |
+| U-7 | Pemilik aset mengikuti riwayat | Catat pemakai baru, periksa kolom `owner` | Baris lama tertutup, baris baru terbuka, `owner` ikut berubah |
+| U-9 | Kolom `owner` tidak bisa ditulis lewat API | Kirim `owner` pada PATCH aset | Diabaikan allowlist — hanya riwayat yang bisa mengubahnya |
+| U-10 | Username bentrok ditolak | `PUT /api/auth/me` dengan nama admin lain berbeda kapitalisasi | `409 usernameTaken`, tabel `admins` tidak berubah |
+| U-11 | Jalur lokasi tahan siklus | Susun induk yang saling menunjuk | Rantai dipotong, halaman tetap terbuka |
 | U-8 | Mutu kode | `tsc --noEmit`, ESLint, `next build` | Nol error pada ketiganya |
 
 ## 5.2 Pengujian Keamanan ⭑
@@ -241,6 +261,8 @@ verifikasi konfigurasi langsung di produksi.
 | DDOS-03 | Sedang | Endpoint publik dipaksa tidak bisa di-cache | **Ditutup** |
 | SIGAP-02 | Tinggi | Isi tiket terbaca publik lewat nomor berurutan | Terbuka |
 | SIGAP-03 | Sedang | Tabel baru otomatis terbuka untuk anon | Terbuka |
+| AUTH-01 | **Tinggi** | Ganti username yang gagal disimpan tetap dijawab "berhasil", lalu admin terkunci di luar | **Ditutup** |
+| AUTH-02 | **Tinggi** | Dua akun berbeda kapitalisasi mengunci keduanya dari login | **Ditutup** |
 
 ### DDOS-01 — slide dengan angka paling kuat
 
@@ -256,6 +278,35 @@ ketika paling dibutuhkan.**
 | 60.000 | 6.129 ms | 16 ms | **383×** |
 
 Yang lama tumbuh **kuadratik**; yang baru tumbuh linear.
+
+### AUTH-01 — kegagalan yang menyamar jadi keberhasilan
+
+Ditemukan saat memeriksa apakah fitur ganti password dan username siap dipegang
+admin sungguhan. Ini jenis bug yang paling mahal: **bukan karena akibatnya
+besar, tapi karena sistem berbohong tentangnya.**
+
+Penyimpanan profil hanya mencatat kegagalan ke log, lalu tetap menjawab
+`{ok: true}` — **dan menerbitkan ulang cookie sesi memakai username baru**.
+Kalau tulisannya gagal, database masih memegang nama lama sementara cookie
+menunjuk nama yang tidak pernah ada. Urutannya:
+
+1. Admin melihat pesan "Profil tersimpan"
+2. Permintaan berikutnya menendangnya keluar
+3. Nama barunya tidak bisa dipakai login — karena tidak pernah masuk database
+4. Satu-satunya jalan masuk adalah mengingat nama lamanya
+
+Pola yang sama ada di ganti password: "berhasil", padahal passwordnya tidak
+pernah berubah.
+
+**Perbaikannya tiga lapis.** Kegagalan simpan kini sampai ke admin; cache profil
+baru diisi setelah tulisan berhasil, bukan sebelumnya; dan username bentrok
+ditolak lebih dulu dengan pesan yang bisa dibaca. Diverifikasi dengan permintaan
+sungguhan ke API — `409 usernameTaken`, dan tabel `admins` tidak berubah.
+
+> **Poin yang layak ditekankan:** pengujian ini tidak dipicu laporan bug. Tidak
+> ada yang mengeluh, karena belum ada admin sungguhan yang mencoba. Bug ini
+> ditemukan dengan bertanya *"apa yang terjadi kalau ini gagal?"* — pertanyaan
+> yang tidak akan pernah dijawab oleh pengujian jalur normal.
 
 ### Temuan yang sengaja dibiarkan terbuka
 
@@ -278,7 +329,8 @@ produk, bukan pengembang.
 | 3 | **Tampilan rusak hanya di perangkat tertentu.** Di komputer bermode terang, kolom input login menjadi putih di atas putih — kontras 1,04:1, praktis tidak terbaca. Tidak pernah terlihat di perangkat yang mode gelap. | Akarnya satu: varian `dark:` Tailwind mengikuti setelan sistem, padahal aplikasi memaksa tema gelap. Diperbaiki dengan satu baris CSS; empat keluhan tampilan selesai sekaligus. |
 | 4 | **Bug yang tidak terlihat dari membaca kode.** Kelemahan rate limiter tidak tampak saat kodenya dibaca. | Baru muncul setelah diukur di bawah beban dengan puluhan ribu alamat. Pengujian beban jadi bagian metodologi, bukan pelengkap. |
 | 5 | **Perbaikan yang ter-deploy tapi tidak berfungsi.** Pembersih lampiran otomatis sudah ada di kode, tapi tidak pernah berhasil jalan karena variabel rahasianya terpasang di project Vercel yang salah. | Kodenya benar, konfigurasinya tidak — dan tidak ada pesan error yang memberi tahu. Konfigurasi ikut diverifikasi, bukan diasumsikan. |
-| 6 | **Tidak ada migration runner.** Perubahan skema database dijalankan manual, rawan terlewat atau salah urutan. | Berkas SQL diberi nomor urut dan panduan tertulis. Skrip yang tidak berlaku untuk instalasi baru diberi penjaga agar tidak menggagalkan rantai setup. |
+| 6 | **Sistem yang melaporkan keberhasilan palsu.** Ganti username yang gagal disimpan tetap dijawab "berhasil", lalu mengunci admin di luar. Tidak terlihat sama sekali dari pemakaian normal. | Ditemukan dengan menguji jalur gagal, bukan jalur normal. Kegagalan simpan kini selalu dilaporkan, dan aturan unik ditegakkan sampai ke level indeks database. |
+| 7 | **Tidak ada migration runner.** Perubahan skema database dijalankan manual, rawan terlewat atau salah urutan. | Berkas SQL diberi nomor urut dan panduan tertulis. Skrip yang tidak berlaku untuk instalasi baru diberi penjaga agar tidak menggagalkan rantai setup. |
 
 ---
 
@@ -302,6 +354,7 @@ produk, bukan pengembang.
 | 14 | Tampilan — panel tiket | S-7 |
 | 15 | Pengujian fungsional | § 5.1 |
 | 16 | Pengujian keamanan — temuan | § 5.2 |
+| 16b | **AUTH-01 — kegagalan yang menyamar jadi keberhasilan** | § 5.2 |
 | 17 | Angka rate limiter | § 5.2 |
 | 18 | Kendala & solusi | § 6 |
 
@@ -343,7 +396,31 @@ Bukan kelalaian. SIGAP-02 menuntut keputusan pemilik produk karena menyangkut
 apa yang boleh publik; SIGAP-03 butuh akses SQL Editor produksi. Keduanya sudah
 punya rekomendasi konkret.
 
+**"Kenapa pemilik aset tidak diketik langsung saja? Bukankah lebih cepat?"**
+Lebih cepat, tapi jawabannya cuma bertahan sampai pemiliknya berganti. Kolom
+yang diketik akan tertimpa, dan pertanyaan "dulu dipegang siapa" jadi tidak
+punya jawaban. Dengan riwayat, jawaban lama tetap ada dan pemilik sekarang
+dihitung dari baris yang masih terbuka. Kolom `owner` di database tetap ada
+sebagai cerminan, tapi sengaja dikeluarkan dari allowlist tulis — supaya tidak
+ada dua tempat yang bisa menentukan satu fakta.
+
+**"Mencatat siapa memakai aset — bukankah itu sistem peminjaman lagi?"**
+Tidak, dan bedanya struktural. Tidak ada tanggal kembali yang ditunggu sistem,
+tidak ada status terlambat, tidak ada permintaan dari pengguna, dan halaman
+publik tidak punya satu pun endpoint untuk memulainya. Pencatatannya dilakukan
+admin **setelah** perpindahan terjadi. Analoginya BPKB kendaraan: mobil selalu
+ada pemiliknya dan pergantiannya tercatat — itu catatan kepemilikan, bukan
+rental.
+
+**"Kenapa lokasi ditulis berjenjang?"**
+Karena nama ruangan berulang antar pabrik. "Gudang B" bisa ada di Pati maupun
+Sumedang, dan orang yang memindai stiker perlu tahu yang mana. Jalur lengkapnya
+tampil di halaman hasil pindai sekaligus di setiap tempat admin memilih lokasi —
+kalau hanya halaman publiknya yang rapi, yang salah justru titik pengisiannya.
+
 **"Bagaimana memastikan sistem ini aman?"**
 Tidak ada sistem yang bisa dinyatakan aman secara mutlak. Yang bisa disampaikan:
-empat temuan ditutup dan diverifikasi, dua didokumentasikan terbuka lengkap
-dengan rekomendasinya.
+enam temuan ditutup dan diverifikasi, dua didokumentasikan terbuka lengkap
+dengan rekomendasinya. Dua di antara yang ditutup baru ditemukan pada iterasi
+terakhir, dengan menguji apa yang terjadi ketika penyimpanan **gagal** — bukan
+ketika berhasil.

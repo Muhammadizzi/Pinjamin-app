@@ -12,6 +12,7 @@ import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useStore } from "@/lib/store";
 import type { Asset } from "@/lib/types";
 import { useT } from "@/lib/i18n";
+import { locationOptions } from "@/lib/location-path";
 import {
   Search,
   Plus,
@@ -44,6 +45,15 @@ export default function AssetsPage() {
     isSupabase,
   } = useStore();
   const { t, formatDate, assetStatus } = useT();
+
+  // Jalur lokasi dipetakan sekali, bukan dirakit ulang tiap baris tabel —
+  // daftar ini bisa memuat ratusan aset dalam satu render.
+  const labelLokasi = useMemo(() => {
+    const peta = new Map(
+      locationOptions(locations).map((o) => [o.id, o.label])
+    );
+    return (id?: string | null) => (id && peta.get(id)) || "";
+  }, [locations]);
   const { ask, confirmDialog } = useConfirmDialog();
   /**
    * Panel filter (kategori/lokasi/tag/per-halaman) makan ~280px tinggi di
@@ -124,8 +134,7 @@ export default function AssetsPage() {
       [t("colStatus")]: a.status,
       [t("colCategory")]:
         categories.find((c) => c.id === a.categoryId)?.name ?? "",
-      [t("colLocation")]:
-        locations.find((l) => l.id === a.locationId)?.name ?? "",
+      [t("colLocation")]: labelLokasi(a.locationId),
       [t("colQr")]: a.qrCode,
       [t("colValue")]: a.value ?? "",
       [t("colSerial")]: a.serialNumber ?? "",
@@ -373,9 +382,9 @@ export default function AssetsPage() {
                     className="h-11 rounded-xl bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700"
                   >
                     <option value="ALL">{t("allLocations")}</option>
-                    {locations.map((l) => (
+                    {locationOptions(locations).map((l) => (
                       <option key={l.id} value={l.id}>
-                        {l.name}
+                        {l.label}
                       </option>
                     ))}
                   </Select>
@@ -458,7 +467,7 @@ export default function AssetsPage() {
                   )}
                   {loc !== "ALL" && (
                     <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-200 border border-blue-200 dark:border-blue-800 text-xs font-medium">
-                      {locations.find((l) => l.id === loc)?.name}
+                      {labelLokasi(loc)}
                       <button
                         onClick={() => setLoc("ALL")}
                         className="hover:bg-black/10 rounded-full p-0.5"
@@ -541,8 +550,7 @@ export default function AssetsPage() {
                     const catName =
                       categories.find((c) => c.id === a.categoryId)?.name ||
                       "-";
-                    const locName =
-                      locations.find((l) => l.id === a.locationId)?.name || "-";
+                    const locName = labelLokasi(a.locationId) || "-";
                     const custName = a.owner || "-";
                     return (
                       <tr
@@ -655,8 +663,7 @@ export default function AssetsPage() {
                       <span className="opacity-40">•</span>
                       <MapPin className="h-3 w-3 shrink-0" />
                       <span className="truncate">
-                        {locations.find((l) => l.id === a.locationId)?.name ||
-                          "-"}
+                        {labelLokasi(a.locationId) || "-"}
                       </span>
                     </div>
                     <div className="flex gap-2">

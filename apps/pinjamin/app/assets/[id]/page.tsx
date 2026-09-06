@@ -9,6 +9,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { useStore } from "@/lib/store";
 import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useT } from "@/lib/i18n";
+import { locationLabel } from "@/lib/location-path";
 import { assetPublicUrl, contrastTextColor } from "@/lib/utils";
 import { downloadQrPng, printQrPng } from "@/lib/qr-download";
 import { QRCodeSVG } from "qrcode.react";
@@ -49,7 +50,7 @@ export default function AssetDetailPage() {
       </AppShell>
     );
   const cat = categories.find((c) => c.id === asset.categoryId);
-  const loc = locations.find((l) => l.id === asset.locationId);
+  const jalurLokasi = locationLabel(locations, asset.locationId);
 
   const handleDelete = () => {
     ask({
@@ -138,7 +139,7 @@ export default function AssetDetailPage() {
                     <div className="flex items-center gap-2">
                       <MapPin className="h-4 w-4 text-muted-foreground" />{" "}
                       {t("location")}:{" "}
-                      <span className="font-medium">{loc?.name || "-"}</span>
+                      <span className="font-medium">{jalurLokasi || "-"}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <User className="h-4 w-4 text-muted-foreground" />{" "}

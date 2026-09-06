@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { useStore } from "@/lib/store";
 import { useT } from "@/lib/i18n";
+import { locationLabel } from "@/lib/location-path";
 import { Download, FileSpreadsheet, FileText, BarChart3 } from "lucide-react";
 import Papa from "papaparse";
 
@@ -55,7 +56,7 @@ export default function ReportsPage() {
   const exportLokasiCsv = () =>
     unduhCsv(
       locations.map((l) => ({
-        lokasi: l.name,
+        lokasi: locationLabel(locations, l.id),
         total: assets.filter((a) => a.locationId === l.id).length,
         rusak: assets.filter(
           (a) => a.locationId === l.id && a.status === "DAMAGED"
@@ -70,7 +71,7 @@ export default function ReportsPage() {
       [t("colName")]: a.name,
       [t("colStatus")]: assetStatus(a.status),
       [t("colCategory")]: categories.find((c) => c.id === a.categoryId)?.name,
-      [t("colLocation")]: locations.find((l) => l.id === a.locationId)?.name,
+      [t("colLocation")]: locationLabel(locations, a.locationId),
       [t("colQr")]: a.qrCode,
       [t("colSerial")]: a.serialNumber,
       [t("ownerLabel")]: a.owner,
@@ -274,7 +275,7 @@ export default function ReportsPage() {
                   <div key={l.id} className="flex items-center gap-3 py-1">
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-sm font-medium">
-                        {l.name}
+                        {locationLabel(locations, l.id) || l.name}
                       </div>
                       {rusak > 0 && (
                         <div className="text-xs text-red-600">
