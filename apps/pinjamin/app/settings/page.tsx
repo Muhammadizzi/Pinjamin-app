@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useT } from "@/lib/i18n";
 import { useAuth } from "@/lib/auth-client";
+import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { uploadImage } from "@/lib/supabase";
 import { UserCog, KeyRound, ImagePlus, Trash2, Check } from "lucide-react";
 
@@ -19,6 +20,7 @@ function initials(p: Profile) {
 export default function AccountSettingsPage() {
   const { t, serverError } = useT();
   const { user, loading: authLoading, setUser } = useAuth();
+  const { ask, confirmDialog } = useConfirmDialog();
 
   // --- Profil ------------------------------------------------------------
   const [profile, setProfile] = useState<Profile>({
@@ -37,6 +39,15 @@ export default function AccountSettingsPage() {
     text: string;
   } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  /**
+   * Username baru setelah penggantian berhasil.
+   *
+   * Sengaja disimpan terpisah dari `profileMsg` dan tidak dihapus sendiri:
+   * pesan "profil tersimpan" yang biasa terlalu mudah terlewat, dan admin yang
+   * lupa nama barunya akan menebak di halaman login — lima tebakan salah
+   * mengunci login 15 menit untuk SEMUA akun dari IP itu.
+   */
+  const [namaLoginBaru, setNamaLoginBaru] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -71,7 +82,7 @@ export default function AccountSettingsPage() {
     }
   };
 
-  const saveProfile = async () => {
+  const kirimProfil = async () => {
     setSaving(true);
     setProfileMsg(null);
     try {
@@ -88,14 +99,41 @@ export default function AccountSettingsPage() {
         });
         return;
       }
+      const bergantiNama = (j.profile?.username || "") !== profile.username;
       setProfile(j.profile);
       setUser(j.profile);
+      if (bergantiNama) setNamaLoginBaru(j.profile.username);
       setProfileMsg({ ok: true, text: t("profileSaved") });
     } catch {
       setProfileMsg({ ok: false, text: t("profileSaveFailedRetry") });
     } finally {
       setSaving(false);
     }
+  };
+
+  /**
+   * Ganti nama lengkap langsung disimpan; ganti USERNAME dikonfirmasi dulu.
+   *
+   * Keduanya ada di satu form, tapi akibatnya jauh berbeda: salah satu cuma
+   * mengubah sapaan di sidebar, satunya lagi mengubah cara admin masuk ke
+   * sistem. Yang kedua pantas ditanya dua kali.
+   */
+  const saveProfile = () => {
+    const nama = username.trim();
+    if (nama.toLowerCase() === profile.username.toLowerCase()) {
+      void kirimProfil();
+      return;
+    }
+    ask({
+      title: t("confirmChangeUsername"),
+      description: t("confirmChangeUsernameBody", {
+        lama: profile.username,
+        baru: nama,
+      }),
+      confirmLabel: t("yesChangeUsername"),
+      variant: "primary",
+      action: kirimProfil,
+    });
   };
 
   // --- Password ----------------------------------------------------------
@@ -236,6 +274,19 @@ export default function AccountSettingsPage() {
               </p>
             </div>
 
+            {namaLoginBaru && (
+              <div className="space-y-1 rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-3">
+                <div className="text-[11px] uppercase tracking-wide text-amber-300/80">
+                  {t("newLoginUsername")}
+                </div>
+                <div className="select-all font-mono text-lg font-bold text-amber-200">
+                  {namaLoginBaru}
+                </div>
+                <p className="text-xs text-amber-200/80">
+                  {t("newLoginUsernameHint")}
+                </p>
+              </div>
+            )}
             {profileMsg && (
               <div
                 className={`text-sm rounded-xl border px-3 py-2 ${
@@ -327,6 +378,7 @@ export default function AccountSettingsPage() {
           </CardContent>
         </Card>
       </div>
+      {confirmDialog}
     </AppShell>
   );
 }

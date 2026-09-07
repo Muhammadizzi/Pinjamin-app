@@ -741,6 +741,23 @@ export const messages = {
     "Password saat ini salah.",
     "The current password is incorrect.",
   ],
+  confirmChangeUsername: [
+    "Ganti username login?",
+    "Change your login username?",
+  ],
+  confirmChangeUsernameBody: [
+    'Mulai sekarang kamu masuk memakai "{baru}", bukan "{lama}". Catat dulu sebelum melanjutkan — salah lima kali membuat login terkunci 15 menit.',
+    'From now on you sign in as "{baru}", not "{lama}". Write it down before continuing — five wrong attempts lock login for 15 minutes.',
+  ],
+  yesChangeUsername: ["Ya, ganti username", "Yes, change it"],
+  newLoginUsername: [
+    "Username login kamu sekarang",
+    "Your login username is now",
+  ],
+  newLoginUsernameHint: [
+    "Catat atau potret ini sebelum meninggalkan halaman. Password tidak ikut berubah.",
+    "Write this down or screenshot it before leaving the page. Your password is unchanged.",
+  ],
   errUsernameTaken: [
     "Username itu sudah dipakai admin lain. Pilih yang lain.",
     "That username is already taken by another admin. Pick another one.",
