@@ -232,91 +232,81 @@ bermasalah.
 
 # 5. Pengujian
 
-## 5.1 Pengujian Fungsional
+Pengujian saya lakukan sendiri, dibagi dua: memastikan **fiturnya jalan**, lalu
+memastikan **tidak bisa disalahgunakan**.
 
-| # | Skenario | Cara uji | Hasil |
-| --- | --- | --- | --- |
-| U-1 | QR terpindai kamera HP bawaan | Cetak stiker, pindai dengan HP di luar jaringan kantor | Halaman aset terbuka tanpa login |
-| U-2 | Halaman publik benar-benar baca-saja | Periksa route: tidak ada handler POST/PATCH/DELETE | Tidak ada jalur mengubah data |
-| U-3 | Harga aset tidak bocor ke publik | Periksa kunci pada respons `/api/public/asset/<kode>` | `value` dan `id` tidak ada di respons |
-| U-4 | Halaman aset tidak terindeks | Periksa HTML yang dikirim server | Penanda `noindex` ada |
-| U-5 | Filter tiket per meja | Bandingkan hitungan tiap tombol | Semua 9 = GA 2 + Utility 4 + IT 3 |
-| U-6 | Daftar tiket publik dibatasi 1 hari, tapi tiket belum selesai bertahan | Bandingkan umur & status tiket dengan yang tampil | Tiket Selesai >1 hari hilang; tiket Open lama tetap tampil di puncak |
-| U-7 | Pemilik aset mengikuti riwayat | Catat pemakai baru, periksa kolom `owner` | Baris lama tertutup, baris baru terbuka, `owner` ikut berubah |
-| U-9 | Kolom `owner` tidak bisa ditulis lewat API | Kirim `owner` pada PATCH aset | Diabaikan allowlist — hanya riwayat yang bisa mengubahnya |
-| U-10 | Username bentrok ditolak | `PUT /api/auth/me` dengan nama admin lain berbeda kapitalisasi | `409 usernameTaken`, tabel `admins` tidak berubah |
-| U-11 | Jalur lokasi tahan siklus | Susun induk yang saling menunjuk | Rantai dipotong, halaman tetap terbuka |
-| U-8 | Mutu kode | `tsc --noEmit`, ESLint, `next build` | Nol error pada ketiganya |
+## 5.1 Menguji Fiturnya Jalan
 
-## 5.2 Pengujian Keamanan ⭑
+| Yang diuji | Caranya | Hasilnya |
+| --- | --- | --- |
+| Stiker QR terbaca kamera HP biasa | Cetak stiker, pindai pakai HP sendiri di luar jaringan kantor | Halaman aset terbuka — tanpa aplikasi, tanpa login |
+| Orang luar tidak bisa mengubah data | Cari jalur menyimpan di halaman hasil pindai | Tidak ada satu pun; halaman itu hanya bisa dibaca |
+| Harga aset tidak ikut terkirim | Periksa data yang dikirim ke halaman publik | Harga dan id database tidak pernah dikirim |
+| Tiket masuk ke meja yang benar | Jumlahkan isi tombol GA, Utility, dan IT, lalu bandingkan dengan tombol Semua | Jumlahnya selalu sama — tidak ada tiket yang bocor ke meja lain atau hilang |
+| Tiket menggantung tidak tenggelam | Biarkan tiket lewat sehari, lihat daftarnya | Tiket selesai hilang; tiket belum selesai naik ke atas |
+| Pemilik aset mengikuti riwayat pemakaian | Catat pemakai baru, lihat kolom pemilik | Pemilik berubah sendiri mengikuti riwayat |
+| Lokasi tampil lengkap dengan induknya | Buka aset yang lokasinya di dalam pabrik | Tertulis "Pabrik Pati › Gudang B", bukan "Gudang B" |
+| Kode tidak menyimpan error | Jalankan pemeriksa tipe, linter, dan build | Nol error pada ketiganya |
 
-Dilakukan mandiri dalam dua iterasi: pentest white-box, lalu review kode dan
-verifikasi konfigurasi langsung di produksi.
+## 5.2 Menguji Tidak Bisa Disalahgunakan ⭑
 
-| Kode | Tingkat | Temuan | Status |
-| --- | --- | --- | --- |
-| SIGAP-01 | Sedang | `X-Forwarded-For` bisa dipalsukan untuk mereset kuota rate limit | **Ditutup** |
-| DDOS-01 | Tinggi | Rate limiter jadi bottleneck-nya sendiri saat dibanjiri | **Ditutup** |
-| DDOS-02 | Tinggi | Lampiran tiket tidak pernah dihapus — bucket hanya bertambah | **Ditutup** |
-| DDOS-03 | Sedang | Endpoint publik dipaksa tidak bisa di-cache | **Ditutup** |
-| SIGAP-02 | Tinggi | Isi tiket terbaca publik lewat nomor berurutan | Terbuka |
-| SIGAP-03 | Sedang | Tabel baru otomatis terbuka untuk anon | Terbuka |
-| AUTH-01 | **Tinggi** | Ganti username yang gagal disimpan tetap dijawab "berhasil", lalu admin terkunci di luar | **Ditutup** |
-| AUTH-02 | **Tinggi** | Dua akun berbeda kapitalisasi mengunci keduanya dari login | **Ditutup** |
+Saya menguji keamanannya sendiri dalam dua putaran: pertama mencoba menyerang
+sistemnya, lalu membaca ulang kodenya dan memeriksa langsung setelan database
+di produksi.
 
-### DDOS-01 — slide dengan angka paling kuat
+**Enam masalah ditemukan dan sudah diperbaiki. Dua sisanya sengaja dibiarkan,
+dan alasannya dicatat.**
 
-Pembersih rate limiter menyapu seluruh memori pada **setiap** permintaan begitu
-ukurannya lewat 500. Saat dibanjiri dari banyak alamat, entri belum kedaluwarsa
-sehingga sapuan tidak menghapus apa pun — memori terus tumbuh dan tiap
-permintaan membayar sapuan yang makin panjang. **Pertahanannya melemah justru
-ketika paling dibutuhkan.**
+| Masalah yang ditemukan | Sudah diperbaiki? |
+| --- | --- |
+| Pembatas percobaan login bisa dikelabui dengan memalsukan alamat pengirim | Sudah |
+| Pembatas itu justru melambat sendiri saat dibanjiri permintaan | Sudah |
+| Lampiran tiket tidak pernah dihapus — penyimpanan hanya bertambah | Sudah |
+| Ganti username yang gagal tersimpan tetap dijawab "berhasil" | Sudah |
+| Dua akun dengan huruf besar-kecil berbeda saling mengunci | Sudah |
+| Satu tombol bisa menghapus seluruh tiket di database | Sudah |
+| Isi tiket bisa dibuka orang lain lewat nomor yang berurutan | Sengaja, dicatat |
+| Tabel baru di database lahir dalam keadaan terbuka | Belum, butuh akses SQL produksi |
 
-| Alamat IP unik | Sebelum | Sesudah | Peningkatan |
-| --- | --- | --- | --- |
-| 20.000 | 755 ms | 3 ms | **252×** |
-| 60.000 | 6.129 ms | 16 ms | **383×** |
+### Satu temuan yang paling layak diceritakan
 
-Yang lama tumbuh **kuadratik**; yang baru tumbuh linear.
+**Sistem yang berbohong tentang kegagalannya.**
 
-### AUTH-01 — kegagalan yang menyamar jadi keberhasilan
+Saat admin mengganti username, penyimpanan ke database bisa saja gagal. Yang
+terjadi dulu: sistem tetap menjawab **"Profil tersimpan"**, padahal tidak.
+Akibatnya berurutan:
 
-Ditemukan saat memeriksa apakah fitur ganti password dan username siap dipegang
-admin sungguhan. Ini jenis bug yang paling mahal: **bukan karena akibatnya
-besar, tapi karena sistem berbohong tentangnya.**
-
-Penyimpanan profil hanya mencatat kegagalan ke log, lalu tetap menjawab
-`{ok: true}` — **dan menerbitkan ulang cookie sesi memakai username baru**.
-Kalau tulisannya gagal, database masih memegang nama lama sementara cookie
-menunjuk nama yang tidak pernah ada. Urutannya:
-
-1. Admin melihat pesan "Profil tersimpan"
-2. Permintaan berikutnya menendangnya keluar
-3. Nama barunya tidak bisa dipakai login — karena tidak pernah masuk database
+1. Admin melihat pesan berhasil
+2. Beberapa saat kemudian dia terlempar keluar sendiri
+3. Nama barunya tidak bisa dipakai masuk — karena tidak pernah tersimpan
 4. Satu-satunya jalan masuk adalah mengingat nama lamanya
 
-Pola yang sama ada di ganti password: "berhasil", padahal passwordnya tidak
-pernah berubah.
+Ini jenis kesalahan yang paling mahal: bukan karena akibatnya besar, tapi
+karena **sistemnya memberi tahu hal yang salah.** Kalau ia jujur bilang gagal,
+admin tinggal mengulang. Karena ia bilang berhasil, admin justru terkunci.
 
-**Perbaikannya tiga lapis.** Kegagalan simpan kini sampai ke admin; cache profil
-baru diisi setelah tulisan berhasil, bukan sebelumnya; dan username bentrok
-ditolak lebih dulu dengan pesan yang bisa dibaca. Diverifikasi dengan permintaan
-sungguhan ke API — `409 usernameTaken`, dan tabel `admins` tidak berubah.
+Perbaikannya: kegagalan menyimpan sekarang selalu sampai ke admin, dan setelah
+username berhasil diganti, nama barunya ditampilkan besar-besar dan tidak
+hilang sendiri.
 
-> **Poin yang layak ditekankan:** pengujian ini tidak dipicu laporan bug. Tidak
-> ada yang mengeluh, karena belum ada admin sungguhan yang mencoba. Bug ini
-> ditemukan dengan bertanya *"apa yang terjadi kalau ini gagal?"* — pertanyaan
-> yang tidak akan pernah dijawab oleh pengujian jalur normal.
+> **Poin yang layak ditekankan:** temuan ini tidak datang dari laporan bug.
+> Belum ada yang mengeluh, karena belum ada admin lain yang memakainya. Saya
+> menemukannya dengan bertanya *"apa yang terjadi kalau ini gagal?"* —
+> pertanyaan yang tidak akan pernah terjawab kalau saya hanya menguji jalur
+> yang normal.
 
-### Temuan yang sengaja dibiarkan terbuka
+### Kenapa dua temuan sengaja dibiarkan terbuka
 
-Menyajikan yang belum ditutup lengkap dengan alasannya lebih kuat daripada
+Menyajikan yang belum ditutup lengkap dengan alasannya lebih jujur daripada
 mengklaim semuanya beres.
 
-**SIGAP-02** bukan bug, melainkan konsekuensi keputusan produk: riwayat tiket
-sengaja bisa dibuka tanpa akun supaya pelapor tidak kehilangan jejaknya saat
-berganti perangkat. Menutupnya berarti mengubah keputusan itu — wewenang pemilik
-produk, bukan pengembang.
+**Isi tiket bisa dibuka lewat nomor berurutan.** Ini bukan kelalaian, tapi
+akibat keputusan produk: riwayat tiket sengaja bisa dibuka tanpa akun supaya
+pelapor tidak kehilangan jejaknya saat berganti perangkat. Menutupnya berarti
+mengubah keputusan itu — dan itu wewenang pemilik produk, bukan pengembang.
+
+**Tabel baru lahir terbuka.** Perbaikannya satu baris perintah SQL, tapi harus
+dijalankan langsung di database produksi. Perintahnya sudah saya siapkan.
 
 ---
 
@@ -327,7 +317,7 @@ produk, bukan pengembang.
 | 1 | **Ruang lingkup awal meleset.** Sistem dibangun sebagai aplikasi peminjaman lengkap dengan booking, kalender, keterlambatan, audit fisik, kit, dan model aset. Setelah dipakai, ternyata kebutuhan sebenarnya hanya: tahu ini aset apa dan siapa pemegangnya. | Enam modul dihapus — lebih dari 3.500 baris kode. Kode yang tidak dipakai tetap harus diuji, diperbaiki, dan dipahami pembaca berikutnya. |
 | 2 | **Stiker QR bisa mati permanen.** Alamat di dalam QR semula diambil dari peramban yang sedang membukanya, jadi stiker yang dicetak saat pengembangan berisi `localhost`. Kegagalannya senyap — QR-nya terlihat normal dan tetap terpindai. | Alamat dipaksa dari konfigurasi produksi, bukan dari peramban. Ketahuan sebelum ada stiker yang dicetak massal. |
 | 3 | **Tampilan rusak hanya di perangkat tertentu.** Di komputer bermode terang, kolom input login menjadi putih di atas putih — kontras 1,04:1, praktis tidak terbaca. Tidak pernah terlihat di perangkat yang mode gelap. | Akarnya satu: varian `dark:` Tailwind mengikuti setelan sistem, padahal aplikasi memaksa tema gelap. Diperbaiki dengan satu baris CSS; empat keluhan tampilan selesai sekaligus. |
-| 4 | **Bug yang tidak terlihat dari membaca kode.** Kelemahan rate limiter tidak tampak saat kodenya dibaca. | Baru muncul setelah diukur di bawah beban dengan puluhan ribu alamat. Pengujian beban jadi bagian metodologi, bukan pelengkap. |
+| 4 | **Ada bug yang tidak kelihatan dari membaca kode.** Pembatas percobaan login terlihat baik-baik saja saat kodenya dibaca, padahal justru melambat sendiri ketika dibanjiri permintaan. | Baru ketahuan setelah diuji dengan puluhan ribu permintaan sekaligus. Sejak itu pengujian beban jadi bagian dari cara kerja saya, bukan pelengkap. |
 | 5 | **Perbaikan yang ter-deploy tapi tidak berfungsi.** Pembersih lampiran otomatis sudah ada di kode, tapi tidak pernah berhasil jalan karena variabel rahasianya terpasang di project Vercel yang salah. | Kodenya benar, konfigurasinya tidak — dan tidak ada pesan error yang memberi tahu. Konfigurasi ikut diverifikasi, bukan diasumsikan. |
 | 6 | **Sistem yang melaporkan keberhasilan palsu.** Ganti username yang gagal disimpan tetap dijawab "berhasil", lalu mengunci admin di luar. Tidak terlihat sama sekali dari pemakaian normal. | Ditemukan dengan menguji jalur gagal, bukan jalur normal. Kegagalan simpan kini selalu dilaporkan, dan aturan unik ditegakkan sampai ke level indeks database. |
 | 7 | **Tidak ada migration runner.** Perubahan skema database dijalankan manual, rawan terlewat atau salah urutan. | Berkas SQL diberi nomor urut dan panduan tertulis. Skrip yang tidak berlaku untuk instalasi baru diberi penjaga agar tidak menggagalkan rantai setup. |
@@ -352,13 +342,15 @@ produk, bukan pengembang.
 | 12 | Tampilan — home admin | S-4 |
 | 13 | Tampilan — detail aset & QR | S-6 |
 | 14 | Tampilan — panel tiket | S-7 |
-| 15 | Pengujian fungsional | § 5.1 |
-| 16 | Pengujian keamanan — temuan | § 5.2 |
-| 16b | **AUTH-01 — kegagalan yang menyamar jadi keberhasilan** | § 5.2 |
-| 17 | Angka rate limiter | § 5.2 |
+| 15 | Pengujian fitur | § 5.1 |
+| 16 | Pengujian keamanan — daftar temuan | § 5.2 |
+| 17 | **Cerita satu temuan: sistem yang bilang berhasil padahal gagal** | § 5.2 |
 | 18 | Kendala & solusi | § 6 |
 
-Kalau waktunya mepet, yang paling aman dipotong: slide 9, 13, 17.
+Kalau waktunya mepet, yang paling aman dipotong: slide 9 dan 13.
+
+Slide 17 jangan dipotong — itu slide di mana kamu bercerita, bukan membaca
+tabel, dan biasanya justru yang paling diingat penguji.
 
 ---
 
@@ -392,9 +384,10 @@ Peminjaman, kit, audit, dan model aset tidak dipakai setelah dibangun.
 Menghapus fitur mati adalah keputusan rekayasa, bukan kemunduran.
 
 **"Kenapa masih ada temuan keamanan yang terbuka?"**
-Bukan kelalaian. SIGAP-02 menuntut keputusan pemilik produk karena menyangkut
-apa yang boleh publik; SIGAP-03 butuh akses SQL Editor produksi. Keduanya sudah
-punya rekomendasi konkret.
+Bukan kelalaian. Yang pertama menyangkut apa yang boleh dilihat publik — itu
+keputusan pemilik produk, bukan pengembang. Yang kedua perbaikannya satu baris
+SQL yang harus dijalankan langsung di database produksi. Keduanya sudah punya
+rekomendasi yang siap dipakai.
 
 **"Kenapa pemilik aset tidak diketik langsung saja? Bukankah lebih cepat?"**
 Lebih cepat, tapi jawabannya cuma bertahan sampai pemiliknya berganti. Kolom
