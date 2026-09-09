@@ -13,7 +13,7 @@ import { ImageUpload } from "@/components/ui/image-upload";
 import { useStore } from "@/lib/store";
 import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useT } from "@/lib/i18n";
-import { ArrowLeft, MapPin, Plus, FolderTree } from "lucide-react";
+import { ArrowLeft, MapPin, Plus } from "lucide-react";
 
 export default function NewLocationPage() {
   const router = useRouter();
@@ -24,21 +24,23 @@ export default function NewLocationPage() {
     name: "",
     description: "",
     parentId: "",
-    isParent: false,
     image: "",
   });
   const [showParentCreate, setShowParentCreate] = useState(false);
   const [parentName, setParentName] = useState("");
 
-  // Parent efektif = ditandai isParent ATAU memang punya sub-lokasi
-  const idSet = new Set(locations.map((l) => l.id));
-  const childCount = new Map<string, number>();
-  locations.forEach((l) => {
-    if (l.parentId && idSet.has(l.parentId))
-      childCount.set(l.parentId, (childCount.get(l.parentId) || 0) + 1);
-  });
-  const parentOptions = locations.filter(
-    (l) => l.isParent || (childCount.get(l.id) || 0) > 0
+  /**
+   * Semua lokasi boleh dipilih sebagai area — tidak ada tipe yang harus
+   * dideklarasikan lebih dulu.
+   *
+   * Dulu daftar ini disaring ke lokasi yang sudah ditandai "parent". Akibatnya
+   * pada pemasangan baru dropdown-nya KOSONG, dan admin tidak punya petunjuk
+   * apa pun bahwa dia harus membuat lokasi bertipe parent lebih dulu. Sebuah
+   * lokasi sekarang menjadi area dengan sendirinya begitu ada yang ditempatkan
+   * di dalamnya.
+   */
+  const areaOptions = [...locations].sort((a, b) =>
+    a.name.localeCompare(b.name)
   );
 
   const submit = (e: React.FormEvent) => {
@@ -46,17 +48,14 @@ export default function NewLocationPage() {
     if (!form.name.trim()) return alert(t("nameRequired"));
     ask({
       title: t("confirmAddLocation", { name: form.name.trim() }),
-      description: form.isParent
-        ? t("confirmAddLocationParentBody")
-        : t("confirmAddLocationRegularBody"),
+      description: t("confirmAddLocationRegularBody"),
       confirmLabel: t("yesAdd"),
       variant: "primary",
       action: () => {
         addLocation({
           name: form.name.trim(),
           description: form.description,
-          isParent: form.isParent,
-          parentId: form.isParent ? null : form.parentId || null,
+          parentId: form.parentId || null,
           image: form.image || undefined,
         } as any);
         router.push("/locations");
@@ -74,7 +73,6 @@ export default function NewLocationPage() {
         const id = addLocation({
           name: parentName.trim(),
           description: "",
-          isParent: true,
           parentId: null,
           image: "",
         } as any);
@@ -130,124 +128,68 @@ export default function NewLocationPage() {
                 />
               </div>
 
-              {/* Tipe lokasi: Biasa vs Parent */}
+              {/* Area: lokasi mana pun boleh menaungi lokasi lain. */}
               <div className="space-y-2">
-                <Label>{t("locationType")}</Label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="flex items-center justify-between">
+                  <Label>{t("areaLabel")}</Label>
                   <button
                     type="button"
-                    onClick={() => setForm({ ...form, isParent: false })}
-                    className={`flex items-center gap-2.5 rounded-xl border-2 p-3 text-left transition-all ${
-                      !form.isParent
-                        ? "border-[#1a365d] bg-[#1a365d]/5 dark:bg-[#1a365d]/20"
-                        : "border-slate-200 dark:border-slate-700 hover:border-slate-300"
-                    }`}
+                    onClick={() => setShowParentCreate(!showParentCreate)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#CBA12C] text-[#1a365d] text-xs font-bold hover:bg-amber-300 border border-[#CBA12C] shadow-sm transition-colors"
                   >
-                    <MapPin className="h-4 w-4 shrink-0 text-[#1a365d] dark:text-slate-300" />
-                    <span>
-                      <span className="block text-sm font-semibold">
-                        {t("regularLocation")}
-                      </span>
-                      <span className="block text-[11px] text-muted-foreground">
-                        {t("regularLocationHint")}
-                      </span>
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setForm({ ...form, isParent: true, parentId: "" })
-                    }
-                    className={`flex items-center gap-2.5 rounded-xl border-2 p-3 text-left transition-all ${
-                      form.isParent
-                        ? "border-[#CBA12C] bg-[#CBA12C]/10"
-                        : "border-slate-200 dark:border-slate-700 hover:border-slate-300"
-                    }`}
-                  >
-                    <FolderTree className="h-4 w-4 shrink-0 text-[#8a6d1d] dark:text-[#CBA12C]" />
-                    <span>
-                      <span className="block text-sm font-semibold">
-                        {t("parentLocation")}
-                      </span>
-                      <span className="block text-[11px] text-muted-foreground">
-                        {t("parentLocationHint")}
-                      </span>
-                    </span>
+                    <Plus className="h-3 w-3" strokeWidth={1.5} />
+                    {t("createNewArea")}
                   </button>
                 </div>
-              </div>
-
-              {/* Parent hanya bisa dipilih untuk lokasi biasa */}
-              {!form.isParent && (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label>{t("parentOf")}</Label>
-                    <button
-                      type="button"
-                      onClick={() => setShowParentCreate(!showParentCreate)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#CBA12C] text-[#1a365d] text-xs font-bold hover:bg-amber-300 border border-[#CBA12C] shadow-sm transition-colors"
-                    >
-                      <Plus className="h-3 w-3" strokeWidth={1.5} />
-                      {t("createNewParent")}
-                    </button>
-                  </div>
-                  <Select
-                    value={form.parentId}
-                    onChange={(e) =>
-                      setForm({ ...form, parentId: e.target.value })
-                    }
-                  >
-                    <option value="">{t("noParentStandalone")}</option>
-                    {parentOptions.map((l) => (
-                      <option key={l.id} value={l.id}>
-                        {l.name}
-                      </option>
-                    ))}
-                  </Select>
-                  {parentOptions.length === 0 && (
-                    <p className="text-xs text-amber-700 dark:text-amber-300">
-                      {t("noParentYet")}
-                    </p>
-                  )}
-                  {showParentCreate && (
-                    <div className="rounded-xl border-2 border-[#CBA12C]/30 bg-amber-50 dark:bg-slate-800 p-3 space-y-2 animate-in fade-in">
-                      <Label className="text-xs">{t("newParentName")} *</Label>
-                      <div className="flex gap-2">
-                        <Input
-                          value={parentName}
-                          onChange={(e) => setParentName(e.target.value)}
-                          placeholder="Gedung Utama"
-                          className="h-9 rounded-lg bg-white dark:bg-slate-900 flex-1"
-                          autoFocus
-                        />
-                        <Button
-                          type="button"
-                          size="sm"
-                          onClick={handleCreateParent}
-                          className="rounded-lg bg-[#1a365d] text-white h-9 px-4"
-                        >
-                          {t("createShort")}
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => setShowParentCreate(false)}
-                          className="h-9"
-                        >
-                          {t("cancel")}
-                        </Button>
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        {t("parentAutoSelected")}
-                      </p>
+                <Select
+                  value={form.parentId}
+                  onChange={(e) =>
+                    setForm({ ...form, parentId: e.target.value })
+                  }
+                >
+                  <option value="">{t("noAreaStandalone")}</option>
+                  {areaOptions.map((l) => (
+                    <option key={l.id} value={l.id}>
+                      {l.name}
+                    </option>
+                  ))}
+                </Select>
+                {showParentCreate && (
+                  <div className="rounded-xl border-2 border-[#CBA12C]/30 bg-amber-50 dark:bg-slate-800 p-3 space-y-2 animate-in fade-in">
+                    <Label className="text-xs">{t("newParentName")} *</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        value={parentName}
+                        onChange={(e) => setParentName(e.target.value)}
+                        placeholder="Gedung Utama"
+                        className="h-9 rounded-lg bg-white dark:bg-slate-900 flex-1"
+                        autoFocus
+                      />
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={handleCreateParent}
+                        className="rounded-lg bg-[#1a365d] text-white h-9 px-4"
+                      >
+                        {t("createShort")}
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setShowParentCreate(false)}
+                        className="h-9"
+                      >
+                        {t("cancel")}
+                      </Button>
                     </div>
-                  )}
-                  <p className="text-xs text-muted-foreground">
-                    {t("parentDropdownHintLong")}
-                  </p>
-                </div>
-              )}
+                    <p className="text-xs text-muted-foreground">
+                      {t("parentAutoSelected")}
+                    </p>
+                  </div>
+                )}
+                <p className="text-xs text-muted-foreground">{t("areaHint")}</p>
+              </div>
 
               <ImageUpload
                 kind="lokasi"

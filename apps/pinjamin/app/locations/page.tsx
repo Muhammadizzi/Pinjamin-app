@@ -24,7 +24,6 @@ export default function LocationsPage() {
     name: "",
     description: "",
     parentId: "",
-    isParent: false,
     image: "",
   });
 
@@ -41,8 +40,15 @@ export default function LocationsPage() {
     }
   });
   const hasChildren = (id: string) => (childrenMap.get(id)?.length ?? 0) > 0;
-  // Parent efektif = ditandai isParent ATAU memang punya sub-lokasi
-  const isEffectiveParent = (l: Location) => !!l.isParent || hasChildren(l.id);
+  /**
+   * Sebuah lokasi disebut AREA kalau memang ada lokasi lain di dalamnya.
+   *
+   * Dulu ini juga melihat tanda `isParent` yang dipilih admin di form. Tanda
+   * itu dihapus: memaksa admin menyatakan "ini parent" sebelum boleh mengisi
+   * apa pun membuat dropdown area KOSONG pada pemasangan baru, tanpa petunjuk
+   * apa yang keliru. Sekarang statusnya mengikuti kenyataan, bukan deklarasi.
+   */
+  const isEffectiveParent = (l: Location) => hasChildren(l.id);
 
   // Seksi parent: parent efektif yang tidak tampil di bawah parent lain
   const parentLocs = locations.filter(
@@ -74,7 +80,6 @@ export default function LocationsPage() {
       name: l.name,
       description: l.description || "",
       parentId: l.parentId || "",
-      isParent: !!l.isParent,
       image: l.image || "",
     });
     setEdit(l.id);
@@ -92,9 +97,7 @@ export default function LocationsPage() {
         updateLocation(edit, {
           name: form.name,
           description: form.description,
-          isParent: form.isParent,
-          // Lokasi parent tidak punya induk; yang biasa boleh punya parent
-          parentId: form.isParent ? null : form.parentId || null,
+          parentId: form.parentId || null,
           image: form.image || undefined,
         } as any);
         setEdit(null);
@@ -102,7 +105,6 @@ export default function LocationsPage() {
           name: "",
           description: "",
           parentId: "",
-          isParent: false,
           image: "",
         });
       },
@@ -115,7 +117,6 @@ export default function LocationsPage() {
       name: "",
       description: "",
       parentId: "",
-      isParent: false,
       image: "",
     });
   };
@@ -259,80 +260,28 @@ export default function LocationsPage() {
                   />
                 </div>
 
-                {/* Tipe lokasi: Biasa vs Parent */}
                 <div className="space-y-2">
-                  <Label>{t("locationType")}</Label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setForm({ ...form, isParent: false })}
-                      className={`flex items-center gap-2.5 rounded-xl border-2 p-3 text-left transition-all ${
-                        !form.isParent
-                          ? "border-[#1a365d] bg-[#1a365d]/5 dark:bg-[#1a365d]/20"
-                          : "border-slate-200 dark:border-slate-700 hover:border-slate-300"
-                      }`}
-                    >
-                      <MapPin className="h-4 w-4 shrink-0 text-[#1a365d] dark:text-slate-300" />
-                      <span>
-                        <span className="block text-sm font-semibold">
-                          {t("regularLocation")}
-                        </span>
-                        <span className="block text-[11px] text-muted-foreground">
-                          {t("regularLocationHint")}
-                        </span>
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setForm({ ...form, isParent: true, parentId: "" })
-                      }
-                      className={`flex items-center gap-2.5 rounded-xl border-2 p-3 text-left transition-all ${
-                        form.isParent
-                          ? "border-[#CBA12C] bg-[#CBA12C]/10"
-                          : "border-slate-200 dark:border-slate-700 hover:border-slate-300"
-                      }`}
-                    >
-                      <FolderTree className="h-4 w-4 shrink-0 text-[#8a6d1d] dark:text-[#CBA12C]" />
-                      <span>
-                        <span className="block text-sm font-semibold">
-                          {t("parentLocation")}
-                        </span>
-                        <span className="block text-[11px] text-muted-foreground">
-                          {t("parentLocationHint")}
-                        </span>
-                      </span>
-                    </button>
-                  </div>
+                  <Label>{t("areaLabel")}</Label>
+                  <Select
+                    value={form.parentId}
+                    onChange={(e) =>
+                      setForm({ ...form, parentId: e.target.value })
+                    }
+                  >
+                    <option value="">{t("noAreaStandalone")}</option>
+                    {locations
+                      .filter((l) => !descendantIds(edit).has(l.id))
+                      .sort((a, b) => a.name.localeCompare(b.name))
+                      .map((l) => (
+                        <option key={l.id} value={l.id}>
+                          {l.name}
+                        </option>
+                      ))}
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    {t("areaHint")}
+                  </p>
                 </div>
-
-                {!form.isParent && (
-                  <div className="space-y-2">
-                    <Label>{t("parentOf")}</Label>
-                    <Select
-                      value={form.parentId}
-                      onChange={(e) =>
-                        setForm({ ...form, parentId: e.target.value })
-                      }
-                    >
-                      <option value="">{t("noParentStandalone")}</option>
-                      {locations
-                        .filter(
-                          (l) =>
-                            isEffectiveParent(l) &&
-                            !descendantIds(edit).has(l.id)
-                        )
-                        .map((l) => (
-                          <option key={l.id} value={l.id}>
-                            {l.name}
-                          </option>
-                        ))}
-                    </Select>
-                    <p className="text-xs text-muted-foreground">
-                      {t("parentDropdownHint")}
-                    </p>
-                  </div>
-                )}
 
                 <ImageUpload
                   kind="lokasi"
@@ -376,7 +325,7 @@ export default function LocationsPage() {
         {parentLocs.length > 0 && (
           <div className="space-y-2">
             <h2 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-              <FolderTree className="h-4 w-4" /> {t("parentLocation")}
+              <FolderTree className="h-4 w-4" /> {t("areaSection")}
               <span className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[10px] px-2 py-0.5 rounded-full">
                 {parentLocs.length}
               </span>
@@ -403,7 +352,7 @@ export default function LocationsPage() {
         {regularLocs.length > 0 && (
           <div className="space-y-2">
             <h2 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-              <MapPin className="h-4 w-4" /> {t("regularLocation")}
+              <MapPin className="h-4 w-4" /> {t("standaloneSection")}
               <span className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[10px] px-2 py-0.5 rounded-full">
                 {regularLocs.length}
               </span>

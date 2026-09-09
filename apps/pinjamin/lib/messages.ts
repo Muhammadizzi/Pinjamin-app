@@ -491,10 +491,30 @@ export const messages = {
 
   // ---------- Lokasi ----------
   locationsSummary: [
-    "{parents} lokasi parent • {regular} lokasi biasa",
-    "{parents} parent locations • {regular} regular locations",
+    "{parents} area • {regular} lokasi berdiri sendiri",
+    "{parents} areas • {regular} standalone locations",
   ],
   editLocation: ["Edit Lokasi", "Edit Location"],
+  areaLabel: ["Area", "Area"],
+  noAreaStandalone: [
+    "— Tidak ada, lokasi ini berdiri sendiri —",
+    "— None, this location stands alone —",
+  ],
+  createNewArea: ["Buat Area Baru", "New Area"],
+  areaHint: [
+    "Area adalah tempat yang menaungi lokasi ini — gedung, pabrik, atau kawasan. Kosongkan bila lokasi ini tidak berada di dalam apa pun.",
+    "An area is the place that contains this location — a building, plant, or site. Leave it empty if this location is not inside anything.",
+  ],
+  areaSection: ["AREA", "AREAS"],
+  areaSectionHint: [
+    "Lokasi yang menaungi lokasi lain",
+    "Locations that contain other locations",
+  ],
+  standaloneSection: ["LOKASI", "LOCATIONS"],
+  descriptionPositionHint: [
+    'Posisi persis aset bisa ditulis di sini, misalnya "di meja A" atau "rak 3 baris atas".',
+    'The exact spot can go here, e.g. "on desk A" or "rack 3, top row".',
+  ],
   locationType: ["Tipe Lokasi", "Location Type"],
   regularLocation: ["Lokasi Biasa", "Regular Location"],
   regularLocationHint: [
