@@ -487,9 +487,12 @@ export async function getTicketById(id: string): Promise<Ticket | null> {
  * memang untuk dibaca siapa pun, jadi yang tidak diminta tidak boleh ikut
  * terangkut hanya karena mudah.
  */
+/** Tiket di daftar publik, berikut nomor antreannya (null bila sudah selesai). */
+export type RecentTicket = Ticket & { queue: number | null };
+
 export async function listRecentTickets(
   now: number = Date.now()
-): Promise<Ticket[]> {
+): Promise<RecentTicket[]> {
   const batas = new Date(
     now - RECENT_TICKETS_DAYS * 24 * 60 * 60 * 1000
   ).toISOString();
@@ -534,13 +537,44 @@ export async function listRecentTickets(
       .or(`created_at.gte.${batas},status.neq.RESOLVED`)
       .limit(RECENT_TICKETS_MAX);
     if (error) throw new Error(error.message);
-    return urutkan((data || []).map(rowToTicket)).slice(0, RECENT_TICKETS_MAX);
+    return berinomorAntrian(
+      urutkan((data || []).map(rowToTicket)).slice(0, RECENT_TICKETS_MAX)
+    );
   }
-  return urutkan(
-    [...loadFile()].filter(
-      (t) => t.createdAt >= batas || t.status !== "RESOLVED"
-    )
-  ).slice(0, RECENT_TICKETS_MAX);
+  return berinomorAntrian(
+    urutkan(
+      [...loadFile()].filter(
+        (t) => t.createdAt >= batas || t.status !== "RESOLVED"
+      )
+    ).slice(0, RECENT_TICKETS_MAX)
+  );
+}
+
+/**
+ * Beri nomor antrean pada tiket yang BELUM selesai, dihitung per working order.
+ *
+ * Nomor ini bukan identitas — ia jawaban atas "saya antrean ke berapa", dan
+ * memang berubah tiap kali daftarnya disusun ulang. Tiket yang menunggu paling
+ * lama otomatis naik ke nomor 1 keesokan harinya, tanpa nomor tiketnya
+ * disentuh sama sekali.
+ *
+ * Kenapa nomor tiket TIDAK ikut berubah: nomor itu satu-satunya kunci pelapor
+ * untuk membuka tiketnya kembali. Kalau ia bergeser tiap hari, nomor yang
+ * dicatat pelapor kemarin akan menunjuk tiket orang lain — bukan sekadar
+ * membingungkan, tapi membuka nama dan keluhan orang yang tidak bersangkutan.
+ *
+ * Dihitung per meja karena antreannya pun dikerjakan per meja: admin GA tidak
+ * ikut mengerjakan tumpukan IT, jadi "antrean ke-3" hanya bermakna di dalam
+ * satu working order.
+ */
+function berinomorAntrian(rows: Ticket[]): RecentTicket[] {
+  const hitung = new Map<string, number>();
+  return rows.map((t) => {
+    if (t.status === "RESOLVED") return { ...t, queue: null };
+    const n = (hitung.get(t.workingOrder) ?? 0) + 1;
+    hitung.set(t.workingOrder, n);
+    return { ...t, queue: n };
+  });
 }
 
 /**
@@ -563,9 +597,10 @@ export async function listRecentTickets(
  * Yang TETAP tidak pernah ikut: isi pesan, balasan admin, email, nomor
  * WhatsApp, lampiran, token portal, dan catatan admin.
  */
-export function publicRecentView(t: Ticket) {
+export function publicRecentView(t: RecentTicket) {
   return {
     number: t.number,
+    queue: t.queue,
     name: t.name,
     subject: t.subject,
     workingOrder: t.workingOrder,

@@ -62,6 +62,8 @@ const FORM_KOSONG = {
 /** Satu baris di daftar tiket terbaru — lihat publicRecentView di server. */
 interface TiketTerbaru {
   number: string;
+  /** Antrean ke berapa di meja ini hari ini. null = tiket sudah selesai. */
+  queue: number | null;
   name: string;
   subject: string;
   workingOrder: string;
@@ -677,6 +679,23 @@ export default function LandingPage() {
                           className="rounded-xl border border-[#243a5e] bg-[#0f1d33] px-3 py-2"
                         >
                           <div className="flex flex-wrap items-center gap-1.5">
+                            {/* Nomor antrean: berubah tiap hari mengikuti
+                                posisi. Nomor tiket di sebelahnya tidak pernah
+                                berubah — itu kunci pelapor melacak.
+
+                                Hanya tampil saat SATU meja dipilih. Antrean
+                                dihitung per working order, jadi begitu tiga
+                                meja dicampur angkanya mengulang dari 1 dan
+                                terbaca seperti salah hitung — padahal maksudnya
+                                antrean milik meja masing-masing. */}
+                            {filterMeja !== "SEMUA" && r.queue !== null && (
+                              <span
+                                title={`Antrean ke-${r.queue} di meja ${r.workingOrder}`}
+                                className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-300 px-1.5 text-[11px] font-bold text-[#0f1d33]"
+                              >
+                                {r.queue}
+                              </span>
+                            )}
                             <span className="font-mono text-xs font-bold text-amber-300">
                               {r.number}
                             </span>
