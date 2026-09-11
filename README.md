@@ -1,173 +1,127 @@
-<a href="https://www.shelf.nu/" target="_blank">
-<img width="100%" src="./apps/webapp/public/static/images/readme-cover.jpg" alt="Shelf.nu" />
-</a>
-
-<h3 align="center">Open-source asset management infrastructure for everyone.</h3>
-
 <p align="center">
-  <a href="https://github.com/Shelf-nu/shelf.nu/blob/main/LICENSE"><img src="https://img.shields.io/github/license/Shelf-nu/shelf.nu?label=License" alt="License" /></a>
-  <a href="https://github.com/Shelf-nu/shelf.nu/actions/workflows/deploy.yml"><img src="https://github.com/Shelf-nu/shelf.nu/actions/workflows/deploy.yml/badge.svg" alt="Deploy" /></a>
-  <a href="https://github.com/Shelf-nu/shelf.nu/stargazers"><img src="https://img.shields.io/github/stars/Shelf-nu/shelf.nu" alt="Stars" /></a>
-  <a href="https://discord.gg/8he9W7aTJu"><img src="https://img.shields.io/badge/Discord-community-blue?logo=discord&logoColor=white" alt="Discord" /></a>
+  <img src="apps/pinjamin/public/sigap-logo.png" alt="Logo SIGAP" width="120" />
 </p>
 
+<h1 align="center">SIGAP</h1>
+
 <p align="center">
-  <a href="https://www.shelf.nu/?ref=github"><b>Website</b></a> &middot;
-  <a href="https://docs.shelf.nu/?ref=github"><b>Documentation</b></a> &middot;
-  <a href="https://discord.gg/8he9W7aTJu"><b>Discord</b></a> &middot;
-  <a href="https://twitter.com/ShelfQR/?ref=github"><b>Twitter</b></a>
+  <b>Sistem Integrasi Guna Aset &amp; Pelayanan</b> — Garudafood<br />
+  <a href="https://sigapgf.vercel.app">sigapgf.vercel.app</a>
 </p>
 
 ---
 
-Shelf is a platform for tracking physical assets — equipment, devices, tools, vehicles, props, inventory. It's built for teams that need to know what they have, where it is, and who's using it. Organizations use Shelf to manage thousands of assets across locations with role-based access for their teams.
+Aplikasi web internal Garudafood untuk dua pekerjaan: **mencatat aset ber-QR**
+dan **melayani keluhan karyawan lewat tiket helpdesk**.
 
-## Features
+> **Baca ini dulu.** Repo ini fork dari [shelf.nu](https://github.com/Shelf-nu/shelf.nu).
+> Kode SIGAP **hanya** ada di folder [`apps/pinjamin`](apps/pinjamin). Folder
+> lain (`apps/webapp`, `apps/companion`, `apps/docs`, `packages/`, `tooling/`)
+> adalah kode bawaan shelf.nu yang tidak dipakai SIGAP — begitu juga
+> `AGENTS.md`, `CONTRIBUTING.md`, dan `CODE_OF_CONDUCT.md`, yang membahas
+> shelf.nu, bukan SIGAP.
 
-- **QR asset tags** — Generate and print QR codes. Scan with any phone to view, check out, or report an asset.
-- **Bookings and reservations** — Schedule equipment, prevent double-bookings, set checkout/return dates with calendar integration.
-- **Custody tracking** — Assign assets to team members. Know who has what at all times.
-- **Location management** — Hierarchical locations (buildings, floors, rooms, shelves). GPS tagging support.
-- **Team roles** — Owner, Admin, Base, and Self Service roles with granular permissions.
-- **Custom fields** — Add any metadata to assets: purchase date, warranty info, serial numbers, condition.
-- **Categories and tags** — Organize assets into categories. Tag for flexible cross-cutting grouping.
-- **Kits** — Bundle assets into kits (e.g., laptop + charger + dock) and manage them as a unit.
-- **Search and filtering** — Full-text search with advanced filters. Saved filter presets.
-- **CSV import/export** — Bulk import assets from spreadsheets. Export for reporting.
-- **Asset reminders** — Schedule alerts for maintenance, calibration, warranty expiry.
-- **Audit trail** — Notes and activity logs on every asset.
-- **Multi-workspace** — Manage separate inventories for different organizations or departments.
-- **Scanner** — Built-in QR/barcode scanner with bulk actions: assign custody, update location, add to bookings.
+## Fitur
 
-## Tech Stack
+**Manajemen aset** — admin peran `ASSET`
 
-| Layer      | Technology                                                                      |
-| ---------- | ------------------------------------------------------------------------------- |
-| Framework  | [React Router](https://reactrouter.com/) 7 (React 19)                           |
-| Language   | [TypeScript](https://www.typescriptlang.org/) 5                                 |
-| Database   | [PostgreSQL](https://www.postgresql.org/) via [Supabase](https://supabase.com/) |
-| ORM        | [Prisma](https://www.prisma.io/) 6                                              |
-| Styling    | [Tailwind CSS](https://tailwindcss.com/) 3                                      |
-| Components | [Radix UI](https://www.radix-ui.com/) primitives                                |
-| Auth       | [Supabase Auth](https://supabase.com/docs/guides/auth) (email, SSO)             |
-| Job queue  | [pg-boss](https://github.com/timgit/pg-boss)                                    |
-| Payments   | [Stripe](https://stripe.com/)                                                   |
-| Email      | [Nodemailer](https://nodemailer.com/) (SMTP)                                    |
-| Build      | [Vite](https://vite.dev/) 7, [Turborepo](https://turbo.build/)                  |
-| Testing    | [Vitest](https://vitest.dev/), [Playwright](https://playwright.dev/)            |
+- Registri aset lengkap dengan kategori, tag, lokasi berjenjang, foto, dan
+  riwayat pemakai.
+- Stiker QR berkode `PIN-…` yang bisa dipindai kamera HP siapa pun untuk
+  membuka halaman data aset (baca-saja, tanpa login).
+- Dasbor kondisi aset (Baik, Rusak, Dalam Perbaikan) dan daftar aset yang
+  datanya belum lengkap.
+- Laporan yang bisa diekspor ke CSV dan Excel: ringkasan, per kategori, per
+  lokasi, dan daftar aset.
 
-## Getting Started
+**Helpdesk tiket** — admin peran `HELPDESK`, satu admin per meja (GA, Utility, IT)
 
-### Prerequisites
+- Karyawan membuat tiket dari halaman depan tanpa login. Nomor tiket dihitung
+  per meja (`GA-0001`, `IT-0001`, …).
+- Lacak Tiket cukup dengan nomornya. Pelapor bisa membalas admin setelah
+  memverifikasi emailnya sekali.
+- History Ticket publik dengan nomor antrean per meja: Open dari hari lalu →
+  Diproses (Mendesak ke Rendah) → On Hold → Open hari ini.
+- Panel admin per meja untuk mengubah status dan prioritas, membalas pelapor,
+  dan melihat label "Balasan baru". Daftarnya menyegarkan diri sendiri.
 
-- [Node.js](https://nodejs.org/) >= 22.20.0
-- [pnpm](https://pnpm.io/) >= 9.15.4
-- A [Supabase](https://supabase.com/) project (free tier works)
+## Teknologi
 
-### Setup
+| Lapisan         | Teknologi                                     |
+| --------------- | --------------------------------------------- |
+| Aplikasi        | Next.js 16 (App Router), React 19, TypeScript |
+| Tampilan        | Tailwind CSS 4                                |
+| Database & file | Supabase (PostgreSQL + Storage)               |
+| Hosting         | Vercel, region Singapura                      |
+| Login admin     | JWT sendiri di cookie httpOnly, sandi bcrypt  |
+
+## Menjalankan di laptop
+
+Butuh **Node.js 22.20 ke atas** dan **pnpm 9**.
 
 ```bash
-# Clone the repository
-git clone https://github.com/Shelf-nu/shelf.nu.git
-cd shelf.nu
-
-# Install dependencies
 pnpm install
-
-# Copy environment template
-cp .env.example .env
+cp apps/pinjamin/.env.example apps/pinjamin/.env.local   # lalu isi nilainya
+pnpm pinjamin:dev
 ```
 
-Edit `.env` with your Supabase credentials and other configuration. See the [Supabase setup guide](https://docs.shelf.nu/supabase-setup) for step-by-step instructions.
+Buka http://localhost:5003. Halaman depan berisi form dan pelacakan tiket;
+login admin ada di `/login`.
 
-```bash
-# Generate Prisma client and run migrations
-pnpm webapp:setup
+Tanpa mengisi kunci Supabase pun aplikasi tetap jalan, memakai penyimpanan file
+lokal di `apps/pinjamin/data/` — cukup untuk mencoba tampilan. Cara login di
+mode ini ada di [`apps/pinjamin/README.md`](apps/pinjamin/README.md#auth-admin).
 
-# Start development server
-pnpm webapp:dev
-```
+> Isi `.env.local` (kunci Supabase, `AUTH_SECRET`) **jangan pernah di-commit**
+> dan jangan dikirim lewat chat. Minta langsung ke pemegang akun Supabase dan
+> Vercel.
 
-The app runs at `https://localhost:3000` (the dev server uses HTTPS with local certificates by default).
+## Deploy
 
-For detailed setup instructions including SSL certificates and troubleshooting, see the [local development guide](https://docs.shelf.nu/local-development).
+Push ke branch `main` otomatis men-deploy production di Vercel. Cara menyiapkan
+dari nol — Supabase, project Vercel, dan environment variables — ada di
+[`PANDUAN-DEPLOY-SIGAP.md`](PANDUAN-DEPLOY-SIGAP.md) dan
+[`apps/pinjamin/README.md`](apps/pinjamin/README.md#deploy-ke-vercel).
 
-## Project Structure
+Perubahan database **tidak** otomatis. Skrip SQL-nya ada di
+[`apps/pinjamin/supabase/`](apps/pinjamin/supabase) dan dijalankan manual di
+SQL Editor Supabase.
 
-```
-shelf.nu/
-├── apps/
-│   ├── webapp/          # Main application (React Router + Hono)
-│   │   ├── app/
-│   │   │   ├── routes/      # File-based routing
-│   │   │   ├── modules/     # Business logic (booking, asset, kit, etc.)
-│   │   │   ├── components/  # React components
-│   │   │   └── utils/       # Shared utilities
-│   │   └── public/          # Static assets
-│   └── docs/            # Documentation site (VitePress)
-├── packages/
-│   └── database/        # Prisma schema, migrations, client
-└── tooling/
-    └── typescript/      # Shared TypeScript config
-```
+## Dokumen
 
-The monorepo is managed with pnpm workspaces and Turborepo. The `@shelf/database` package owns all database concerns — schema, migrations, and Prisma client generation.
+| Dokumen                                              | Isi                                                 |
+| ---------------------------------------------------- | --------------------------------------------------- |
+| [`apps/pinjamin/README.md`](apps/pinjamin/README.md) | Arsitektur, peran admin, deploy, catatan keamanan   |
+| [`PANDUAN-DEPLOY-SIGAP.md`](PANDUAN-DEPLOY-SIGAP.md) | Panduan deploy dan alur kerja sehari-hari           |
+| [`PRD-SIGAP.md`](PRD-SIGAP.md)                       | Kebutuhan produk: tujuan, ruang lingkup, peran      |
+| [`CLAUDE.md`](CLAUDE.md)                             | Aturan proyek dan konteks untuk asisten AI (Claude) |
 
-## Commands
+## Aturan penting
 
-| Command                     | Description                             |
-| --------------------------- | --------------------------------------- |
-| `pnpm webapp:dev`           | Start development server                |
-| `pnpm webapp:build`         | Production build                        |
-| `pnpm webapp:test`          | Run tests (Vitest)                      |
-| `pnpm webapp:validate`      | Lint + typecheck + test                 |
-| `pnpm webapp:doctor`        | React health scan (react-doctor)        |
-| `pnpm companion:doctor`     | React Native health scan (react-doctor) |
-| `pnpm webapp:setup`         | Generate Prisma client + run migrations |
-| `pnpm db:prepare-migration` | Create a new database migration         |
-| `pnpm db:deploy-migration`  | Apply pending migrations                |
-| `pnpm db:reset`             | Reset database (destructive)            |
-| `pnpm docs:dev`             | Start documentation site                |
-| `pnpm typecheck`            | TypeScript type checking                |
-| `pnpm lint`                 | ESLint                                  |
+- **Pesan commit wajib [Conventional Commits](https://www.conventionalcommits.org/)**,
+  misalnya `feat(pinjamin): …`, `fix(pinjamin): …`, atau `docs: …`. Aturan ini
+  diperiksa commitlint lewat Lefthook; pesan seperti `update` akan ditolak.
+- **Email penulis commit harus terdaftar di akun GitHub.** Kalau tidak, Vercel
+  diam-diam menolak deploy: push berhasil, tapi production tidak berubah.
+- **Jangan ganti nama identifier teknis ini**, walau masih memakai nama lama
+  proyek ("pinjamin"): folder `apps/pinjamin`, paket `@pinjamin/web`, cookie
+  `pinjamin_session`, kunci localStorage `pinjamin_data_v3_gf`, env
+  `PINJAMIN_DATA_DIR`, dan awalan QR `PIN-`. Semuanya terhubung ke deploy dan
+  data yang sudah berjalan, dan stiker QR yang sudah tercetak bergantung pada
+  awalan `PIN-`.
+- **Teks antarmuka admin** ditulis di `apps/pinjamin/lib/messages.ts` (Indonesia
+  dan Inggris), bukan langsung di komponen.
+- **Kolom database baru** harus ditambahkan di tiga tempat sekaligus: SQL di
+  Supabase, allowlist di `lib/resource-config.ts`, dan tipe di `lib/types.ts`.
+  Kalau satu terlewat, datanya tampak tersimpan lalu hilang diam-diam.
 
-## Deployment
+## Riwayat
 
-### Fly.io
+Dibangun oleh **Muhammad Izzi Saputra** (Teknik Informatika, Universitas
+Muhammadiyah Purwokerto) selama Kerja Praktik di PT Garudafood Putra Putri
+Jaya Tbk, Juli–September 2026.
 
-Shelf deploys to [Fly.io](https://fly.io/) with GitHub Actions for CI/CD. Pushes to `dev` trigger staging deploys and pushes to `main` trigger production deploys; in both cases we run lint, typecheck, test, Docker build, and deploy.
+## Lisensi
 
-See the [deployment guide](https://docs.shelf.nu/deployment) for full setup instructions.
-
-### Docker
-
-Community-maintained Docker support is available for self-hosting. Requires an external Supabase instance.
-
-See the [Docker guide](https://docs.shelf.nu/docker).
-
-## Documentation
-
-| Guide                                                        | Description                                  |
-| ------------------------------------------------------------ | -------------------------------------------- |
-| [Local Development](https://docs.shelf.nu/local-development) | Full local setup with SSL, monorepo overview |
-| [Supabase Setup](https://docs.shelf.nu/supabase-setup)       | Database, auth, storage configuration        |
-| [Deployment](https://docs.shelf.nu/deployment)               | Fly.io + GitHub Actions CI/CD                |
-| [Docker](https://docs.shelf.nu/docker)                       | Self-hosted Docker setup                     |
-| [App Configuration](https://docs.shelf.nu/app-configuration) | `shelf.config.ts` options                    |
-| [Error Handling](https://docs.shelf.nu/handling-errors)      | Error patterns and conventions               |
-| [Accessibility](https://docs.shelf.nu/accessibility)         | WCAG 2.1 AA compliance                       |
-| [Contributing](./CONTRIBUTING.md)                            | How to contribute                            |
-
-For developer onboarding and codebase conventions, see [`CLAUDE.md`](./CLAUDE.md).
-
-## Contributing
-
-We welcome contributions. Check the [contribution guidelines](./CONTRIBUTING.md) and look for issues labeled [**"Open for contributions"**](https://github.com/Shelf-nu/shelf.nu/issues?q=is%3Aissue+is%3Aopen+label%3A%22Open+for+contributions%22).
-
-The project uses [conventional commits](https://www.conventionalcommits.org/), enforced by commitlint. Pre-commit hooks run ESLint, Prettier, and TypeScript checking via Lefthook.
-
-Join the [Discord](https://discord.gg/8he9W7aTJu) if you have questions or want to discuss your contribution.
-
-## License
-
-Shelf.nu is licensed under [AGPL-3.0](./LICENSE).
+Repo ini fork dari [shelf.nu](https://github.com/Shelf-nu/shelf.nu), yang
+berlisensi [AGPL-3.0](LICENSE).
