@@ -18,6 +18,7 @@ import {
 import { useAttachments } from "@/components/tickets/use-attachments";
 import {
   ATTACHMENTS_MAX,
+  MESSAGE_MAX,
   RECENT_TICKETS_DAYS,
   TICKET_NUMBER_RE,
   WORKING_ORDERS,
@@ -48,6 +49,40 @@ import {
   History,
   UserRound,
 } from "lucide-react";
+
+/**
+ * Hak membalas per tiket, disimpan di localStorage peramban pelapor.
+ *
+ * Pemilik produk minta verifikasi email cukup SEKALI, saat balasan pertama.
+ * Karena itu token hasil verifikasi disimpan di localStorage — bukan
+ * sessionStorage seperti desain lama — sehingga balasan berikutnya dari
+ * peramban yang sama tidak menanyakan email lagi, bahkan setelah tab ditutup.
+ *
+ * Konsekuensinya: di PC yang dipakai bergantian, orang berikutnya di peramban
+ * yang sama ikut bisa membalas tiket itu. Ganti perangkat berarti verifikasi
+ * sekali lagi di sana.
+ */
+const kunciTokenBalas = (nomor: string) => `sigap_balas_${nomor.toUpperCase()}`;
+
+function bacaTokenBalas(nomor: string): string {
+  try {
+    return localStorage.getItem(kunciTokenBalas(nomor)) || "";
+  } catch {
+    return "";
+  }
+}
+
+function simpanTokenBalas(nomor: string, token: string) {
+  try {
+    localStorage.setItem(kunciTokenBalas(nomor), token);
+  } catch {}
+}
+
+function hapusTokenBalas(nomor: string) {
+  try {
+    localStorage.removeItem(kunciTokenBalas(nomor));
+  } catch {}
+}
 
 /** Nilai awal form — dipakai saat mula-mula dan saat "Buat Tiket Lain". */
 const FORM_KOSONG = {
@@ -186,23 +221,39 @@ export default function LandingPage() {
    * Segarkan daftar berkala supaya perubahan status/prioritas dari admin
    * menyusul tanpa pengunjung memuat ulang halaman.
    *
-   * 30 detik disamakan dengan `s-maxage` di /api/tickets/recent: memanggil
+   * 15 detik disamakan dengan `s-maxage` di /api/tickets/recent: memanggil
    * lebih rapat dari itu hanya menerima salinan CDN yang sama persis, jadi
    * tidak mempercepat apa pun sambil menambah lalu lintas.
    *
+   * Selain berkala, daftar langsung disegarkan begitu halaman kembali dilihat:
+   * tab dibuka lagi, jendela kembali difokus, atau halaman dipulihkan dari
+   * cache "kembali" peramban (pageshow). Tanpa itu, admin yang baru mengubah
+   * prioritas lalu kembali ke halaman ini melihat urutan lama sampai detak
+   * berikutnya.
+   *
    * Berhenti saat tab tidak terlihat — tab yang ditinggalkan seharian tidak
-   * perlu menembus edge tiap 30 detik, dan begitu kembali dibuka daftarnya
-   * langsung disegarkan sekali.
+   * perlu menembus edge tiap 15 detik.
    */
   useEffect(() => {
+    let terakhir = 0;
     const tick = () => {
-      if (document.visibilityState === "visible") void muatTerbaru();
+      if (document.visibilityState !== "visible") return;
+      // focus dan visibilitychange sering datang berbarengan saat berpindah
+      // tab; cukup satu permintaan untuk keduanya.
+      const kini = Date.now();
+      if (kini - terakhir < 2_000) return;
+      terakhir = kini;
+      void muatTerbaru();
     };
-    const id = setInterval(tick, 30_000);
+    const id = setInterval(tick, 15_000);
     document.addEventListener("visibilitychange", tick);
+    window.addEventListener("focus", tick);
+    window.addEventListener("pageshow", tick);
     return () => {
       clearInterval(id);
       document.removeEventListener("visibilitychange", tick);
+      window.removeEventListener("focus", tick);
+      window.removeEventListener("pageshow", tick);
     };
   }, [muatTerbaru]);
 
@@ -272,6 +323,16 @@ export default function LandingPage() {
     } catch {}
   };
 
+  /* ---------------- Balas dari halaman lacak ---------------- */
+  const [balasDraft, setBalasDraft] = useState("");
+  const [balasEmail, setBalasEmail] = useState("");
+  const [mengirimBalasan, setMengirimBalasan] = useState(false);
+  const [balasError, setBalasError] = useState("");
+  /** Token portal untuk tiket yang sedang dilacak; "" = belum verifikasi. */
+  const [tokenBalas, setTokenBalas] = useState("");
+  /** Nomor tiket terakhir yang dilacak — draf dibuang saat pindah tiket. */
+  const nomorDilacakRef = useRef("");
+
   const runTrack = useCallback(async (raw: string) => {
     const n = raw.trim().toUpperCase();
     if (!n) return;
@@ -290,6 +351,15 @@ export default function LandingPage() {
       setTrackError("");
       setTrackResult(j.ticket);
       setTrackMessages(j.messages || []);
+      // Pindah ke tiket lain: draf, email, dan galat milik tiket sebelumnya
+      // tidak boleh ikut terbawa.
+      if (nomorDilacakRef.current !== j.ticket.number) {
+        nomorDilacakRef.current = j.ticket.number;
+        setBalasDraft("");
+        setBalasEmail("");
+        setBalasError("");
+      }
+      setTokenBalas(bacaTokenBalas(j.ticket.number));
     } catch {
       setTrackResult(null);
       setTrackMessages([]);
@@ -302,6 +372,74 @@ export default function LandingPage() {
   const submitTrack = (e: React.FormEvent) => {
     e.preventDefault();
     void runTrack(trackNumber);
+  };
+
+  /**
+   * Kirim balasan pelapor.
+   *
+   * Balasan pertama dari peramban ini meminta email pelapor dan menukarnya
+   * dengan token di /api/tickets/track/verify. Token itu disimpan, jadi
+   * balasan berikutnya langsung terkirim tanpa ditanya email lagi.
+   */
+  const kirimBalasan = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!trackResult || mengirimBalasan) return;
+    const nomor = trackResult.number;
+    const isi = balasDraft.trim();
+    if (!isi) return;
+    setBalasError("");
+    setMengirimBalasan(true);
+    try {
+      let token = tokenBalas;
+      if (!token) {
+        const email = balasEmail.trim();
+        if (!email) {
+          setBalasError("Masukkan email yang Anda pakai saat membuat tiket.");
+          return;
+        }
+        const v = await fetch("/api/tickets/track/verify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ number: nomor, email }),
+        });
+        const vj = await v.json().catch(() => ({}));
+        if (!v.ok || !vj.token) {
+          setBalasError(vj.error || "Email tidak cocok dengan tiket ini.");
+          return;
+        }
+        token = String(vj.token);
+        simpanTokenBalas(nomor, token);
+        setTokenBalas(token);
+        setBalasEmail("");
+      }
+
+      const res = await fetch("/api/tickets/portal/reply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ number: nomor, token, body: isi }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (res.status === 404) {
+        // Token yang tersimpan sudah tidak berlaku: buang, lalu minta email
+        // sekali lagi. Draf balasannya tetap utuh.
+        hapusTokenBalas(nomor);
+        setTokenBalas("");
+        setBalasError(
+          j.error || "Verifikasi sudah tidak berlaku. Masukkan email Anda lagi."
+        );
+        return;
+      }
+      if (!res.ok) {
+        setBalasError(j.error || "Gagal mengirim balasan.");
+        return;
+      }
+      setBalasDraft("");
+      if (j.message) setTrackMessages((prev) => [...prev, j.message]);
+    } catch {
+      setBalasError("Tidak bisa terhubung ke server. Coba lagi.");
+    } finally {
+      setMengirimBalasan(false);
+    }
   };
 
   // Dua tombol di navbar adalah SATU-SATUNYA jalan ke kedua bagian ini,
@@ -567,11 +705,10 @@ export default function LandingPage() {
                       </div>
                     </div>
 
-                    {/* Percakapan — BACA-SAJA.
-                        Pesan pertama adalah isi tiket itu sendiri, sisanya
-                        balasan admin. Tidak ada kotak tulis di sini: menulis
-                        ke thread hanya bisa dari panel admin, dan halaman ini
-                        cukup dibuka dengan nomor tiket. */}
+                    {/* Percakapan. Pesan pertama adalah isi tiket itu
+                        sendiri, sisanya balasan admin dan pelapor. Membaca
+                        cukup dengan nomor tiket; MEMBALAS menuntut email
+                        pelapor sekali per peramban (lihat kirimBalasan). */}
                     <div className="max-h-80 space-y-2.5 overflow-y-auto rounded-xl border border-[#243a5e] bg-[#12263f]/40 p-2.5">
                       <MessageBubble
                         message={{
@@ -600,11 +737,73 @@ export default function LandingPage() {
                       ))}
                     </div>
 
-                    <p className="text-[11px] leading-relaxed text-slate-500">
-                      {trackMessages.length === 0
-                        ? "Belum ada balasan dari tim SIGAP. Balasannya akan muncul di sini."
-                        : "Halaman ini hanya untuk membaca — balasan tim muncul otomatis, dan Anda tidak perlu menyimpan tautan apa pun."}
-                    </p>
+                    {trackResult.status === "RESOLVED" ? (
+                      <p className="text-[11px] leading-relaxed text-slate-500">
+                        Tiket ini sudah selesai. Bila kendalanya muncul lagi,
+                        silakan buat tiket baru.
+                      </p>
+                    ) : (
+                      <form onSubmit={kirimBalasan} className="space-y-2">
+                        {/* Email hanya ditanya sekali per peramban: setelah
+                            cocok, tokennya disimpan dan kolom ini hilang. */}
+                        {!tokenBalas && (
+                          <div className="space-y-1.5">
+                            <Label
+                              htmlFor="balas-email"
+                              className="text-xs text-slate-300"
+                            >
+                              Verifikasi sekali — email yang Anda pakai saat
+                              membuat tiket
+                            </Label>
+                            <Input
+                              id="balas-email"
+                              type="email"
+                              value={balasEmail}
+                              onChange={(e) => setBalasEmail(e.target.value)}
+                              placeholder="nama@garudafood.co.id"
+                              autoComplete="email"
+                              className="h-10 rounded-xl"
+                            />
+                          </div>
+                        )}
+                        <Textarea
+                          value={balasDraft}
+                          onChange={(e) => setBalasDraft(e.target.value)}
+                          placeholder="Tulis balasan untuk tim SIGAP…"
+                          maxLength={MESSAGE_MAX}
+                          rows={3}
+                          className="rounded-xl"
+                        />
+                        {balasError && (
+                          <div className="text-xs rounded-xl border border-red-500/30 bg-red-500/10 text-red-300 px-3 py-2">
+                            {balasError}
+                          </div>
+                        )}
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="text-[11px] leading-relaxed text-slate-500">
+                            {trackMessages.length === 0
+                              ? "Belum ada balasan dari tim SIGAP. Balasannya akan muncul di sini."
+                              : ""}
+                          </p>
+                          <Button
+                            type="submit"
+                            disabled={
+                              mengirimBalasan ||
+                              !balasDraft.trim() ||
+                              (!tokenBalas && !balasEmail.trim())
+                            }
+                            className="h-9 shrink-0 rounded-xl font-bold"
+                          >
+                            {mengirimBalasan ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Send className="h-4 w-4" />
+                            )}
+                            Kirim
+                          </Button>
+                        </div>
+                      </form>
+                    )}
                   </div>
                 )}
               </CardContent>

@@ -14,16 +14,24 @@ export const dynamic = "force-dynamic";
  * menembus sampai Postgres. Endpoint inilah yang paling murah dibanjiri: GET,
  * tanpa body, tanpa sesi, dan alamatnya tertulis di landing page.
  *
- * 30 detik dipilih karena tiket baru tidak perlu tampil seketika; yang penting
- * ia muncul tanpa pelapor merasa daftarnya macet. `stale-while-revalidate`
- * membuat edge tetap menjawab dari salinan lama selama salinan barunya
- * diambil, sehingga lonjakan tidak pernah berubah menjadi antrean query.
+ * 15 detik, TANPA `stale-while-revalidate` (11 Sep 2026). Dulu 30 detik + SWR
+ * 120 detik, dan SWR itulah yang membuat perubahan dari admin terasa macet: di
+ * situs yang sepi, pengunjung pertama setelah jeda SELALU menerima salinan
+ * lama — edge menjawab dari salinan basi sambil mengambil yang baru di
+ * belakang — sehingga daftar baru berubah setelah halaman dimuat ulang. Tanpa
+ * SWR, salinan paling tua yang bisa diterima siapa pun adalah 15 detik.
+ *
+ * Kenapa tidak lebih pendek: seluruh karyawan pabrik keluar lewat satu IP
+ * kantor, dan setiap kali salinan edge kedaluwarsa, satu request menembus ke
+ * sini dan dihitung trackLimiter (30 / 5 menit per IP). Dengan 15 detik,
+ * paling banyak 20 request per 5 menit per region yang sampai ke origin —
+ * tetap di bawah batas itu, dan banjir tetap terserap edge.
  *
  * Pengecualiannya di-set juga di next.config.ts — header `no-store` untuk
  * `/api/**` di sana akan menimpa nilai ini kalau route ini tidak dikeluarkan
  * dari pola sumbernya.
  */
-const CACHE_CONTROL = "public, s-maxage=30, stale-while-revalidate=120";
+const CACHE_CONTROL = "public, s-maxage=15";
 
 /**
  * GET /api/tickets/recent — PUBLIK, TANPA identitas apa pun.
@@ -40,7 +48,8 @@ const CACHE_CONTROL = "public, s-maxage=30, stale-while-revalidate=120";
  *
  * - isi pesan, lampiran   → tidak pernah ikut (lihat publicRecentView)
  * - email & nomor WhatsApp → tidak pernah ikut
- * - token portal           → tidak pernah ikut; hak membalas tetap tertutup
+ * - token portal           → tidak pernah ikut; hak membalas menuntut email
+ *                            pelapor (lihat /api/tickets/track/verify)
  * - tiket lebih tua        → disaring di query, bukan di sini
  *
  * Rate limit tetap dipasang. Ia tidak lagi melindungi kerahasiaan — daftarnya

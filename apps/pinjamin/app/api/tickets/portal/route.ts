@@ -17,11 +17,10 @@ export const dynamic = "force-dynamic";
  *
  * Portal pelapor: tiket miliknya sendiri beserta percakapan dengan admin.
  *
- * Sejak halaman lacak ikut menampilkan percakapan, isi yang dikembalikan
- * kedua endpoint nyaris sama. Bedanya tinggal dua, dan keduanya bergantung
- * pada token: portal boleh menyebut nama pelapor, dan hanya portal yang
- * memberi hak MEMBALAS — percakapan tiket kini satu arah, hanya admin
- * yang menulis.
+ * Sejak halaman lacak ikut menampilkan percakapan dan nama pelapor, isi yang
+ * dikembalikan kedua endpoint nyaris sama. Bedanya tinggal satu: token yang
+ * diperiksa di sini juga yang memberi hak MEMBALAS lewat
+ * /api/tickets/portal/reply.
  */
 
 export async function GET(req: NextRequest) {

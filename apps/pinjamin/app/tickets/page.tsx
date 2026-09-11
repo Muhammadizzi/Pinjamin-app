@@ -62,6 +62,43 @@ interface Ticket {
   attachments: TicketAttachment[];
   createdAt: string;
   updatedAt: string;
+  /** Balasan terakhir per penulis — dihitung server untuk label "Balasan baru". */
+  lastUserReplyAt?: string | null;
+  lastAdminReplyAt?: string | null;
+}
+
+/**
+ * Balasan pelapor yang sudah dilihat admin di peramban ini: id tiket → waktu
+ * balasan pelapor terakhir yang sudah terbaca. Disimpan per peramban karena
+ * "sudah dibaca" adalah soal mata admin di layar ini, bukan sifat tiketnya.
+ */
+const KUNCI_BALASAN_DILIHAT = "sigap_balasan_dilihat";
+
+function bacaBalasanDilihat(): Record<string, string> {
+  try {
+    const raw = localStorage.getItem(KUNCI_BALASAN_DILIHAT);
+    const parsed = raw ? JSON.parse(raw) : {};
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+/** `a` lebih baru dari `b`? Dibandingkan sebagai waktu, bukan sebagai teks. */
+function lebihBaru(a: string, b: string | null | undefined): boolean {
+  return !b || Date.parse(a) > Date.parse(b);
+}
+
+/**
+ * Label "Balasan baru": pelapor membalas SETELAH balasan admin terakhir, dan
+ * balasan itu belum dilihat di peramban ini. Hilang sendiri begitu admin
+ * membuka tiketnya atau membalas. Tiket Selesai tidak diberi label — pelapor
+ * memang tidak bisa membalasnya lagi.
+ */
+function adaBalasanBaru(tk: Ticket, dilihat: Record<string, string>): boolean {
+  const u = tk.lastUserReplyAt;
+  if (!u || tk.status === "RESOLVED") return false;
+  return lebihBaru(u, tk.lastAdminReplyAt) && lebihBaru(u, dilihat[tk.id]);
 }
 
 /** Warna badge per status — labelnya datang dari kamus (lihat useT). */
@@ -236,31 +273,87 @@ export default function TicketsPage() {
     });
   }, [tickets, filter, search]);
 
-  /** Ambil thread lengkap (termasuk catatan internal) untuk satu tiket. */
-  const loadMessages = useCallback(async (id: string) => {
-    setMessagesLoading(true);
-    try {
-      const res = await fetch(`/api/tickets/${id}/messages`);
-      if (res.ok) {
-        const j = await res.json();
-        setMessages(j.messages || []);
-      } else {
-        setMessages([]);
+  // --- Label "Balasan baru" ---
+  const [balasanDilihat, setBalasanDilihat] =
+    useState<Record<string, string>>(bacaBalasanDilihat);
+
+  /** Tandai balasan pelapor sampai waktu `at` sudah dilihat admin. */
+  const tandaiDilihat = useCallback(
+    (id: string, at: string | null | undefined) => {
+      if (!at) return;
+      setBalasanDilihat((prev) => {
+        if (!lebihBaru(at, prev[id])) return prev;
+        const next = { ...prev, [id]: at };
+        try {
+          localStorage.setItem(KUNCI_BALASAN_DILIHAT, JSON.stringify(next));
+        } catch {}
+        return next;
+      });
+    },
+    []
+  );
+
+  /** Tiket yang modal-nya sedang terbuka — penjaga balapan respons thread. */
+  const selectedIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    selectedIdRef.current = selected?.id ?? null;
+  }, [selected]);
+
+  /**
+   * Ambil thread satu tiket. `silent` dipakai penyegaran berkala: tanpa
+   * spinner (yang akan menggantikan seluruh thread sekejap) dan tanpa
+   * mengosongkan thread hanya karena satu kali pengambilan gagal.
+   */
+  const loadMessages = useCallback(
+    async (id: string, silent = false) => {
+      if (!silent) setMessagesLoading(true);
+      try {
+        const res = await fetch(`/api/tickets/${id}/messages`);
+        // Admin sudah pindah tiket: respons untuk tiket lama dibuang.
+        if (selectedIdRef.current !== id) return;
+        if (res.ok) {
+          const j = await res.json();
+          const list: ThreadMessage[] = j.messages || [];
+          setMessages(list);
+          // Yang tampil di thread yang terbuka dianggap sudah dilihat.
+          const terakhirPelapor = [...list]
+            .reverse()
+            .find((m) => m.author === "USER");
+          tandaiDilihat(id, terakhirPelapor?.createdAt);
+        } else if (!silent) {
+          setMessages([]);
+        }
+      } catch {
+        if (!silent && selectedIdRef.current === id) setMessages([]);
+      } finally {
+        if (!silent && selectedIdRef.current === id) {
+          setMessagesLoading(false);
+        }
       }
-    } catch {
-      setMessages([]);
-    } finally {
-      setMessagesLoading(false);
-    }
-  }, []);
+    },
+    [tandaiDilihat]
+  );
 
   const openDetail = (ticket: Ticket) => {
+    selectedIdRef.current = ticket.id;
     setSelected(ticket);
     setDraft("");
     attach.reset();
     setMessages([]);
+    tandaiDilihat(ticket.id, ticket.lastUserReplyAt);
     void loadMessages(ticket.id);
   };
+
+  // Thread yang sedang terbuka ikut disegarkan tiap 20 detik, supaya balasan
+  // pelapor yang masuk saat modal terbuka langsung terlihat. Daftar tiket tetap
+  // dijeda (lihat di atas); thread aman disegarkan karena pesan hanya bertambah
+  // di ujung, tidak menggeser yang sedang dibaca.
+  const selectedId = selected?.id;
+  useEffect(() => {
+    if (!selectedId) return;
+    const timer = setInterval(() => void loadMessages(selectedId, true), 20000);
+    return () => clearInterval(timer);
+  }, [selectedId, loadMessages]);
 
   const patchTicket = async (
     id: string,
@@ -281,9 +374,16 @@ export default function TicketsPage() {
         showNotice("err", j.error || t("ticketSaveFailed"));
         return;
       }
+      // Respons PATCH tidak membawa aktivitas balasan — digabung, bukan
+      // ditimpa, supaya data label "Balasan baru" tidak hilang sampai poll
+      // berikutnya.
       const updated: Ticket = j.ticket;
-      setTickets((prev) => prev.map((x) => (x.id === id ? updated : x)));
-      setSelected((prev) => (prev && prev.id === id ? updated : prev));
+      setTickets((prev) =>
+        prev.map((x) => (x.id === id ? { ...x, ...updated } : x))
+      );
+      setSelected((prev) =>
+        prev && prev.id === id ? { ...prev, ...updated } : prev
+      );
       if (patch.priority) showNotice("ok", t("prioritySaved"));
       // Perubahan status sengaja TANPA toast — sudah terlihat langsung pada
       // pill status yang aktif.
@@ -315,7 +415,13 @@ export default function TicketsPage() {
         return;
       }
       setMessages((prev) => [...prev, j.message]);
-      const updated: Ticket = j.ticket;
+      // Admin baru saja membalas: catat waktunya di sini juga, supaya label
+      // "Balasan baru" tiket ini padam tanpa menunggu poll berikutnya.
+      const updated: Ticket = {
+        ...selected,
+        ...j.ticket,
+        lastAdminReplyAt: j.message?.createdAt ?? new Date().toISOString(),
+      };
       setTickets((prev) =>
         prev.map((x) => (x.id === updated.id ? updated : x))
       );
@@ -545,6 +651,15 @@ export default function TicketsPage() {
                     priority={tk.priority}
                     label={ticketPriority(tk.priority)}
                   />
+                  {adaBalasanBaru(tk, balasanDilihat) && (
+                    <span
+                      title={t("newReplyHint")}
+                      className="inline-flex items-center gap-1 rounded-full border border-sky-400/40 bg-sky-400/15 px-2.5 py-0.5 text-[11px] font-semibold text-sky-300"
+                    >
+                      <MessageSquare className="h-3 w-3" />
+                      {t("newReply")}
+                    </span>
+                  )}
                   {tk.attachments.length > 0 && (
                     <span
                       title={t("attachmentsLabel")}

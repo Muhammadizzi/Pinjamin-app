@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { clientIp, gateHelpdeskAdmin, ticketLimiter } from "@/lib/auth";
-import { createTicket, listTickets, validateNewTicket } from "@/lib/tickets";
+import {
+  createTicket,
+  listReplyActivity,
+  listTickets,
+  type ReplyActivity,
+  validateNewTicket,
+} from "@/lib/tickets";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,8 +23,21 @@ export async function GET(req: NextRequest) {
   const gate = await gateHelpdeskAdmin(req);
   if (!gate.ok) return gate.res;
   try {
+    const tickets = await listTickets(gate.admin.workingOrder);
+    // Label "Balasan baru" hanya pelengkap: gagal menghitungnya tidak boleh
+    // membuat seluruh antrean admin ikut gagal dimuat.
+    let aktivitas = new Map<string, ReplyActivity>();
+    try {
+      aktivitas = await listReplyActivity(tickets.map((t) => t.id));
+    } catch (e) {
+      console.error("[tickets GET] aktivitas balasan", e);
+    }
     return NextResponse.json({
-      tickets: await listTickets(gate.admin.workingOrder),
+      tickets: tickets.map((t) => ({
+        ...t,
+        lastUserReplyAt: aktivitas.get(t.id)?.lastUserReplyAt ?? null,
+        lastAdminReplyAt: aktivitas.get(t.id)?.lastAdminReplyAt ?? null,
+      })),
       workingOrder: gate.admin.workingOrder,
     });
   } catch (e) {

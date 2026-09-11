@@ -19,9 +19,9 @@ export const dynamic = "force-dynamic";
  * pelapor tidak lagi harus membuka tautan portal pribadinya hanya untuk
  * membaca jawaban tim.
  *
- * Percakapannya BACA-SAJA. Menulis tetap tertutup rapat: satu-satunya jalur
- * tulis ke thread adalah endpoint admin, dan endpoint balas pelapor sudah
- * dihapus dari sistem.
+ * Membaca cukup dengan nomor, MENULIS tidak: pelapor membalas lewat
+ * /api/tickets/portal/reply memakai token yang hanya didapat dengan
+ * membuktikan email pelapor di /api/tickets/track/verify.
  *
  * Yang TIDAK pernah keluar dari sini:
  *

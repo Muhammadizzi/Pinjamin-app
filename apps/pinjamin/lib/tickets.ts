@@ -490,43 +490,111 @@ export async function getTicketById(id: string): Promise<Ticket | null> {
 /** Tiket di daftar publik, berikut nomor antreannya (null bila sudah selesai). */
 export type RecentTicket = Ticket & { queue: number | null };
 
+/**
+ * Tanggal kalender WIB (YYYY-MM-DD) dari sebuah waktu.
+ *
+ * "Hari ini" di daftar publik berarti hari ini di Garudafood, bukan di
+ * server: Vercel berjalan dalam UTC, dan tanpa ini tiket yang masuk pukul
+ * 06.30 WIB (23.30 UTC hari sebelumnya) akan terbaca sebagai tiket "hari
+ * lalu". Jakarta tidak mengenal DST, jadi pergantian harinya selalu tepat
+ * pukul 00.00 WIB.
+ */
+const FORMAT_HARI_WIB = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "Asia/Jakarta",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
+function hariWib(waktu: string | number): string {
+  return FORMAT_HARI_WIB.format(new Date(waktu));
+}
+
+/** Makin kecil, makin mendesak. */
+const BOBOT_PRIORITAS: Record<string, number> = {
+  URGENT: 0,
+  HIGH: 1,
+  MEDIUM: 2,
+  LOW: 3,
+};
+
+/**
+ * Kelompok sebuah tiket di daftar publik. Makin kecil, makin ke atas.
+ *
+ * Susunannya keputusan pemilik produk (11 Sep 2026):
+ *
+ *   0. Open dari hari-hari lalu — keluhan yang dibiarkan menginap tanpa
+ *      disentuh tidak boleh tenggelam; inilah yang membuat daftar ini
+ *      berfungsi sebagai tekanan.
+ *   1. Diproses.
+ *   2. On Hold — di BAWAH Diproses, karena menunggu vendor atau suku cadang
+ *      belum pasti kapan selesai; yang sedang dikerjakan lebih layak dipantau.
+ *   3. Open hari ini — tiket baru antre di belakang. Lewat pukul 00.00 WIB
+ *      ia pindah sendiri ke kelompok 0.
+ *   4. Selesai.
+ */
+function kelompokRiwayat(t: Ticket, hariIni: string): number {
+  switch (t.status) {
+    case "OPEN":
+      return hariWib(t.createdAt) < hariIni ? 0 : 3;
+    case "IN_PROGRESS":
+      return 1;
+    case "ON_HOLD":
+      return 2;
+    case "RESOLVED":
+      return 4;
+    default:
+      return 9;
+  }
+}
+
+/**
+ * Urutkan daftar publik: per kelompok (lihat kelompokRiwayat), lalu di
+ * dalam kelompoknya.
+ *
+ * - Diproses & On Hold: Mendesak → Rendah, lalu yang terlama dulu. Admin
+ *   menaikkan prioritas = tiketnya naik.
+ * - Kedua kelompok Open: yang terlama dulu. Prioritas SENGAJA tidak berlaku
+ *   di sini — yang dinilai adalah berapa lama tiket belum disentuh.
+ * - Selesai: yang terbaru dulu, karena di sana yang menarik kabar terkini,
+ *   bukan tunggakan.
+ */
+function susunRiwayat(rows: Ticket[], now: number): Ticket[] {
+  const hariIni = hariWib(now);
+  const kelompok = new Map(rows.map((t) => [t, kelompokRiwayat(t, hariIni)]));
+  return rows.sort((a, b) => {
+    const ka = kelompok.get(a) ?? 9;
+    const kb = kelompok.get(b) ?? 9;
+    if (ka !== kb) return ka - kb;
+    if (ka === 1 || ka === 2) {
+      const pa = BOBOT_PRIORITAS[a.priority] ?? 9;
+      const pb = BOBOT_PRIORITAS[b.priority] ?? 9;
+      if (pa !== pb) return pa - pb;
+    }
+    return ka === 4
+      ? b.createdAt.localeCompare(a.createdAt)
+      : a.createdAt.localeCompare(b.createdAt);
+  });
+}
+
+/**
+ * Batas baris yang diambil dari database SEBELUM diurutkan.
+ *
+ * Query daftar publik tidak ber-ORDER BY — urutannya dihitung di aplikasi,
+ * karena kriterianya gabungan status, tanggal WIB, dan prioritas. Dulu
+ * LIMIT-nya langsung RECENT_TICKETS_MAX, artinya 30 baris sembarang pilihan
+ * Postgres: begitu tiket belum selesai lebih dari 30, tiket Open terlama bisa
+ * terlempar keluar dari daftar hanya karena kebetulan tidak terpilih. Sekarang
+ * semua kandidat diurutkan dulu, baru dipotong 30.
+ */
+const RIWAYAT_KANDIDAT_MAX = 500;
+
 export async function listRecentTickets(
   now: number = Date.now()
 ): Promise<RecentTicket[]> {
   const batas = new Date(
     now - RECENT_TICKETS_DAYS * 24 * 60 * 60 * 1000
   ).toISOString();
-
-  /**
-   * Peringkat status di daftar publik. Makin kecil, makin ke atas.
-   *
-   * Urutannya mengikuti seberapa jauh sebuah keluhan dari tuntas: yang belum
-   * disentuh sama sekali di puncak, lalu yang tertahan menunggu pihak lain,
-   * lalu yang sedang dikerjakan. Yang sudah beres turun paling bawah dan
-   * hanya bertahan sehari.
-   */
-  const PERINGKAT: Record<string, number> = {
-    OPEN: 0,
-    ON_HOLD: 1,
-    IN_PROGRESS: 2,
-    RESOLVED: 3,
-  };
-
-  /**
-   * Di dalam kelompok yang BELUM selesai, yang paling lama menunggu naik ke
-   * atas — itu yang membuat daftar ini berfungsi sebagai tekanan. Kelompok
-   * yang sudah selesai justru sebaliknya: yang terbaru dulu, karena di sana
-   * yang menarik adalah kabar terkini, bukan tunggakan.
-   */
-  const urutkan = (rows: Ticket[]) =>
-    rows.sort((a, b) => {
-      const pa = PERINGKAT[a.status] ?? 9;
-      const pb = PERINGKAT[b.status] ?? 9;
-      if (pa !== pb) return pa - pb;
-      return a.status === "RESOLVED"
-        ? b.createdAt.localeCompare(a.createdAt)
-        : a.createdAt.localeCompare(b.createdAt);
-    });
 
   const supa = getSupabaseAdmin();
   if (supa) {
@@ -535,17 +603,21 @@ export async function listRecentTickets(
       .from(TABLE)
       .select("*")
       .or(`created_at.gte.${batas},status.neq.RESOLVED`)
-      .limit(RECENT_TICKETS_MAX);
+      .limit(RIWAYAT_KANDIDAT_MAX);
     if (error) throw new Error(error.message);
     return berinomorAntrian(
-      urutkan((data || []).map(rowToTicket)).slice(0, RECENT_TICKETS_MAX)
+      susunRiwayat((data || []).map(rowToTicket), now).slice(
+        0,
+        RECENT_TICKETS_MAX
+      )
     );
   }
   return berinomorAntrian(
-    urutkan(
+    susunRiwayat(
       [...loadFile()].filter(
         (t) => t.createdAt >= batas || t.status !== "RESOLVED"
-      )
+      ),
+      now
     ).slice(0, RECENT_TICKETS_MAX)
   );
 }
@@ -1043,6 +1115,79 @@ export async function listMessages(
     .sort(byOldest);
 }
 
+/** Waktu balasan terakhir per penulis untuk satu tiket. */
+export type ReplyActivity = {
+  lastUserReplyAt: string | null;
+  lastAdminReplyAt: string | null;
+};
+
+/**
+ * Balasan terakhir pelapor dan admin untuk sekumpulan tiket.
+ *
+ * Dipakai panel admin untuk label "Balasan baru". Status tiket sengaja TIDAK
+ * berubah saat pelapor membalas (lihat applyMessageSideEffects), jadi tanpa
+ * ini admin tidak punya tanda apa pun bahwa ada pelapor yang menunggu.
+ *
+ * Hanya penulis dan waktunya yang diambil — isi pesan tidak perlu ikut
+ * terangkut hanya untuk menghitung sebuah label. Id dipecah per 100 supaya
+ * filter `in.(...)` di URL PostgREST tidak kepanjangan saat antreannya ramai.
+ */
+export async function listReplyActivity(
+  ticketIds: string[]
+): Promise<Map<string, ReplyActivity>> {
+  const out = new Map<string, ReplyActivity>();
+  const catat = (ticketId: string, author: string, createdAt: string) => {
+    const cur = out.get(ticketId) ?? {
+      lastUserReplyAt: null,
+      lastAdminReplyAt: null,
+    };
+    const kunci = author === "USER" ? "lastUserReplyAt" : "lastAdminReplyAt";
+    const lama = cur[kunci];
+    if (!lama || Date.parse(createdAt) > Date.parse(lama)) {
+      cur[kunci] = createdAt;
+    }
+    out.set(ticketId, cur);
+  };
+  if (ticketIds.length === 0) return out;
+
+  const supa = getSupabaseAdmin();
+  if (supa) {
+    const potongan: string[][] = [];
+    for (let i = 0; i < ticketIds.length; i += 100) {
+      potongan.push(ticketIds.slice(i, i + 100));
+    }
+    const hasil = await Promise.all(
+      potongan.map((ids) =>
+        supa
+          .from(MSG_TABLE)
+          .select("ticket_id, author, created_at")
+          .eq("kind", "REPLY")
+          .in("ticket_id", ids)
+          .order("created_at", { ascending: false })
+          .limit(5000)
+      )
+    );
+    for (const { data, error } of hasil) {
+      if (error) throw new Error(error.message);
+      const rows = (data || []) as {
+        ticket_id: string;
+        author: string;
+        created_at: string;
+      }[];
+      for (const r of rows) catat(r.ticket_id, r.author, r.created_at);
+    }
+    return out;
+  }
+
+  const ids = new Set(ticketIds);
+  for (const m of loadMessagesFile()) {
+    if (m.kind === "REPLY" && ids.has(m.ticketId)) {
+      catat(m.ticketId, m.author, m.createdAt);
+    }
+  }
+  return out;
+}
+
 export type NewMessageInput = {
   ticketId: string;
   author: MessageAuthor;
@@ -1055,13 +1200,9 @@ export type NewMessageInput = {
  * Simpan satu pesan dan geser status tiket bila perlu.
  *
  * - admin membalas → IN_PROGRESS, karena membalas berarti tiket sedang
- *   ditangani. Dulu status ini REPLIED ("giliran pelapor"), tapi pelapor
- *   tidak punya cara merespons sejak percakapan jadi satu arah.
+ *   ditangani. Dulu status ini REPLIED ("giliran pelapor").
+ * - pelapor membalas (lewat /api/tickets/portal/reply) → status TETAP.
  * - tiket yang sudah RESOLVED tidak dibuka lagi hanya karena admin menulis.
- *
- * Cabang untuk pesan dari pelapor tetap ada meski tidak ada jalur yang bisa
- * membuatnya: baris USER lama masih tersimpan di database, dan menghapus
- * penanganannya berarti menebak apa yang terjadi bila kelak ia dihidupkan.
  *
  * Mengembalikan pesan yang tersimpan beserta tiket versi terbaru.
  */
@@ -1108,11 +1249,13 @@ async function applyMessageSideEffects(
     if (!ticket.firstResponseAt) next.firstResponseAt = now;
     // Tiket yang sudah selesai tidak dibuka lagi hanya karena admin menulis.
     if (!isTicketDone(ticket.status)) next.status = "IN_PROGRESS";
-  } else {
-    // Pelapor bersuara: tiket kembali jadi tanggung jawab admin.
-    next.status = "IN_PROGRESS";
-    next.resolvedAt = null;
   }
+  // Pesan pelapor SENGAJA tidak menggeser status (keputusan pemilik produk,
+  // 11 Sep 2026). Status dan prioritas menentukan urutan antrean di daftar
+  // publik, dan keduanya wewenang admin: kalau balasan pelapor memindahkan
+  // tiket ke Diproses, siapa pun bisa melompati antrean hanya dengan menulis
+  // "halo?", dan tiket Open akan tampil Diproses padahal belum disentuh.
+  // Tiket Selesai pun tidak bisa dibalas — dicegah di endpoint balasan.
 
   const merged: Ticket = { ...ticket, ...next } as Ticket;
 

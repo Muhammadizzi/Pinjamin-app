@@ -282,6 +282,11 @@ export const messages = {
     "Prioritas dipakai tim untuk mengurutkan pekerjaan. Pelapor tidak memilihnya dan tidak melihatnya berubah.",
     "Priority is how the team orders its work. Reporters neither set it nor see it change.",
   ],
+  newReply: ["Balasan baru", "New reply"],
+  newReplyHint: [
+    "Pelapor membalas dan belum Anda lihat. Label hilang setelah tiket dibuka atau dibalas.",
+    "The reporter replied and you haven't seen it yet. The label clears once the ticket is opened or answered.",
+  ],
 
   // ---------- Daftar aset ----------
   assetsCountSummary: [

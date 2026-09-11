@@ -190,7 +190,12 @@ export const portalLimiter = createRateLimiter({
   windowMs: 5 * 60 * 1000,
 });
 
-/** Balasan pelapor dari portal: 15 kiriman / 15 menit per IP. */
+/**
+ * Balasan pelapor: 15 kiriman / 15 menit per IP per tiket.
+ *
+ * Kuncinya per tiket juga (lihat portal/reply) karena satu IP kantor dipakai
+ * bersama seluruh karyawan — per IP saja membuat 15 balasan dibagi satu pabrik.
+ */
 export const replyLimiter = createRateLimiter({
   maxAttempts: 15,
   windowMs: 15 * 60 * 1000,

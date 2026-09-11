@@ -14,6 +14,8 @@ import { isPublicPage, homeFor, isPageAllowedFor } from "./lib/public-paths";
  *   GET  /api/tickets/track           (lacak status tiket via nomor)
  *   GET  /api/tickets/recent          (daftar tiket 7 hari terakhir)
  *   GET  /api/tickets/portal          (portal pelapor — butuh token tiket)
+ *   POST /api/tickets/track/verify    (tukar email pelapor dengan token)
+ *   POST /api/tickets/portal/reply    (pelapor membalas — butuh token tiket)
  *   GET  /api/public/asset/<kode>     (halaman hasil scan QR)
  *   POST /api/tickets/upload          (lampiran tiket)
  *
@@ -70,8 +72,14 @@ function isPublicApi(pathname: string, method: string) {
   if (pathname === "/api/auth/login" && method === "POST") return true;
   if (pathname === "/api/tickets" && method === "POST") return true;
   if (pathname === "/api/tickets/track" && method === "GET") return true;
+  // Hak membalas pelapor: tukar email dengan token, lalu balas memakai token.
+  // Keduanya menjaga dirinya sendiri (cocokkan email / token 256-bit).
+  if (pathname === "/api/tickets/track/verify" && method === "POST")
+    return true;
   if (pathname === "/api/tickets/recent" && method === "GET") return true;
   if (pathname === "/api/tickets/portal" && method === "GET") return true;
+  if (pathname === "/api/tickets/portal/reply" && method === "POST")
+    return true;
   if (pathname === "/api/tickets/upload" && method === "POST") return true;
   // Halaman hasil scan QR. Publik dengan sengaja: yang menjaganya adalah
   // kepemilikan stiker, bukan sesi. Baca-saja, hanya GET.

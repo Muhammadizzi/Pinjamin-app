@@ -21,6 +21,9 @@
  * - `REPLIED` dulu berarti "admin sudah menjawab, giliran pelapor". Sejak
  *   percakapan jadi satu arah, pelapor tidak punya cara merespons — jadi
  *   tiket di keadaan itu menunggu sesuatu yang tidak akan pernah terjadi.
+ *   Balasan pelapor hidup lagi sejak 11 Sep 2026, tapi sengaja tidak
+ *   menggeser status (lihat applyMessageSideEffects), jadi REPLIED tetap
+ *   tidak diperlukan.
  * - `CLOSED` dulu berarti "diakhiri tanpa dikerjakan". Di kode ia sudah
  *   diperlakukan persis sama dengan RESOLVED, dan dua status yang berujung
  *   sama akan dipakai tidak konsisten antar admin — sementara setiap laporan
