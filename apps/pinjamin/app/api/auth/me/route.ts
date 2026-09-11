@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   attachSessionCookie,
+  clearSessionCookie,
   profileSchema,
   requireAdmin,
   toPublicAdmin,
@@ -21,7 +22,15 @@ export const dynamic = "force-dynamic";
  */
 export async function GET(req: NextRequest) {
   const admin = await requireAdmin(req);
-  if (!admin) return unauthorized();
+  if (!admin) {
+    // Cookie yang ditolak di sini bisa saja masih bertanda tangan sah — akunnya
+    // diganti nama atau dihapus, atau sandinya diganti dari sesi lain. Proxy
+    // Edge hanya memeriksa tanda tangan, jadi cookie itu tetap lolos di sana:
+    // client melempar admin ke /login, lalu proxy memantulkannya balik ke
+    // dasbor, dan admin terjebak di dasbor tanpa data. Membuang cookie di sini
+    // yang membuat /login benar-benar terbuka.
+    return clearSessionCookie(unauthorized());
+  }
   return NextResponse.json({ profile: toPublicAdmin(admin) });
 }
 

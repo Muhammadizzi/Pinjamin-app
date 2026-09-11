@@ -379,9 +379,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         try {
           const res = await fetch("/api/data", { cache: "no-store" });
           if (res.status === 401) {
-            // Belum login — store kosong dulu tanpa error.
-            // Data akan termuat setelah login lewat retry mechanism.
-            setData(seedData);
+            // Belum login atau sesinya ditolak — store kosong, BUKAN data
+            // contoh. Dulu di sini seedData, sehingga sesi yang kedaluwarsa
+            // tampil sebagai 28 aset palsu yang terlihat asli, lengkap dengan
+            // angka dasbornya. Data termuat setelah login lewat retry.
+            setData(dataKosong);
             return;
           }
           if (!res.ok) throw new Error(`GET /api/data -> ${res.status}`);
@@ -442,8 +444,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     };
     const onSessionEnd = () => {
       if (!isSupabase) disarmServerSync();
-      // Untuk Supabase: reset data saat logout.
-      if (isSupabase) setData(seedData);
+      // Untuk Supabase: kosongkan data saat logout (bukan data contoh).
+      if (isSupabase) setData(dataKosong);
     };
     window.addEventListener("pinjamin:session", retry);
     window.addEventListener("pinjamin:session-end", onSessionEnd);
