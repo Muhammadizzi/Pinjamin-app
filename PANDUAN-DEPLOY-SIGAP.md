@@ -1,57 +1,98 @@
 # Panduan Deploy SIGAP ke Vercel
 
 > **SIGAP — Sistem Integrasi Guna Aset & Pelayanan** (Garudafood)
-> Diperbarui: 21 Agustus 2026 · commit `93b7828`
-> **Production:** https://sigapgf.vercel.app
+> Diperbarui: 21 Agustus 2026 · commit `93b7828` > **Production:** https://sigapgf.vercel.app
 
 ---
 
 ## Kondisi saat ini
 
-Aplikasi **sudah live**. Setelah `git push` ke `main` barusan, Vercel otomatis membangun ulang dan menerbitkan versi SIGAP. Tidak ada langkah manual yang perlu dijalankan.
+Aplikasi **sudah live**. Setiap `git push` ke `main` membuat Vercel otomatis membangun ulang dan menerbitkan versi baru. Status di bawah dicek langsung ke database dan Vercel pada **11 Sep 2026**.
 
-| Komponen | Status |
-| --- | --- |
-| Repo GitHub | `Muhammadizzi/Pinjamin-app`, branch `main` |
-| Vercel | Project `pinjamin-app-pinjamin`, domain `sigapgf.vercel.app` |
-| Deploy | Push ke `main` = deploy production otomatis (region `sin1`) |
-| Supabase | Project `asset-management` (`nryxcs…`), region ap-northeast-2 |
-| Migrasi DB | Seluruhnya sudah dijalankan ✅ |
-| Akun admin | 1 baris di tabel `admins`, password sudah diganti dari bawaan ✅ |
-| RLS | Aktif — anon key tidak bisa membaca tabel mana pun ✅ |
+| Komponen    | Status                                                                                           |
+| ----------- | ------------------------------------------------------------------------------------------------ |
+| Repo GitHub | `Muhammadizzi/Pinjamin-app`, branch `main`                                                       |
+| Vercel      | Project `pinjamin-app-pinjamin`, domain `sigapgf.vercel.app`                                     |
+| Deploy      | Push ke `main` = deploy production otomatis (region `sin1`)                                      |
+| Supabase    | Project `asset-management` (`nryxcs…`), region ap-northeast-2                                    |
+| Migrasi DB  | Skrip `01`–`14` dan `16` terpasang. `17-username-unik…` **belum dijalankan** — lihat bagian 1    |
+| Akun admin  | 4 akun di tabel `admins`: 1 peran `ASSET` + 3 `HELPDESK` (GA, Utility, IT)                       |
+| RLS         | Aktif di semua tabel aplikasi dan tidak ada satu pun policy — anon tidak bisa membaca apa pun ✅ |
 
-**Yang perlu Anda lakukan sekarang:** tidak ada, cukup tunggu build selesai (±2–4 menit), lalu jalankan [verifikasi](#5-verifikasi-setelah-deploy).
+**Yang perlu dikerjakan:** satu skrip SQL tertinggal, yaitu `17-username-unik-tanpa-huruf-besar-kecil.sql`. Belum mendesak, tapi sebaiknya dijalankan — penjelasannya ada di [bagian 1](#1-status-migrasi-sql).
+
+> **Sisa kecil yang belum dibereskan:** tabel `asset_holders` lahir setelah `04-enable-rls.sql` dijalankan, jadi ia masih menyimpan hak akses warisan untuk `anon`. Tidak berbahaya selama RLS aktif tanpa policy seperti sekarang, tapi rapinya dijalankan sekali:
+>
+> ```sql
+> revoke all on public.asset_holders from anon, authenticated;
+> alter default privileges in schema public revoke all on tables from anon, authenticated;
+> ```
 
 ---
 
 ## 1. Status migrasi SQL
 
-Sudah saya cek langsung ke database — semua terpasang. **Tidak perlu dijalankan ulang.**
+Tabel di bawah adalah **urutan menjalankan dari nol**, sekaligus status di
+database production. Status dicek langsung ke database pada **11 Sep 2026**.
 
-| Berkas | Isi | Status |
-| --- | --- | --- |
-| `01-schema.sql` | 17 tabel inti | ✅ terpasang |
-| `02-storage.sql` | Bucket `assets` | ✅ terpasang |
-| `05-auth-hardening.sql` | Kolom `token_version` | ✅ terpasang |
-| `06-tickets.sql` | Tabel `tickets` | ✅ terpasang |
-| `07-image-columns.sql` | Kolom `image` di `locations` & `kits` | ✅ terpasang |
-| `08-missing-columns.sql` | `tags.color`, `locations.is_parent`, dll | ✅ terpasang |
-| `04-enable-rls.sql` | Kunci semua tabel dari anon | ✅ terpasang |
-| `03-seed.sql` | Data contoh — **opsional** | tidak dijalankan |
-| `00-reset-drop.sql` | ⚠️ **Menghapus seluruh tabel** — jangan dijalankan di production | — |
+| Urutan | Berkas                                         | Isi                                                              | Status di production               |
+| ------ | ---------------------------------------------- | ---------------------------------------------------------------- | ---------------------------------- |
+| 1      | `01-schema.sql`                                | Tabel inti                                                       | ✅ terpasang                       |
+| 2      | `02-storage.sql`                               | Bucket `assets` untuk foto                                       | ✅ terpasang                       |
+| 3      | `05-auth-hardening.sql`                        | Kolom `token_version` di `admins`                                | ✅ terpasang                       |
+| 4      | `06-tickets.sql`                               | Tabel `tickets` (helpdesk) + RLS                                 | ✅ terpasang                       |
+| 5      | `07-image-columns.sql`                         | Kolom `image` untuk `locations`                                  | ✅ terpasang                       |
+| 6      | `08-missing-columns.sql`                       | `tags.color`, `locations.is_parent`, dll                         | ✅ terpasang                       |
+| 7      | `09-tickets-helpdesk.sql`                      | Thread percakapan, prioritas + SLA, lampiran tiket               | ✅ terpasang                       |
+| 8      | `10-sla-pause.sql`                             | Kolom jeda SLA (mekanismenya sendiri sudah dicabut)              | ✅ terpasang                       |
+| 9      | `11-admin-roles.sql`                           | Kolom `role` + `working_order` di `admins`                       | ✅ terpasang                       |
+| 10     | `12-status-simplify.sql`                       | Status tiket dipangkas jadi OPEN / IN_PROGRESS / RESOLVED        | ✅ terpasang                       |
+| 11     | `13-status-on-hold.sql`                        | Menambahkan status tiket `ON_HOLD`                               | ✅ terpasang                       |
+| 12     | `14-registri-aset.sql`                         | Kondisi aset, pemilik, spesifikasi, tabel `asset_holders`        | ✅ terpasang                       |
+| 13     | `16-hapus-status-retired.sql`                  | Membuang kondisi aset "Dihapuskan"                               | ✅ terpasang                       |
+| 14     | `17-username-unik-tanpa-huruf-besar-kecil.sql` | Username admin unik tanpa beda huruf besar-kecil                 | ⚠️ **belum dijalankan**            |
+| —      | `15-drop-modul-lama.sql`                       | Menghapus tabel modul lama (`kits`, `bookings`, dll)             | ⛔ belum — opsional, lihat catatan |
+| —      | `03-seed.sql`                                  | Data contoh — **opsional**                                       | tidak dijalankan                   |
+| —      | `04-enable-rls.sql`                            | Kunci semua tabel dari anon — **jalankan paling akhir**          | ✅ terpasang                       |
+| —      | `00-reset-drop.sql`                            | ⚠️ **Menghapus seluruh tabel** — jangan dijalankan di production | —                                  |
+
+**Dua catatan penting:**
+
+- **`17-username-unik…` sebaiknya dijalankan.** Tanpa ini, dua admin yang
+  namanya hanya beda huruf besar-kecil (`Budi` dan `budi`) bisa sama-sama
+  tersimpan, lalu **keduanya gagal login** karena pencarian menemukan dua baris
+  sekaligus.
+- **`15-drop-modul-lama.sql` menghapus tabel**, jadi jangan dijalankan sebelum
+  yakin datanya memang tidak dipakai. Tabel modul lama masih ada di database
+  sekarang, dan membiarkannya tidak merusak apa pun.
+
+> Berkas `schema.sql` (tanpa nomor) adalah sisa lama dan **tidak** dipakai lagi;
+> ikuti berkas bernomor saja.
 
 ---
 
 ## 2. Environment Variables
 
-Empat variabel wajib. Semuanya sudah terisi di project Vercel Anda.
+Empat variabel wajib, sisanya opsional. Yang wajib sudah terisi di project
+Vercel Anda.
 
-| Variable | Wajib | Sumber |
-| --- | --- | --- |
-| `AUTH_SECRET` | ✅ | `openssl rand -base64 32` — kunci tanda tangan sesi |
-| `SUPABASE_SERVICE_ROLE` | ✅ | Supabase → Settings → API → `service_role` |
-| `NEXT_PUBLIC_SUPABASE_URL` | ✅ | `https://nryxcsarvyoqtcuwytxs.supabase.co` |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | ✅ | Supabase → Settings → API → `anon public` |
+| Variable                        | Wajib | Sumber / guna                                                                                                                                                                         |
+| ------------------------------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `AUTH_SECRET`                   | ✅    | `openssl rand -base64 32` — kunci tanda tangan sesi admin                                                                                                                             |
+| `SUPABASE_SERVICE_ROLE`         | ✅    | Supabase → Settings → API Keys → secret key                                                                                                                                           |
+| `NEXT_PUBLIC_SUPABASE_URL`      | ✅    | `https://nryxcsarvyoqtcuwytxs.supabase.co`                                                                                                                                            |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | ✅    | Supabase → Settings → API Keys → publishable key                                                                                                                                      |
+| `CRON_SECRET`                   | —     | **Penyapu lampiran tiket.** `vercel.json` menjadwalkan `/api/tickets/gc` tiap hari 19.00 UTC. Tanpa env ini, tugas itu dijawab `401` dan lampiran tiket lama tidak pernah dibersihkan |
+| `NEXT_PUBLIC_APP_URL`           | —     | Asal aplikasi, dipakai membentuk tautan portal pelapor                                                                                                                                |
+| `ADMIN_USERNAME` / `ADMIN_NAME` | —     | Admin cadangan dari env; default `adminsystem` / `Administrator`                                                                                                                      |
+| `RATE_LIMIT_TRUSTED_PROXIES`    | —     | Jumlah proxy di depan aplikasi, default `1`                                                                                                                                           |
+
+> **Kunci Supabase model baru.** Supabase kini menyarankan `sb_publishable_…`
+> (untuk browser) dan `sb_secret_…` (khusus server) menggantikan `anon` dan
+> `service_role` yang lama. Keduanya dipasang di dua variabel yang sama seperti
+> di atas — `sb_secret_…` ke `SUPABASE_SERVICE_ROLE`, `sb_publishable_…` ke
+> `NEXT_PUBLIC_SUPABASE_ANON_KEY`. Jangan tertukar: kunci `sb_secret_…` ditolak
+> `401` kalau sampai terpakai di browser.
 
 **Aturan yang tidak boleh dilanggar:** `SUPABASE_SERVICE_ROLE` **tidak pernah** memakai prefix `NEXT_PUBLIC_`. Kunci itu melewati seluruh Row Level Security — kalau diberi prefix tersebut, ia ikut terkirim ke browser setiap pengunjung.
 
@@ -63,12 +104,12 @@ Empat variabel wajib. Semuanya sudah terisi di project Vercel Anda.
 
 Sudah diatur saat setup awal — dicatat di sini untuk rujukan.
 
-| Setelan | Nilai |
-| --- | --- |
-| **Root Directory** | `apps/pinjamin` |
-| **Include source files outside Root Directory** | ON |
-| Framework Preset | Next.js (terdeteksi otomatis) |
-| Build / Install Command | biarkan default |
+| Setelan                                         | Nilai                         |
+| ----------------------------------------------- | ----------------------------- |
+| **Root Directory**                              | `apps/pinjamin`               |
+| **Include source files outside Root Directory** | ON                            |
+| Framework Preset                                | Next.js (terdeteksi otomatis) |
+| Build / Install Command                         | biarkan default               |
 
 Sisanya diatur oleh `apps/pinjamin/vercel.json` yang ikut ter-commit:
 
@@ -99,8 +140,8 @@ Jebakan yang paling mudah terulang. Vercel **memblokir** deployment bila email
 penulis commit tidak terdaftar di akun GitHub — bukan gagal build, tapi
 ditolak sebelum build dimulai:
 
-> *The deployment was blocked because the commit email … could not be matched
-> to a GitHub account.*
+> _The deployment was blocked because the commit email … could not be matched
+> to a GitHub account._
 
 Gejalanya menipu: push berhasil, GitHub menerima, tapi production diam-diam
 tidak berubah karena commit-nya tidak pernah ter-deploy.
@@ -140,31 +181,35 @@ pada deployment yang diblokir.
 Ganti `<domain>` dengan domain Vercel Anda.
 
 **a. Halaman publik**
+
 1. Buka `https://<domain>/` — pastikan logo dan nama **SIGAP** yang tampil, bukan Pinjamin
 2. Isi form tiket → harus dapat nomor `TKT-XXXXXX`
 3. Tempel nomor itu di kolom **Lacak Tiket** → status `Open` muncul otomatis
 
-**b. Area admin**
-4. Buka `https://<domain>/login` → masuk dengan password Anda
-5. Cek sidebar: merek **SIGAP**, pengalih mode **Aset | Ticketing**
-6. Buka **Reports** → tombol **PDF** → kop dokumen harus bertuliskan "SIGAP — Garudafood"
+**b. Area admin** 4. Buka `https://<domain>/login` → masuk dengan password Anda 5. Cek sidebar: merek **SIGAP**, pengalih mode **Aset | Ticketing** 6. Buka **Reports** → tombol **PDF** → kop dokumen harus bertuliskan "SIGAP — Garudafood"
 
 **c. Header keamanan**
+
 ```bash
 curl -sI https://<domain>/login | grep -iE "content-security|strict-transport|x-frame"
 ```
+
 Ketiganya harus muncul.
 
 **d. Kredensial demo tidak bocor**
+
 ```bash
 curl -s https://<domain>/login | grep -c "admin123"
 ```
+
 Harus menghasilkan `0`.
 
 **e. API tanpa sesi ditolak**
+
 ```bash
 curl -s -o /dev/null -w "%{http_code}\n" https://<domain>/api/store
 ```
+
 Harus `401`.
 
 ---
@@ -183,11 +228,11 @@ edit kode → pnpm pinjamin:dev (cek lokal) → commit → push
 
 Tiga hal yang **tidak** otomatis:
 
-| Perubahan | Tindakan manual |
-| --- | --- |
-| Tambah environment variable | Isi di Settings, lalu **Redeploy** |
-| Tambah tabel / kolom DB | Jalankan SQL-nya di Supabase SQL Editor |
-| Ganti berkas di `public/` | Kalau tampilan tidak berubah, hapus cache: `rm -rf apps/pinjamin/.next/cache` |
+| Perubahan                   | Tindakan manual                                                               |
+| --------------------------- | ----------------------------------------------------------------------------- |
+| Tambah environment variable | Isi di Settings, lalu **Redeploy**                                            |
+| Tambah tabel / kolom DB     | Jalankan SQL-nya di Supabase SQL Editor                                       |
+| Ganti berkas di `public/`   | Kalau tampilan tidak berubah, hapus cache: `rm -rf apps/pinjamin/.next/cache` |
 
 ---
 
@@ -197,7 +242,7 @@ Hanya diperlukan bila membuat project Vercel baru dari awal.
 
 1. [vercel.com/new](https://vercel.com/new) → Import `Muhammadizzi/Pinjamin-app`
 2. **Root Directory** → Edit → pilih `apps/pinjamin` — **wajib**, kalau dilewati Vercel salah menebak dan men-deploy app dokumentasi
-3. Aktifkan *Include source files outside of the Root Directory*
+3. Aktifkan _Include source files outside of the Root Directory_
 4. Isi 4 environment variable dari [bagian 2](#2-environment-variables), centang Production + Preview
 5. **Deploy**, tunggu 2–4 menit
 6. Jalankan verifikasi di [bagian 5](#5-verifikasi-setelah-deploy)
@@ -282,15 +327,15 @@ menyimpulkan kodenya salah.
 
 ## 9. Bila terjadi masalah
 
-| Gejala | Penyebab paling sering |
-| --- | --- |
+| Gejala                                           | Penyebab paling sering                                                                                                     |
+| ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
 | **Deployment Blocked**, build tidak pernah mulai | Email penulis commit tidak terdaftar di akun GitHub — lihat [bagian 4a](#4a--identitas-git-harus-cocok-dengan-akun-github) |
-| Build gagal saat install | `installCommand` ter-filter bermasalah → hapus baris itu dari `vercel.json`, build pakai `pnpm install` biasa |
-| Halaman 404 semua | Root Directory belum diarahkan ke `apps/pinjamin` |
-| Login dijawab `503` | `AUTH_SECRET` kosong, atau tidak ada sumber kredensial admin |
-| Login dijawab `401` terus | Password salah — atau `token_version` naik karena password baru saja diganti |
-| Data tidak tersimpan, `/api/store` balas `501` | Env Supabase belum terbaca → aplikasi jatuh ke mode file yang tidak bisa menulis di Vercel |
-| Foto aset gagal diunggah | `SUPABASE_SERVICE_ROLE` salah atau bucket `assets` belum ada |
-| Logo/gambar lama masih muncul | Cache image Next — hapus `.next/cache`, lalu redeploy |
+| Build gagal saat install                         | `installCommand` ter-filter bermasalah → hapus baris itu dari `vercel.json`, build pakai `pnpm install` biasa              |
+| Halaman 404 semua                                | Root Directory belum diarahkan ke `apps/pinjamin`                                                                          |
+| Login dijawab `503`                              | `AUTH_SECRET` kosong, atau tidak ada sumber kredensial admin                                                               |
+| Login dijawab `401` terus                        | Password salah — atau `token_version` naik karena password baru saja diganti                                               |
+| Data tidak tersimpan, `/api/store` balas `501`   | Env Supabase belum terbaca → aplikasi jatuh ke mode file yang tidak bisa menulis di Vercel                                 |
+| Foto aset gagal diunggah                         | `SUPABASE_SERVICE_ROLE` salah atau bucket `assets` belum ada                                                               |
+| Logo/gambar lama masih muncul                    | Cache image Next — hapus `.next/cache`, lalu redeploy                                                                      |
 
 Log build dan runtime ada di Vercel → tab **Deployments** → pilih deployment → **Logs**.

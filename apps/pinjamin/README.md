@@ -21,7 +21,9 @@ supaya keduanya tidak pernah berbeda pendapat.
 ### Aset & QR
 
 Tiap aset punya kode QR berawalan `PIN-`. Kode itu dicetak, ditempel di aset,
-lalu dipindai lewat kamera ponsel di `/scanner` untuk membuka halaman detailnya.
+lalu dipindai lewat kamera ponsel — QR-nya berisi tautan ke `/a/<kode>`, halaman
+publik baca-saja berisi data aset itu. Tidak ada halaman pemindai di dalam
+aplikasi; yang memindai adalah kamera bawaan ponsel.
 Prefix `PIN-` tidak boleh diganti — QR yang sudah tercetak jadi tidak konsisten.
 
 ### Dua mode penyimpanan
@@ -40,7 +42,7 @@ ada akun yang memegang keduanya (`supabase/11-admin-roles.sql`):
 
 | Peran      | Akses                                                                            |
 | ---------- | -------------------------------------------------------------------------------- |
-| `ASSET`    | Dashboard, aset, lokasi, kategori, tag, custodian, audit, laporan, scanner       |
+| `ASSET`    | Dashboard, aset, kategori, tag, lokasi, dan laporan                              |
 | `HELPDESK` | Hanya `/tickets`, dan hanya tiket sesuai `working_order`-nya (GA / Utility / IT) |
 
 `/settings` (profil & ganti password sendiri) terbuka untuk semua peran.
@@ -72,20 +74,28 @@ simbol © di footer, atau `/login`.
 
 Jalankan SQL berikut berurutan di **SQL Editor** (folder `supabase/`):
 
-| Urutan | File                      | Isi                                                                     |
-| ------ | ------------------------- | ----------------------------------------------------------------------- |
-| 1      | `01-schema.sql`           | Semua tabel inti                                                        |
-| 2      | `02-storage.sql`          | Bucket `assets` untuk foto                                              |
-| 3      | `05-auth-hardening.sql`   | Kolom `token_version` di `admins`                                       |
-| 4      | `06-tickets.sql`          | Tabel `tickets` (helpdesk) + RLS                                        |
-| 5      | `07-image-columns.sql`    | Kolom `image` untuk `locations`                                         |
-| 6      | `08-missing-columns.sql`  | `tags.color`, `locations.is_parent`, `custom_fields.category_ids`       |
-| 7      | `09-tickets-helpdesk.sql` | Thread percakapan, prioritas + SLA, lampiran tiket                      |
-| 8      | `10-sla-pause.sql`        | Jeda SLA (stop-the-clock saat menunggu pelapor)                         |
-| 9      | `11-admin-roles.sql`      | Kolom `role` + `working_order` di `admins`                              |
-| 10     | `12-status-simplify.sql`  | Status tiket dipangkas jadi `OPEN` → `IN_PROGRESS` → `RESOLVED`         |
-| 11     | `03-seed.sql`             | _opsional_ — data contoh (masih mengisi tabel lama `kits` & `bookings`) |
-| 12     | `04-enable-rls.sql`       | **paling akhir**, setelah app ter-deploy                                |
+| Urutan | File                                           | Isi                                                                     |
+| ------ | ---------------------------------------------- | ----------------------------------------------------------------------- |
+| 1      | `01-schema.sql`                                | Semua tabel inti                                                        |
+| 2      | `02-storage.sql`                               | Bucket `assets` untuk foto                                              |
+| 3      | `05-auth-hardening.sql`                        | Kolom `token_version` di `admins`                                       |
+| 4      | `06-tickets.sql`                               | Tabel `tickets` (helpdesk) + RLS                                        |
+| 5      | `07-image-columns.sql`                         | Kolom `image` untuk `locations`                                         |
+| 6      | `08-missing-columns.sql`                       | `tags.color`, `locations.is_parent`, `custom_fields.category_ids`       |
+| 7      | `09-tickets-helpdesk.sql`                      | Thread percakapan, prioritas + SLA, lampiran tiket                      |
+| 8      | `10-sla-pause.sql`                             | Jeda SLA (stop-the-clock saat menunggu pelapor)                         |
+| 9      | `11-admin-roles.sql`                           | Kolom `role` + `working_order` di `admins`                              |
+| 10     | `12-status-simplify.sql`                       | Status tiket dipangkas jadi `OPEN` → `IN_PROGRESS` → `RESOLVED`         |
+| 11     | `13-status-on-hold.sql`                        | Menambahkan status tiket `ON_HOLD`                                      |
+| 12     | `14-registri-aset.sql`                         | Kondisi aset, pemilik, spesifikasi, tabel `asset_holders`               |
+| 13     | `16-hapus-status-retired.sql`                  | Membuang kondisi aset "Dihapuskan"                                      |
+| 14     | `17-username-unik-tanpa-huruf-besar-kecil.sql` | Username admin unik tanpa beda huruf besar-kecil                        |
+| 15     | `03-seed.sql`                                  | _opsional_ — data contoh (masih mengisi tabel lama `kits` & `bookings`) |
+| 16     | `04-enable-rls.sql`                            | **paling akhir**, setelah app ter-deploy                                |
+
+`15-drop-modul-lama.sql` sengaja tidak masuk urutan di atas: ia **menghapus**
+tabel modul lama (`kits`, `bookings`, dll) dan hanya dijalankan kalau sudah
+yakin. Berkas `schema.sql` tanpa nomor adalah sisa lama, tidak dipakai.
 
 > `07` dan `08` juga menyentuh tabel `kits` — sisa modul kit yang sudah dihapus
 > dari aplikasi. Skripnya aman dijalankan apa adanya.
@@ -178,15 +188,21 @@ diakses; URL-nya sudah tersimpan di database.
   di-set di `next.config.ts`.
 - Rate limit **in-memory per instance** (`lib/rate-limit.ts`), per IP:
 
-  | Endpoint                   | Batas         |
-  | -------------------------- | ------------- |
-  | Login                      | 5 / 15 menit  |
-  | Buat tiket                 | 8 / 15 menit  |
-  | Lacak tiket                | 30 / 5 menit  |
-  | Konfirmasi email di portal | 8 / 15 menit  |
-  | Portal pelapor             | 40 / 5 menit  |
-  | Balasan pelapor            | 15 / 15 menit |
-  | Unggah lampiran publik     | 12 / 15 menit |
+  | Endpoint                          | Batas                       |
+  | --------------------------------- | --------------------------- |
+  | Login                             | 5 / 15 menit                |
+  | Buat tiket                        | 60 / 15 menit               |
+  | Lacak tiket & daftar tiket publik | 30 / 5 menit                |
+  | Verifikasi email di Lacak Tiket   | 8 / 15 menit **per tiket**  |
+  | Portal pelapor                    | 40 / 5 menit                |
+  | Balasan pelapor                   | 15 / 15 menit **per tiket** |
+  | Unggah lampiran publik            | 12 / 15 menit               |
+
+  Dua baris terakhir yang bertanda **per tiket** dikunci per IP _dan_ per nomor
+  tiket. Alasannya: seluruh karyawan pabrik keluar ke internet lewat satu IP
+  kantor yang sama, jadi kunci per IP saja membuat satu orang menghabiskan
+  jatah seluruh kantor. Batas "buat tiket" dinaikkan dari 8 ke 60 karena alasan
+  yang sama.
 
   IP klien diambil dari `X-Forwarded-For` dengan menghitung mundur sebanyak
   `RATE_LIMIT_TRUSTED_PROXIES` — header yang dikarang klien hanya bisa membuat
