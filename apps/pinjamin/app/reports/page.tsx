@@ -7,122 +7,116 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { useStore } from "@/lib/store";
 import { useT } from "@/lib/i18n";
 import { locationLabel } from "@/lib/location-path";
+import {
+  KONDISI,
+  barisAset,
+  barisPerKategori,
+  barisPerKondisi,
+  barisPerLokasi,
+  capTanggal,
+  lebarKolom,
+  type Baris,
+  type LabelLaporan,
+} from "@/lib/laporan";
 import { Download, FileSpreadsheet, FileText, BarChart3 } from "lucide-react";
 import Papa from "papaparse";
 
-/** Urutan kondisi di laporan — dari paling sehat ke akhir masa pakai. */
-const CONDITIONS = ["GOOD", "DAMAGED", "MAINTENANCE"] as const;
+/**
+ * Penanda UTF-8 di awal berkas CSV. Tanpanya Excel membaca CSV sebagai ANSI,
+ * dan karakter seperti "›" pada jalur lokasi berubah menjadi "â€º".
+ */
+const BOM = "\uFEFF";
 
 export default function ReportsPage() {
-  const { assets, categories, locations } = useStore();
-  const { t, lang, assetStatus } = useT();
+  const { assets, categories, locations, tags } = useStore();
+  const { t, assetStatus, formatDate } = useT();
+
+  const L: LabelLaporan = {
+    kondisi: {
+      GOOD: assetStatus("GOOD"),
+      DAMAGED: assetStatus("DAMAGED"),
+      MAINTENANCE: assetStatus("MAINTENANCE"),
+    },
+    kolomKondisi: t("colStatus"),
+    kategori: t("colCategory"),
+    lokasi: t("colLocation"),
+    jumlah: t("lapJumlah"),
+    persentase: t("lapPersen"),
+    total: t("lapTotal"),
+    no: t("lapNo"),
+    kodeQr: t("colQr"),
+    nama: t("colName"),
+    pemakai: t("custodian"),
+    spesifikasi: t("specLabel"),
+    nomorSeri: t("colSerial"),
+    tag: t("colTags"),
+    deskripsi: t("colDescription"),
+    terdaftar: t("lapTerdaftar"),
+    tanpaKategori: t("lapTanpaKategori"),
+    tanpaLokasi: t("lapTanpaLokasi"),
+  };
 
   const countByStatus = (status: string) =>
     assets.filter((a) => a.status === status).length;
 
-  /** Rakit CSV lalu picu unduhan. Dipakai tiga kartu, jadi tidak diulang. */
-  const unduhCsv = (rows: Record<string, unknown>[], filename: string) => {
-    const blob = new Blob([Papa.unparse(rows)], { type: "text/csv" });
+  const unduh = (blob: Blob, nama: string) => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = filename;
+    a.download = nama;
     a.click();
     URL.revokeObjectURL(url);
   };
 
-  const exportCSV = () => {
-    const data = categories.map((c) => ({
-      category: c.name,
-      total: assets.filter((a) => a.categoryId === c.id).length,
-      baik: assets.filter((a) => a.categoryId === c.id && a.status === "GOOD")
-        .length,
-      rusak: assets.filter(
-        (a) => a.categoryId === c.id && a.status === "DAMAGED"
-      ).length,
-    }));
-    unduhCsv(data, "laporan-inventaris.csv");
-  };
+  const unduhCsv = (rows: Baris[], nama: string) =>
+    unduh(
+      new Blob([BOM + Papa.unparse(rows)], { type: "text/csv;charset=utf-8" }),
+      `${nama}-${capTanggal()}.csv`
+    );
 
+  const exportKategoriCsv = () =>
+    unduhCsv(barisPerKategori(assets, categories, L), "laporan-per-kategori");
   const exportKondisiCsv = () =>
-    unduhCsv(
-      CONDITIONS.map((sKode) => ({
-        kondisi: assetStatus(sKode),
-        jumlah: countByStatus(sKode),
-      })),
-      "laporan-kondisi-aset.csv"
-    );
-
+    unduhCsv(barisPerKondisi(assets, L), "laporan-per-kondisi");
   const exportLokasiCsv = () =>
-    unduhCsv(
-      locations.map((l) => ({
-        lokasi: locationLabel(locations, l.id),
-        total: assets.filter((a) => a.locationId === l.id).length,
-        rusak: assets.filter(
-          (a) => a.locationId === l.id && a.status === "DAMAGED"
-        ).length,
-      })),
-      "laporan-aset-per-lokasi.csv"
-    );
+    unduhCsv(barisPerLokasi(assets, locations, L), "laporan-per-lokasi");
 
+  /**
+   * Seluruh laporan dalam satu berkas Excel, satu lembar per bagian.
+   * Tiap tabel diberi lebar kolom sesuai isinya dan filter di baris judul.
+   */
   const exportExcel = async () => {
     const XLSX = await import("xlsx");
-    const data = assets.map((a) => ({
-      [t("colName")]: a.name,
-      [t("colStatus")]: assetStatus(a.status),
-      [t("colCategory")]: categories.find((c) => c.id === a.categoryId)?.name,
-      [t("colLocation")]: locationLabel(locations, a.locationId),
-      [t("colQr")]: a.qrCode,
-      [t("colSerial")]: a.serialNumber,
-      [t("ownerLabel")]: a.owner,
-      [t("specLabel")]: a.spec,
-      [t("colValue")]: a.value,
-    }));
-    const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, t("sheetReport"));
-    XLSX.writeFile(wb, "report-inventory.xlsx");
-  };
 
-  const exportPDF = async () => {
-    // jsPDF 4 tidak lagi mengekspor konstruktor sebagai `default` — harus
-    // named export. Bentuk lama (.default) menghasilkan objek, bukan kelas,
-    // sehingga `new` melempar "jsPDF is not a constructor".
-    const { jsPDF } = await import("jspdf");
-    const doc = new jsPDF();
-    doc.setFillColor(10, 34, 64);
-    doc.rect(0, 0, 210, 22, "F");
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(14);
-    doc.text("SIGAP — Garudafood", 10, 10);
-    doc.setFontSize(10);
-    doc.text(t("pdfReportTitle"), 10, 16);
-    doc.setTextColor(0, 0, 0);
-    let y = 30;
-    doc.setFontSize(11);
-    doc.text(t("pdfTotalAssets", { count: assets.length }), 10, y);
-    y += 7;
-    doc.setFontSize(10);
-    categories.forEach((c) => {
-      const total = assets.filter((a) => a.categoryId === c.id).length;
-      if (y > 280) {
-        doc.addPage();
-        y = 20;
-      }
-      doc.text(t("pdfCategoryLine", { name: c.name, count: total }), 10, y);
-      y += 6;
-    });
-    y += 4;
-    doc.setFontSize(9);
-    doc.setTextColor(100, 100, 100);
-    doc.text(
-      t("pdfPrintedAt", {
-        date: new Date().toLocaleString(lang === "id" ? "id-ID" : "en-US"),
-      }),
-      10,
-      y
+    const kondisi = barisPerKondisi(assets, L);
+    const ringkasan = XLSX.utils.aoa_to_sheet([
+      [t("lapJudul")],
+      [t("lapDicetak"), formatDate(new Date().toISOString())],
+      [t("lapTotalAset"), assets.length],
+      [],
+      Object.keys(kondisi[0]),
+      ...kondisi.map((b) => Object.values(b)),
+    ]);
+    ringkasan["!cols"] = [{ wch: 32 }, { wch: 18 }, { wch: 14 }];
+    XLSX.utils.book_append_sheet(wb, ringkasan, t("lapSheetRingkasan"));
+
+    const lembar = (rows: Baris[], nama: string) => {
+      const ws = XLSX.utils.json_to_sheet(rows);
+      ws["!cols"] = lebarKolom(rows);
+      if (ws["!ref"]) ws["!autofilter"] = { ref: ws["!ref"] };
+      XLSX.utils.book_append_sheet(wb, ws, nama);
+    };
+    lembar(barisPerKategori(assets, categories, L), t("lapSheetKategori"));
+    lembar(barisPerLokasi(assets, locations, L), t("lapSheetLokasi"));
+    lembar(
+      barisAset(assets, categories, locations, tags, L, (iso) =>
+        formatDate(iso)
+      ),
+      t("lapSheetAset")
     );
-    doc.save("laporan-inventaris.pdf");
+
+    XLSX.writeFile(wb, `laporan-aset-${capTanggal()}.xlsx`);
   };
 
   return (
@@ -178,27 +172,23 @@ export default function ReportsPage() {
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={exportCSV}
+                  onClick={exportKategoriCsv}
                   className="rounded-xl"
                 >
                   <Download className="h-4 w-4" /> CSV
                 </Button>
                 <Button
                   size="sm"
-                  variant="outline"
                   onClick={exportExcel}
-                  className="rounded-xl"
+                  title={t("lapExcelHint")}
+                  className="rounded-xl bg-[#e6ad1a] hover:bg-amber-400 text-[#0a2240] font-semibold"
                 >
                   <FileSpreadsheet className="h-4 w-4" /> Excel
                 </Button>
-                <Button
-                  size="sm"
-                  onClick={exportPDF}
-                  className="rounded-xl bg-[#e6ad1a] hover:bg-amber-400 text-[#0a2240] font-semibold"
-                >
-                  <FileText className="h-4 w-4" /> PDF
-                </Button>
               </div>
+              <p className="text-xs text-muted-foreground">
+                {t("lapExcelHint")}
+              </p>
             </CardContent>
           </Card>
 
@@ -214,7 +204,7 @@ export default function ReportsPage() {
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="space-y-2 text-sm">
-                {CONDITIONS.map((kode) => {
+                {KONDISI.map((kode) => {
                   const jumlah = countByStatus(kode);
                   const persen = Math.round(
                     (jumlah / Math.max(1, assets.length)) * 100

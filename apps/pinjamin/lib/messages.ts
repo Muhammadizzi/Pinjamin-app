@@ -622,14 +622,25 @@ export const messages = {
     "Jumlah per kategori/lokasi/status",
     "Counts by category / location / status",
   ],
-  pdfReportTitle: ["Laporan Inventaris", "Inventory Report"],
-  pdfTotalAssets: ["Total Aset: {count}", "Total assets: {count}"],
-  pdfCategoryLine: ["{name}: {count} aset", "{name}: {count} assets"],
-  pdfPrintedAt: [
-    "Dicetak: {date} • SIGAP v1.1",
-    "Printed: {date} • SIGAP v1.1",
-  ],
   sheetReport: ["Laporan", "Report"],
+  lapJudul: ["Laporan Inventaris Aset SIGAP", "SIGAP Asset Inventory Report"],
+  lapDicetak: ["Dicetak", "Printed"],
+  lapTotalAset: ["Total Aset", "Total Assets"],
+  lapTotal: ["Total", "Total"],
+  lapJumlah: ["Jumlah", "Count"],
+  lapPersen: ["Persentase", "Percentage"],
+  lapNo: ["No", "No"],
+  lapTerdaftar: ["Terdaftar", "Registered"],
+  lapTanpaKategori: ["Tanpa Kategori", "No Category"],
+  lapTanpaLokasi: ["Tanpa Lokasi", "No Location"],
+  lapSheetRingkasan: ["Ringkasan", "Summary"],
+  lapSheetKategori: ["Per Kategori", "By Category"],
+  lapSheetLokasi: ["Per Lokasi", "By Location"],
+  lapSheetAset: ["Daftar Aset", "Asset List"],
+  lapExcelHint: [
+    "Excel memuat seluruh laporan dalam satu berkas: ringkasan, per kategori, per lokasi, dan daftar aset.",
+    "Excel holds the whole report in one file: summary, by category, by location, and the asset list.",
+  ],
 
   // ---------- Pengaturan akun ----------
   accountSettingsSub: [
