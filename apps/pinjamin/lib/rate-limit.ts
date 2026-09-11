@@ -111,9 +111,17 @@ export const loginLimiter = createRateLimiter({
   windowMs: 15 * 60 * 1000,
 });
 
-/** Tiket publik: 8 kiriman / 15 menit per IP (terpisah dari login). */
+/**
+ * Tiket publik: 60 kiriman / 15 menit per IP (terpisah dari login).
+ *
+ * Dulu 8. Angka itu hanya masuk akal kalau tiap pelapor punya IP sendiri,
+ * padahal karyawan di pabrik keluar ke internet lewat satu IP kantor yang
+ * sama — batasnya terbagi untuk seluruh kantor, dan pelapor kesembilan dalam
+ * 15 menit ditolak walau baru mengirim sekali. Pembatas ini untuk menahan
+ * banjir dari satu sumber, bukan menjatah tiap orang.
+ */
 export const ticketLimiter = createRateLimiter({
-  maxAttempts: 8,
+  maxAttempts: 60,
   windowMs: 15 * 60 * 1000,
 });
 
