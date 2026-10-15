@@ -3,6 +3,11 @@ import { gateAssetAdmin } from "@/lib/auth";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { isUuid } from "@/lib/resource-config";
 import { syncOwnerFromHolders } from "@/lib/asset-holders";
+import {
+  demoAkhiriPemakai,
+  demoHapusPemakai,
+  isDemoAset,
+} from "@/lib/demo-aset";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,6 +23,11 @@ export async function DELETE(
   const { id, holderId } = await ctx.params;
   if (!isUuid(id) || !isUuid(holderId))
     return NextResponse.json({ error: "Invalid id" }, { status: 400 });
+
+  if (isDemoAset()) {
+    demoHapusPemakai(id, holderId);
+    return NextResponse.json({ ok: true });
+  }
 
   const supa = getSupabaseAdmin();
   if (!supa)
@@ -63,6 +73,11 @@ export async function PATCH(
   const { id, holderId } = await ctx.params;
   if (!isUuid(id) || !isUuid(holderId))
     return NextResponse.json({ error: "Invalid id" }, { status: 400 });
+
+  if (isDemoAset()) {
+    demoAkhiriPemakai(id, holderId);
+    return NextResponse.json({ ok: true });
+  }
 
   const supa = getSupabaseAdmin();
   if (!supa)

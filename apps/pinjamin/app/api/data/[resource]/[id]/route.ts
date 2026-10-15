@@ -10,6 +10,7 @@ import {
   type SimpleResourceKey,
 } from "@/lib/resource-config";
 import { removeByPublicUrl } from "@/lib/storage";
+import { demoHapus, demoUbah, isDemoAset } from "@/lib/demo-aset";
 
 function isSimpleResource(key: string): key is SimpleResourceKey {
   return key in SIMPLE_RESOURCE_TABLE;
@@ -35,17 +36,24 @@ export async function PATCH(
     return NextResponse.json({ error: "Invalid body" }, { status: 400 });
   }
 
+  const patch = pickAllowed(body, SIMPLE_RESOURCE_FIELDS[resource]);
+  if (Object.keys(patch).length === 0) {
+    return NextResponse.json({ error: "No valid fields" }, { status: 400 });
+  }
+
+  if (isDemoAset()) {
+    const baris = demoUbah(resource, id, patch);
+    return baris
+      ? NextResponse.json({ data: fromDbRow(baris) })
+      : NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
   const supa = getSupabaseAdmin();
   if (!supa)
     return NextResponse.json(
       { error: "Supabase not configured" },
       { status: 503 }
     );
-
-  const patch = pickAllowed(body, SIMPLE_RESOURCE_FIELDS[resource]);
-  if (Object.keys(patch).length === 0) {
-    return NextResponse.json({ error: "No valid fields" }, { status: 400 });
-  }
 
   const { data, error } = await supa
     .from(SIMPLE_RESOURCE_TABLE[resource])
@@ -77,6 +85,11 @@ export async function DELETE(
   }
   if (!id || typeof id !== "string" || id.length === 0)
     return NextResponse.json({ error: "Invalid id" }, { status: 400 });
+
+  if (isDemoAset()) {
+    demoHapus(resource, id);
+    return NextResponse.json({ ok: true });
+  }
 
   const supa = getSupabaseAdmin();
   if (!supa)

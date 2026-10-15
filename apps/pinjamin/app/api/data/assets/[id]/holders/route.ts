@@ -3,6 +3,11 @@ import { gateAssetAdmin } from "@/lib/auth";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { fromDbRow, isUuid } from "@/lib/resource-config";
 import { syncOwnerFromHolders } from "@/lib/asset-holders";
+import {
+  demoDaftarPemakai,
+  demoTambahPemakai,
+  isDemoAset,
+} from "@/lib/demo-aset";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,6 +23,12 @@ export async function GET(
   const { id } = await ctx.params;
   if (!isUuid(id))
     return NextResponse.json({ error: "Invalid id" }, { status: 400 });
+
+  if (isDemoAset()) {
+    return NextResponse.json({
+      holders: demoDaftarPemakai(id).map(fromDbRow),
+    });
+  }
 
   const supa = getSupabaseAdmin();
   if (!supa)
@@ -79,6 +90,16 @@ export async function POST(
   let mulai =
     diminta && !Number.isNaN(diminta.getTime()) ? diminta : new Date();
   if (mulai.getTime() > Date.now()) mulai = new Date();
+
+  if (isDemoAset()) {
+    const baris = demoTambahPemakai(id, { name, department, note, mulai });
+    return baris
+      ? NextResponse.json({ holder: fromDbRow(baris) })
+      : NextResponse.json(
+          { error: "Gagal menyimpan riwayat." },
+          { status: 404 }
+        );
+  }
 
   const supa = getSupabaseAdmin();
   if (!supa)

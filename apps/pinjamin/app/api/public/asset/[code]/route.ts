@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { clientIp, trackLimiter } from "@/lib/auth";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { fromDbRow, isQrCode } from "@/lib/resource-config";
+import { demoAsetPublik, isDemoAset } from "@/lib/demo-aset";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -43,6 +44,13 @@ export async function GET(
   // Postgres bekerja.
   if (!isQrCode(code)) {
     return NextResponse.json({ error: "Kode tidak valid." }, { status: 400 });
+  }
+
+  if (isDemoAset()) {
+    const hasil = demoAsetPublik(code);
+    return hasil
+      ? NextResponse.json(hasil)
+      : NextResponse.json({ error: "Aset tidak ditemukan." }, { status: 404 });
   }
 
   const supa = getSupabaseAdmin();

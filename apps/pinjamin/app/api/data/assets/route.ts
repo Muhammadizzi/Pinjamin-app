@@ -10,6 +10,7 @@ import {
   isUuid,
 } from "@/lib/resource-config";
 import { generateQRCode } from "@/lib/utils";
+import { demoTambahAset, isDemoAset } from "@/lib/demo-aset";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,13 +24,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid body" }, { status: 400 });
   }
 
-  const supa = getSupabaseAdmin();
-  if (!supa)
-    return NextResponse.json(
-      { error: "Supabase not configured" },
-      { status: 503 }
-    );
-
   const row: Record<string, unknown> = {
     ...pickAllowed(body, ASSET_FIELDS),
     ...clientIdRow(body),
@@ -42,6 +36,29 @@ export async function POST(req: NextRequest) {
   const qr = (body as Record<string, unknown>).qr_code;
   row.qr_code = isQrCode(qr) ? qr : generateQRCode();
   row.status = row.status || "GOOD";
+
+  if (isDemoAset()) {
+    const tagIdsDemo: unknown = (body as Record<string, unknown>).tagIds;
+    const validDemo = Array.isArray(tagIdsDemo)
+      ? tagIdsDemo.filter(isUuid)
+      : [];
+    const baris = demoTambahAset(row, validDemo);
+    if (!baris)
+      return NextResponse.json(
+        { error: "Gagal menyimpan aset." },
+        { status: 500 }
+      );
+    return NextResponse.json({
+      data: { ...fromDbRow(baris), tagIds: validDemo, notes: [] },
+    });
+  }
+
+  const supa = getSupabaseAdmin();
+  if (!supa)
+    return NextResponse.json(
+      { error: "Supabase not configured" },
+      { status: 503 }
+    );
 
   const { data: asset, error } = await supa
     .from("assets")

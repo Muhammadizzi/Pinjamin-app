@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev -H 0.0.0.0 -p 5003",
     "dev:http": "next dev -H 0.0.0.0 -p 5003",
+    "demo": "node scripts/dev-demo.mjs",
     "dev:https": "next dev --experimental-https -H 0.0.0.0 -p 5003",
     "build": "next build",
     "start": "next start -H 0.0.0.0 -p 5003",

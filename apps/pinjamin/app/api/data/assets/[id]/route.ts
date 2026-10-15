@@ -8,6 +8,7 @@ import {
   isUuid,
 } from "@/lib/resource-config";
 import { removeByPublicUrl } from "@/lib/storage";
+import { demoHapusAset, demoUbahAset, isDemoAset } from "@/lib/demo-aset";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -29,6 +30,20 @@ export async function PATCH(
     return NextResponse.json({ error: "Invalid body" }, { status: 400 });
   }
 
+  const patch = pickAllowed(body, ASSET_FIELDS);
+
+  if (isDemoAset()) {
+    const tagIdsDemo: unknown = (body as Record<string, unknown>).tagIds;
+    const baris = demoUbahAset(
+      id,
+      patch,
+      Array.isArray(tagIdsDemo) ? tagIdsDemo.filter(isUuid) : undefined
+    );
+    return baris
+      ? NextResponse.json({ data: fromDbRow(baris) })
+      : NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
   const supa = getSupabaseAdmin();
   if (!supa)
     return NextResponse.json(
@@ -36,7 +51,6 @@ export async function PATCH(
       { status: 503 }
     );
 
-  const patch = pickAllowed(body, ASSET_FIELDS);
   let asset: Record<string, unknown> | null = null;
 
   if (Object.keys(patch).length > 0) {
@@ -90,6 +104,11 @@ export async function DELETE(
   const { id } = await ctx.params;
   if (!isUuid(id))
     return NextResponse.json({ error: "Invalid id" }, { status: 400 });
+
+  if (isDemoAset()) {
+    demoHapusAset(id);
+    return NextResponse.json({ ok: true });
+  }
 
   const supa = getSupabaseAdmin();
   if (!supa)
