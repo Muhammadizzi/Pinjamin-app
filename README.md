@@ -62,11 +62,17 @@ Butuh **Node.js 22.20 ke atas** dan **pnpm 9**.
 ```bash
 pnpm install
 cp apps/pinjamin/.env.example apps/pinjamin/.env.local   # lalu isi nilainya
-pnpm pinjamin:dev
+pnpm sigap:dev
 ```
 
 Buka http://localhost:5003. Halaman depan berisi form dan pelacakan tiket;
 login admin ada di `/login`.
+
+Untuk presentasi, jalankan `pnpm sigap:demo`: modul aset menampilkan 20 aset
+dummy dari `apps/pinjamin/lib/demo-aset.ts`, bukan isi database. Tambah, edit,
+dan hapus aset selama demo hanya hidup di memori server dan hilang saat server
+dimatikan. Login admin dan tiket helpdesk tetap memakai database asli. Mode ini
+tidak pernah aktif di build production.
 
 Tanpa mengisi kunci Supabase pun aplikasi tetap jalan, memakai penyimpanan file
 lokal di `apps/pinjamin/data/` — cukup untuk mencoba tampilan. Cara login di

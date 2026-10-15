@@ -2,9 +2,15 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "pinjamin",
+      "name": "sigap",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["pinjamin:dev"],
+      "runtimeArgs": ["sigap:dev"],
+      "port": 5003
+    },
+    {
+      "name": "sigap-demo",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["sigap:demo"],
       "port": 5003
     }
   ]

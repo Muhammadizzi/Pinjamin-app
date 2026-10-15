@@ -90,7 +90,7 @@ SUPABASE_SERVICE_ROLE=eyJhbGciOi... (service_role, server-only)
 
 4. Bucket `assets` dibuat oleh `02-storage.sql` (public read, batas 5MB,
    hanya `image/jpeg|png|webp|gif`) — tidak perlu dibuat manual di dashboard.
-5. Deploy / restart `pnpm pinjamin:dev`. Unggah foto lewat
+5. Deploy / restart `pnpm sigap:dev`. Unggah foto lewat
    `Aset → Tambah → Foto Aset`; badge hijau `Supabase Storage` = sukses,
    badge kuning `Base64 • Offline` = env belum terbaca.
 

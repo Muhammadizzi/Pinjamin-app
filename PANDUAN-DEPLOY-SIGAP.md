@@ -217,7 +217,7 @@ Harus `401`.
 ## 6. Alur kerja setelah ini
 
 ```
-edit kode → pnpm pinjamin:dev (cek lokal) → commit → push
+edit kode → pnpm sigap:dev (cek lokal) → commit → push
                                                       ↓
                                     Vercel build & deploy otomatis
 ```
@@ -303,14 +303,14 @@ ATURAN PENTING:
 6. Ganti berkas di public/ tapi tampilan tidak berubah -> hapus cache:
    rm -rf apps/pinjamin/.next/cache
 
-Dev lokal: pnpm pinjamin:dev (port 5003). File .env.local sudah ada.
+Dev lokal: pnpm sigap:dev (port 5003). File .env.local sudah ada.
 ```
 
 ### Alur kerja singkat di sesi baru
 
 ```bash
 git pull                     # ambil perubahan terbaru
-pnpm pinjamin:dev            # cek di localhost:5003
+pnpm sigap:dev            # cek di localhost:5003
 # ...edit kode...
 git add -A
 git commit -m "feat(pinjamin): deskripsi perubahan"

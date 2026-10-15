@@ -26,12 +26,12 @@ echo     Tips: jika 'No space left', jalankan install.bat dulu
 echo ============================================================
 echo.
 
-REM Pakai pinjamin:dev (cepat, hanya 1 package)
-pnpm pinjamin:dev
+REM Pakai sigap:dev (cepat, hanya 1 package)
+pnpm sigap:dev
 
 if %errorlevel% neq 0 (
     echo.
-    echo [!] pnpm pinjamin:dev gagal, coba alternatif:
+    echo [!] pnpm sigap:dev gagal, coba alternatif:
     echo     cd apps\pinjamin ^& pnpm dev
     echo     atau: pnpm dev:all  (semua apps, lebih lambat)
     pause

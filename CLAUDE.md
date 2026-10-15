@@ -17,7 +17,8 @@ Aset & Pelayanan** milik Garudafood.
 | Aplikasi | `apps/pinjamin` — Next.js 16 App Router, React 19, TypeScript, Tailwind v4 |
 | Database | Supabase (PostgreSQL + Storage), project `asset-management` |
 | Production | https://sigapgf.vercel.app |
-| Dev lokal | `pnpm pinjamin:dev` → http://localhost:5003 (`.env.local` sudah ada) |
+| Dev lokal | `pnpm sigap:dev` → http://localhost:5003 (`.env.local` sudah ada) |
+| Demo seminar | `pnpm sigap:demo` → aset dummy dari `lib/demo-aset.ts`, tidak menyentuh DB |
 | Konteks | Project Kerja Praktik (KP), dipresentasikan di seminar |
 
 ## Aturan yang tidak boleh dilanggar
@@ -59,6 +60,16 @@ Jangan hardcode teks di JSX.
 - Tiket helpdesk: `app/api/tickets/**` → tabel `tickets`
 - Upload: `/api/upload` → bucket `assets`, dipisah folder `aset/ lokasi/ kit/ avatar/`
 
+## Mode demo aset
+
+`.env.local` menunjuk ke project Supabase yang **sama** dengan production —
+data dummy tidak boleh ditulis ke database. `pnpm sigap:demo` memasang
+`SIGAP_DEMO=1` (lewat `scripts/dev-demo.mjs`), dan setiap route aset
+(`app/api/data/**`, `app/api/public/asset/**`, `/api/upload` untuk foto
+aset/lokasi) bercabang ke `lib/demo-aset.ts` yang menyimpan data di memori.
+`isDemoAset()` selalu false di build production. Kalau menambah route aset
+baru, tambahkan cabang demonya juga.
+
 ## Pola bug yang berulang di project ini
 
 **Field ada di UI tapi tidak ada di database.** Sudah terjadi berkali-kali:
@@ -82,7 +93,7 @@ Saat menambah field baru, pastikan **ketiganya**:
 
 ```bash
 git pull
-pnpm pinjamin:dev                 # cek di localhost:5003
+pnpm sigap:dev                 # cek di localhost:5003
 git add -A
 git commit -m "feat(pinjamin): deskripsi perubahan"
 git push                          # push ke main = deploy production otomatis

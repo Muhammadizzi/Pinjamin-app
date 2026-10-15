@@ -22,4 +22,4 @@ echo "    Tips: jika 'No space left', jalankan ./install.sh atau python3 scripts
 echo "============================================================"
 echo ""
 
-pnpm pinjamin:dev
+pnpm sigap:dev

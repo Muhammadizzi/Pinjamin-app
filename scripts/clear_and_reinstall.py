@@ -120,11 +120,11 @@ def main():
         sys.exit(1)
 
     print("\n=== 6. Verifikasi build Pinjamin ===")
-    ok = run(["pnpm", "pinjamin:build"])
+    ok = run(["pnpm", "sigap:build"])
     if ok:
         print("  ✅ Build berhasil!")
     else:
-        print("  ⚠️ Build gagal, tapi install sudah selesai. Coba pnpm pinjamin:dev langsung.")
+        print("  ⚠️ Build gagal, tapi install sudah selesai. Coba pnpm sigap:dev langsung.")
 
     print("\n" + "="*60)
     print(" SELESAI ✅")

@@ -62,7 +62,7 @@ lain otomatis keluar.
 ## Dev
 
 ```bash
-pnpm pinjamin:dev
+pnpm sigap:dev
 ```
 
 Buka http://localhost:5003 — landing publik (tiket). Pintu login admin:
