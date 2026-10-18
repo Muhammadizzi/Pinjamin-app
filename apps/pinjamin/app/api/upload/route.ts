@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { gateAssetAdmin } from "@/lib/auth";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { BUCKET, buildObjectPath, isUploadKind } from "@/lib/storage";
-import { isDemoAset } from "@/lib/demo-aset";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -63,15 +62,6 @@ export async function POST(req: NextRequest) {
     // "aset" supaya path tidak bisa dikarang dari sisi client.
     const kindRaw = form.get("kind");
     const kind = isUploadKind(kindRaw) ? kindRaw : "aset";
-
-    // Mode demo: foto aset/lokasi dummy jangan sampai mengisi storage asli.
-    // 503 membuat client memakai fallback base64 yang hidup di memori demo.
-    if (isDemoAset() && (kind === "aset" || kind === "lokasi")) {
-      return NextResponse.json(
-        { error: "Mode demo: gambar disimpan sementara, tidak diunggah." },
-        { status: 503 }
-      );
-    }
     const objectPath = buildObjectPath(kind, ext);
 
     const arrayBuffer = await file.arrayBuffer();

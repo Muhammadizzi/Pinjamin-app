@@ -69,12 +69,9 @@ pnpm sigap:dev
 Buka http://localhost:5003. Halaman depan berisi form dan pelacakan tiket;
 login admin ada di `/login`.
 
-Di laptop, modul aset memakai data lokal yang kamu input sendiri, disimpan di
-`apps/pinjamin/data/demo-aset.json` — bukan di database, dan tidak ikut push.
-Data tetap ada walau server dimatikan; hapus berkas itu untuk mulai dari nol.
-Login admin dan tiket helpdesk tetap memakai database asli. Data aset asli
-dilihat di https://sigapgf.vercel.app, atau dari laptop lewat
-`pnpm --filter @pinjamin/web dev:asli`.
+`.env.local` menunjuk ke database Supabase yang sama dengan
+https://sigapgf.vercel.app, jadi data yang dibuat di laptop langsung muncul di
+production dan sebaliknya.
 
 Tanpa mengisi kunci Supabase pun aplikasi tetap jalan, memakai penyimpanan file
 lokal di `apps/pinjamin/data/` — cukup untuk mencoba tampilan. Cara login di

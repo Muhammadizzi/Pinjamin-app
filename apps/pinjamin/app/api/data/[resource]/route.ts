@@ -9,7 +9,6 @@ import {
   fromDbRow,
   type SimpleResourceKey,
 } from "@/lib/resource-config";
-import { demoTambah, isDemoAset } from "@/lib/demo-aset";
 
 function isSimpleResource(key: string): key is SimpleResourceKey {
   return key in SIMPLE_RESOURCE_TABLE;
@@ -33,6 +32,13 @@ export async function POST(
     return NextResponse.json({ error: "Invalid body" }, { status: 400 });
   }
 
+  const supa = getSupabaseAdmin();
+  if (!supa)
+    return NextResponse.json(
+      { error: "Supabase not configured" },
+      { status: 503 }
+    );
+
   const row: Record<string, unknown> = {
     ...pickAllowed(body, SIMPLE_RESOURCE_FIELDS[resource]),
     // id client dipakai bila UUID valid → id lokal & DB tetap sama.
@@ -41,17 +47,6 @@ export async function POST(
   if (Object.keys(row).length === 0) {
     return NextResponse.json({ error: "No valid fields" }, { status: 400 });
   }
-
-  if (isDemoAset()) {
-    return NextResponse.json({ data: fromDbRow(demoTambah(resource, row)) });
-  }
-
-  const supa = getSupabaseAdmin();
-  if (!supa)
-    return NextResponse.json(
-      { error: "Supabase not configured" },
-      { status: 503 }
-    );
 
   const { data, error } = await supa
     .from(SIMPLE_RESOURCE_TABLE[resource])

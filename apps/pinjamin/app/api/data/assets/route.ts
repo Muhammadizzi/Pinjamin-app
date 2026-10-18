@@ -9,7 +9,6 @@ import {
   fromDbRow,
 } from "@/lib/resource-config";
 import { generateQRCode } from "@/lib/utils";
-import { demoTambahAset, isDemoAset } from "@/lib/demo-aset";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -35,18 +34,6 @@ export async function POST(req: NextRequest) {
   const qr = (body as Record<string, unknown>).qr_code;
   row.qr_code = isQrCode(qr) ? qr : generateQRCode();
   row.status = row.status || "GOOD";
-
-  if (isDemoAset()) {
-    const baris = demoTambahAset(row);
-    if (!baris)
-      return NextResponse.json(
-        { error: "Gagal menyimpan aset." },
-        { status: 500 }
-      );
-    return NextResponse.json({
-      data: { ...fromDbRow(baris), notes: [] },
-    });
-  }
 
   const supa = getSupabaseAdmin();
   if (!supa)

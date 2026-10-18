@@ -3,8 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "node scripts/dev.mjs",
-    "dev:asli": "next dev -H 0.0.0.0 -p 5003",
+    "dev": "next dev -H 0.0.0.0 -p 5003",
     "dev:https": "next dev --experimental-https -H 0.0.0.0 -p 5003",
     "build": "next build",
     "start": "next start -H 0.0.0.0 -p 5003",

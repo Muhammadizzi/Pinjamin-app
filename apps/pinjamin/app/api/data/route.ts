@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { gateAssetAdmin } from "@/lib/auth";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { fromDbRow } from "@/lib/resource-config";
-import { demoDataAset, isDemoAset } from "@/lib/demo-aset";
 
 type Row = Record<string, any>;
 
@@ -11,10 +10,6 @@ type Row = Record<string, any>;
 export async function GET(req: NextRequest) {
   const gate = await gateAssetAdmin(req);
   if (!gate.ok) return gate.res;
-
-  if (isDemoAset()) {
-    return NextResponse.json({ configured: true, data: demoDataAset() });
-  }
 
   const supa = getSupabaseAdmin();
   if (!supa) return NextResponse.json({ configured: false });

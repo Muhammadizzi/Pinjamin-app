@@ -17,8 +17,7 @@ Aset & Pelayanan** milik Garudafood.
 | Aplikasi | `apps/pinjamin` — Next.js 16 App Router, React 19, TypeScript, Tailwind v4 |
 | Database | Supabase (PostgreSQL + Storage), project `asset-management` |
 | Production | https://sigapgf.vercel.app |
-| Dev lokal | `pnpm sigap:dev` → http://localhost:5003, **data aset lokal** di `apps/pinjamin/data/demo-aset.json` |
-| Dev dengan data aset asli | `pnpm --filter @pinjamin/web dev:asli` (menulis ke DB production!) |
+| Dev lokal | `pnpm sigap:dev` → http://localhost:5003 (`.env.local` sudah ada) |
 | Konteks | Project Kerja Praktik (KP), dipresentasikan di seminar |
 
 ## Aturan yang tidak boleh dilanggar
@@ -60,16 +59,13 @@ Jangan hardcode teks di JSX.
 - Tiket helpdesk: `app/api/tickets/**` → tabel `tickets`
 - Upload: `/api/upload` → bucket `assets`, dipisah folder `aset/ lokasi/ kit/ avatar/`
 
-## Mode lokal aset (default `pnpm sigap:dev`)
+## Lokal memakai database production
 
-`.env.local` menunjuk ke project Supabase yang **sama** dengan production —
-data latihan/seminar tidak boleh ditulis ke database. `pnpm sigap:dev` memasang
-`SIGAP_DEMO=1` (lewat `apps/pinjamin/scripts/dev.mjs`), dan setiap route aset
-(`app/api/data/**`, `app/api/public/asset/**`, `/api/upload` untuk foto
-aset/lokasi) bercabang ke `lib/demo-aset.ts`. Datanya mulai dari kosong dan
-disimpan ke `apps/pinjamin/data/demo-aset.json` (folder `data/` di-.gitignore).
-`isDemoAset()` selalu false di build production. Kalau menambah route aset
-baru, tambahkan cabang demonya juga. Login dan tiket helpdesk tetap ke DB asli.
+`.env.local` menunjuk ke project Supabase yang **sama** dengan production.
+Data yang dibuat lewat `pnpm sigap:dev` (aset, tiket, akun) langsung muncul di
+sigapgf.vercel.app, dan sebaliknya — tidak perlu deploy. Keputusan user
+(Oktober 2026): seminar memakai data asli. Mode data lokal pernah dibuat lalu
+dihapus atas permintaan user karena membingungkan; jangan dibuat ulang.
 
 ## Pola bug yang berulang di project ini
 

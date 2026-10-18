@@ -8,7 +8,6 @@ import {
   isUuid,
 } from "@/lib/resource-config";
 import { removeByPublicUrl } from "@/lib/storage";
-import { demoHapusAset, demoUbahAset, isDemoAset } from "@/lib/demo-aset";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -31,13 +30,6 @@ export async function PATCH(
   }
 
   const patch = pickAllowed(body, ASSET_FIELDS);
-
-  if (isDemoAset()) {
-    const baris = demoUbahAset(id, patch);
-    return baris
-      ? NextResponse.json({ data: fromDbRow(baris) })
-      : NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
 
   const supa = getSupabaseAdmin();
   if (!supa)
@@ -78,11 +70,6 @@ export async function DELETE(
   const { id } = await ctx.params;
   if (!isUuid(id))
     return NextResponse.json({ error: "Invalid id" }, { status: 400 });
-
-  if (isDemoAset()) {
-    demoHapusAset(id);
-    return NextResponse.json({ ok: true });
-  }
 
   const supa = getSupabaseAdmin();
   if (!supa)
