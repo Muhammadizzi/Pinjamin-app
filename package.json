@@ -8,7 +8,6 @@
     "dev:all": "turbo run dev",
     "dev:shelf": "turbo run dev --filter=@shelf/webapp",
     "sigap:dev": "turbo run dev --filter=@pinjamin/web",
-    "sigap:demo": "pnpm --filter @pinjamin/web demo",
     "sigap:dev:https": "pnpm --filter @pinjamin/web dev:https",
     "sigap:build": "turbo run build --filter=@pinjamin/web",
     "lint": "turbo run lint",

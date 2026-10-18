@@ -1,4 +1,5 @@
 "use client";
+import { useState } from "react";
 import { AppShell } from "@/components/layout/sidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,15 +7,14 @@ import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { useStore } from "@/lib/store";
 import { useT } from "@/lib/i18n";
-import { locationLabel } from "@/lib/location-path";
+import { useAuth } from "@/lib/auth-client";
 import {
   KONDISI,
-  barisAset,
   barisPerKategori,
   barisPerKondisi,
   barisPerLokasi,
   capTanggal,
-  lebarKolom,
+  rekapLokasiBertingkat,
   type Baris,
   type LabelLaporan,
 } from "@/lib/laporan";
@@ -29,7 +29,10 @@ const BOM = "\uFEFF";
 
 export default function ReportsPage() {
   const { assets, categories, locations, tags } = useStore();
-  const { t, assetStatus, formatDate } = useT();
+  const { t, lang, assetStatus, formatDate, formatDateTime } = useT();
+  const { user } = useAuth();
+  const [menyusun, setMenyusun] = useState(false);
+  const [gagalExcel, setGagalExcel] = useState(false);
 
   const L: LabelLaporan = {
     kondisi: {
@@ -54,6 +57,7 @@ export default function ReportsPage() {
     terdaftar: t("lapTerdaftar"),
     tanpaKategori: t("lapTanpaKategori"),
     tanpaLokasi: t("lapTanpaLokasi"),
+    langsungDiLokasi: t("lapCetakLangsung"),
   };
 
   const countByStatus = (status: string) =>
@@ -82,41 +86,72 @@ export default function ReportsPage() {
     unduhCsv(barisPerLokasi(assets, locations, L), "laporan-per-lokasi");
 
   /**
-   * Seluruh laporan dalam satu berkas Excel, satu lembar per bagian.
-   * Tiap tabel diberi lebar kolom sesuai isinya dan filter di baris judul.
+   * Laporan siap cetak: lembar Ringkasan berkop dan lembar Daftar Aset.
+   * Penyusunnya (dan ExcelJS) baru dimuat saat tombol ditekan — keduanya
+   * cukup besar untuk tidak ikut membebani pembukaan halaman.
    */
   const exportExcel = async () => {
-    const XLSX = await import("xlsx");
-    const wb = XLSX.utils.book_new();
+    setMenyusun(true);
+    setGagalExcel(false);
+    try {
+      const { susunLaporanExcel } = await import("@/lib/laporan-excel");
+      const logo = await fetch("/sigap-logo-kop.png")
+        .then((r) => (r.ok ? r.arrayBuffer() : null))
+        .catch(() => null);
+      const sekarang = new Date();
+      const tanggal = new Intl.DateTimeFormat(
+        lang === "en" ? "en-GB" : "id-ID",
+        { day: "numeric", month: "long", year: "numeric" }
+      ).format(sekarang);
+      const pembuat = user?.fullName || user?.username || "admin";
 
-    const kondisi = barisPerKondisi(assets, L);
-    const ringkasan = XLSX.utils.aoa_to_sheet([
-      [t("lapJudul")],
-      [t("lapDicetak"), formatDate(new Date().toISOString())],
-      [t("lapTotalAset"), assets.length],
-      [],
-      Object.keys(kondisi[0]),
-      ...kondisi.map((b) => Object.values(b)),
-    ]);
-    ringkasan["!cols"] = [{ wch: 32 }, { wch: 18 }, { wch: 14 }];
-    XLSX.utils.book_append_sheet(wb, ringkasan, t("lapSheetRingkasan"));
-
-    const lembar = (rows: Baris[], nama: string) => {
-      const ws = XLSX.utils.json_to_sheet(rows);
-      ws["!cols"] = lebarKolom(rows);
-      if (ws["!ref"]) ws["!autofilter"] = { ref: ws["!ref"] };
-      XLSX.utils.book_append_sheet(wb, ws, nama);
-    };
-    lembar(barisPerKategori(assets, categories, L), t("lapSheetKategori"));
-    lembar(barisPerLokasi(assets, locations, L), t("lapSheetLokasi"));
-    lembar(
-      barisAset(assets, categories, locations, tags, L, (iso) =>
-        formatDate(iso)
-      ),
-      t("lapSheetAset")
-    );
-
-    XLSX.writeFile(wb, `laporan-aset-${capTanggal()}.xlsx`);
+      const isi = await susunLaporanExcel(
+        {
+          aset: assets,
+          kategori: categories,
+          lokasi: locations,
+          tag: tags,
+          pembuat,
+          tanggal: (iso) => formatDate(iso),
+          logo,
+        },
+        {
+          ...L,
+          judul: t("lapCetakJudul"),
+          keadaan: t("lapCetakKeadaan", { tanggal }),
+          ringkasan: t("lapCetakRingkasan"),
+          uraian: t("lapCetakUraian"),
+          totalTerdaftar: t("lapCetakTotalTerdaftar"),
+          bagianKategori: t("lapCetakKategori"),
+          bagianLokasi: t("lapCetakLokasi"),
+          tindakLanjut: t("lapCetakTindakLanjut"),
+          tindakLanjutSub: t("lapCetakTindakLanjutSub"),
+          tanpaTindakLanjut: t("lapCetakTanpaTindakLanjut"),
+          kotaTanggal: t("lapCetakKotaTanggal", { tanggal }),
+          dibuatOleh: t("lapCetakDibuatOleh"),
+          mengetahui: t("lapCetakMengetahui"),
+          dicetakOtomatis: t("lapCetakOtomatis", {
+            waktu: formatDateTime(sekarang),
+            nama: pembuat,
+          }),
+          halaman: t("lapCetakHalaman"),
+          judulDaftar: t("lapCetakDaftarJudul"),
+          sheetRingkasan: t("lapSheetRingkasan"),
+          sheetAset: t("lapSheetAset"),
+        }
+      );
+      unduh(
+        new Blob([isi], {
+          type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        }),
+        `laporan-aset-${capTanggal()}.xlsx`
+      );
+    } catch (e) {
+      console.error("[laporan] Excel gagal disusun", e);
+      setGagalExcel(true);
+    } finally {
+      setMenyusun(false);
+    }
   };
 
   return (
@@ -180,15 +215,20 @@ export default function ReportsPage() {
                 <Button
                   size="sm"
                   onClick={exportExcel}
+                  disabled={menyusun}
                   title={t("lapExcelHint")}
                   className="rounded-xl bg-[#e6ad1a] hover:bg-amber-400 text-[#0a2240] font-semibold"
                 >
-                  <FileSpreadsheet className="h-4 w-4" /> Excel
+                  <FileSpreadsheet className="h-4 w-4" />{" "}
+                  {menyusun ? t("lapExcelMenyusun") : "Excel"}
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground">
                 {t("lapExcelHint")}
               </p>
+              {gagalExcel && (
+                <p className="text-xs text-red-600">{t("lapExcelGagal")}</p>
+              )}
             </CardContent>
           </Card>
 
@@ -258,31 +298,38 @@ export default function ReportsPage() {
                   {t("noLocationsYet")}
                 </p>
               )}
-              {locations.map((l) => {
-                const total = assets.filter(
-                  (a) => a.locationId === l.id
-                ).length;
-                const rusak = assets.filter(
-                  (a) => a.locationId === l.id && a.status === "DAMAGED"
-                ).length;
-                return (
-                  <div key={l.id} className="flex items-center gap-3 py-1">
+              {/* Bertingkat seperti lembar Excel: area dengan subtotal seluruh
+                  ruangannya, lalu ruangan menjorok di bawahnya. Daftar datar
+                  sebelumnya menulis "Dairy: 0" karena asetnya tercatat di
+                  ruangan, bukan di area. */}
+              {rekapLokasiBertingkat(assets, locations, L.langsungDiLokasi).map(
+                (b, i) => (
+                  <div
+                    key={`${i}-${b.nama}`}
+                    className="flex items-center gap-3 py-1"
+                    style={{ paddingLeft: `${b.tingkat * 1.25}rem` }}
+                  >
                     <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm font-medium">
-                        {locationLabel(locations, l.id) || l.name}
+                      <div
+                        className={`truncate text-sm ${
+                          b.induk ? "font-semibold" : "font-medium"
+                        }`}
+                      >
+                        {b.nama}
                       </div>
-                      {rusak > 0 && (
+                      {b.jumlah.DAMAGED > 0 && (
                         <div className="text-xs text-red-600">
-                          {rusak} {assetStatus("DAMAGED").toLowerCase()}
+                          {b.jumlah.DAMAGED}{" "}
+                          {assetStatus("DAMAGED").toLowerCase()}
                         </div>
                       )}
                     </div>
-                    <Badge variant={total > 0 ? "info" : "secondary"}>
-                      {total}
+                    <Badge variant={b.total > 0 ? "info" : "secondary"}>
+                      {b.total}
                     </Badge>
                   </div>
-                );
-              })}
+                )
+              )}
               <Button
                 size="sm"
                 variant="outline"

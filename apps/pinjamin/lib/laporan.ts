@@ -5,7 +5,7 @@
 // menyajikan angka yang sama, karena keduanya lahir dari fungsi yang sama —
 // dan modul ini bisa diuji tanpa peramban.
 import type { Asset, Category, Location, Tag } from "./types";
-import { locationLabel, locationOptions } from "./location-path";
+import { LOCATION_SEPARATOR, locationLabel } from "./location-path";
 
 /** Urutan kondisi di laporan — dari paling sehat. */
 export const KONDISI = ["GOOD", "DAMAGED", "MAINTENANCE"] as const;
@@ -31,11 +31,13 @@ export interface LabelLaporan {
   terdaftar: string;
   tanpaKategori: string;
   tanpaLokasi: string;
+  /** Baris aset yang ditaruh langsung di lokasi induk (bukan di ruangannya). */
+  langsungDiLokasi: string;
 }
 
 export type Baris = Record<string, string | number>;
 
-function rekap(aset: Asset[]): Record<Kondisi, number> {
+export function rekap(aset: Asset[]): Record<Kondisi, number> {
   const n: Record<Kondisi, number> = { GOOD: 0, DAMAGED: 0, MAINTENANCE: 0 };
   for (const a of aset) if (a.status in n) n[a.status as Kondisi]++;
   return n;
@@ -91,21 +93,37 @@ export function barisPerKategori(
   return rows;
 }
 
-/** Rekap per lokasi, berjalur lengkap dan berurut menurut jalur, ditutup baris TOTAL. */
+/**
+ * Rekap per lokasi untuk CSV, ditutup baris TOTAL.
+ *
+ * Hanya baris yang tidak saling tumpang tindih: ruangan beserta jalurnya
+ * ("Dairy › Office"), dan aset yang ditaruh langsung di area induk tercatat
+ * atas nama area itu. Area induk tanpa aset langsung tidak punya baris
+ * sendiri — dulu tampil sebagai "Dairy: 0", yang terbaca seolah areanya
+ * kosong. Dengan begini setiap aset terhitung tepat sekali, sehingga kolom
+ * Total bisa dijumlahkan di spreadsheet tanpa dobel.
+ */
 export function barisPerLokasi(
   aset: Asset[],
   lokasi: Location[],
   L: LabelLaporan
 ): Baris[] {
   const ada = new Set(lokasi.map((l) => l.id));
-  const rows = locationOptions(lokasi).map((o) =>
-    barisRekap(
-      L.lokasi,
-      o.label,
-      aset.filter((a) => a.locationId === o.id),
-      L
-    )
-  );
+  const jalur: string[] = [];
+  const rows: Baris[] = [];
+  for (const b of rekapLokasiBertingkat(aset, lokasi, L.langsungDiLokasi)) {
+    const langsung = !b.induk && b.nama === L.langsungDiLokasi;
+    if (!langsung) jalur[b.tingkat] = b.nama;
+    jalur.length = langsung ? b.tingkat : b.tingkat + 1;
+    if (b.induk) continue;
+    rows.push({
+      [L.lokasi]: jalur.join(LOCATION_SEPARATOR),
+      [L.kondisi.GOOD]: b.jumlah.GOOD,
+      [L.kondisi.DAMAGED]: b.jumlah.DAMAGED,
+      [L.kondisi.MAINTENANCE]: b.jumlah.MAINTENANCE,
+      [L.total]: b.total,
+    });
+  }
   const yatim = aset.filter((a) => !a.locationId || !ada.has(a.locationId));
   if (yatim.length) rows.push(barisRekap(L.lokasi, L.tanpaLokasi, yatim, L));
   rows.push(barisRekap(L.lokasi, L.total.toUpperCase(), aset, L));
@@ -127,6 +145,104 @@ export function barisPerKondisi(aset: Asset[], L: LabelLaporan): Baris[] {
       [L.persentase]: aset.length ? "100%" : "0%",
     },
   ];
+}
+
+/** Satu baris rekap lokasi untuk laporan cetak. */
+export interface BarisLokasiCetak {
+  nama: string;
+  /** 0 = area teratas, 1 = ruangan di bawahnya, dan seterusnya. */
+  tingkat: number;
+  /** Punya sub-lokasi: angkanya mencakup seluruh isi di bawahnya. */
+  induk: boolean;
+  jumlah: Record<Kondisi, number>;
+  total: number;
+}
+
+/**
+ * Rekap lokasi mengikuti pohonnya: tiap area dengan subtotal, lalu ruangan di
+ * bawahnya menjorok ke dalam.
+ *
+ * Rekap datar per lokasi menampilkan area induk dengan angka 0 — asetnya
+ * memang tercatat di ruangan, bukan di area — dan pembaca laporan cetak tidak
+ * bisa melihat bahwa Office dan Ruang Server sama-sama milik Exist Plant.
+ *
+ * Aset yang ditaruh langsung di lokasi induk mendapat baris sendiri
+ * (`labelLangsung`), supaya jumlah ruangan selalu sama dengan subtotal
+ * areanya. Lokasi yang induknya hilang atau saling menunjuk diperlakukan
+ * sebagai area, sehingga tidak ada aset yang terlewat dari laporan.
+ */
+export function rekapLokasiBertingkat(
+  aset: Asset[],
+  lokasi: Location[],
+  labelLangsung: string
+): BarisLokasiCetak[] {
+  const byId = new Map(lokasi.map((l) => [l.id, l]));
+  const anak = new Map<string, Location[]>();
+  for (const l of lokasi) {
+    if (!l.parentId || !byId.has(l.parentId)) continue;
+    anak.set(l.parentId, [...(anak.get(l.parentId) ?? []), l]);
+  }
+  const urut = (xs: Location[]) =>
+    [...xs].sort((a, b) => a.name.localeCompare(b.name, "id"));
+
+  const di = (id: string) => aset.filter((a) => a.locationId === id);
+  const baris = (
+    nama: string,
+    tingkat: number,
+    induk: boolean,
+    isi: Asset[]
+  ) => ({
+    nama,
+    tingkat,
+    induk,
+    jumlah: rekap(isi),
+    total: isi.length,
+  });
+
+  const hasil: BarisLokasiCetak[] = [];
+  const dikunjungi = new Set<string>();
+
+  /** Kumpulkan aset seluruh cabang sambil menulis barisnya. */
+  const jelajah = (l: Location, tingkat: number): Asset[] => {
+    dikunjungi.add(l.id);
+    const cabang = urut(anak.get(l.id) ?? []).filter(
+      (c) => !dikunjungi.has(c.id)
+    );
+    if (cabang.length === 0) {
+      const isi = di(l.id);
+      hasil.push(baris(l.name, tingkat, false, isi));
+      return isi;
+    }
+    const posisi = hasil.length;
+    hasil.push(baris(l.name, tingkat, true, [])); // diisi setelah cabangnya
+    const langsung = di(l.id);
+    if (langsung.length)
+      hasil.push(baris(labelLangsung, tingkat + 1, false, langsung));
+    const semua = [...langsung];
+    for (const c of cabang) semua.push(...jelajah(c, tingkat + 1));
+    hasil[posisi] = baris(l.name, tingkat, true, semua);
+    return semua;
+  };
+
+  const akar = urut(lokasi.filter((l) => !l.parentId || !byId.has(l.parentId)));
+  for (const l of akar) jelajah(l, 0);
+  // Sisa yang tak terjangkau dari akar mana pun hanya mungkin lahir dari
+  // induk yang saling menunjuk.
+  for (const l of urut(lokasi)) if (!dikunjungi.has(l.id)) jelajah(l, 0);
+
+  return hasil;
+}
+
+/** Aset Rusak lalu Dalam Perbaikan, masing-masing berurut nama. */
+export function asetPerluTindakLanjut(aset: Asset[]): Asset[] {
+  const urutan: Record<string, number> = { DAMAGED: 0, MAINTENANCE: 1 };
+  return aset
+    .filter((a) => a.status in urutan)
+    .sort(
+      (a, b) =>
+        urutan[a.status] - urutan[b.status] ||
+        a.name.localeCompare(b.name, "id")
+    );
 }
 
 /** Daftar aset lengkap, berurut nama. Kolom Nilai sengaja tidak ada — sudah lama dihapus dari form. */

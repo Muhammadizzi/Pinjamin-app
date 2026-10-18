@@ -6,12 +6,6 @@
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["sigap:dev"],
       "port": 5003
-    },
-    {
-      "name": "sigap-demo",
-      "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["sigap:demo"],
-      "port": 5003
     }
   ]
 }
