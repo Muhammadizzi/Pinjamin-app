@@ -10,25 +10,14 @@ import { useT } from "@/lib/i18n";
 import { useAuth } from "@/lib/auth-client";
 import {
   KONDISI,
-  barisPerKategori,
-  barisPerKondisi,
-  barisPerLokasi,
   capTanggal,
   rekapLokasiBertingkat,
-  type Baris,
   type LabelLaporan,
 } from "@/lib/laporan";
-import { Download, FileSpreadsheet, FileText, BarChart3 } from "lucide-react";
-import Papa from "papaparse";
-
-/**
- * Penanda UTF-8 di awal berkas CSV. Tanpanya Excel membaca CSV sebagai ANSI,
- * dan karakter seperti "›" pada jalur lokasi berubah menjadi "â€º".
- */
-const BOM = "\uFEFF";
+import { FileSpreadsheet, FileText, BarChart3 } from "lucide-react";
 
 export default function ReportsPage() {
-  const { assets, categories, locations, tags } = useStore();
+  const { assets, categories, locations } = useStore();
   const { t, lang, assetStatus, formatDate, formatDateTime } = useT();
   const { user } = useAuth();
   const [menyusun, setMenyusun] = useState(false);
@@ -52,7 +41,6 @@ export default function ReportsPage() {
     pemakai: t("custodian"),
     spesifikasi: t("specLabel"),
     nomorSeri: t("colSerial"),
-    tag: t("colTags"),
     deskripsi: t("colDescription"),
     terdaftar: t("lapTerdaftar"),
     tanpaKategori: t("lapTanpaKategori"),
@@ -71,19 +59,6 @@ export default function ReportsPage() {
     a.click();
     URL.revokeObjectURL(url);
   };
-
-  const unduhCsv = (rows: Baris[], nama: string) =>
-    unduh(
-      new Blob([BOM + Papa.unparse(rows)], { type: "text/csv;charset=utf-8" }),
-      `${nama}-${capTanggal()}.csv`
-    );
-
-  const exportKategoriCsv = () =>
-    unduhCsv(barisPerKategori(assets, categories, L), "laporan-per-kategori");
-  const exportKondisiCsv = () =>
-    unduhCsv(barisPerKondisi(assets, L), "laporan-per-kondisi");
-  const exportLokasiCsv = () =>
-    unduhCsv(barisPerLokasi(assets, locations, L), "laporan-per-lokasi");
 
   /**
    * Laporan siap cetak: lembar Ringkasan berkop dan lembar Daftar Aset.
@@ -110,7 +85,6 @@ export default function ReportsPage() {
           aset: assets,
           kategori: categories,
           lokasi: locations,
-          tag: tags,
           pembuat,
           tanggal: (iso) => formatDate(iso),
           logo,
@@ -157,11 +131,28 @@ export default function ReportsPage() {
   return (
     <AppShell>
       <div className="space-y-6 max-w-5xl mx-auto">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">
-            {t("reports")}
-          </h1>
-          <p className="text-sm text-muted-foreground">{t("reportsSub")}</p>
+        {/* Satu laporan saja: berkas Excel sudah memuat ringkasan kondisi,
+            kategori, lokasi, dan daftar aset. Kartu di bawah hanya pratinjau
+            di layar — dulu tiap kartu punya tombol CSV sendiri, isinya sama
+            dengan bagian-bagian Excel dan cuma membuat bingung. */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight">
+              {t("reports")}
+            </h1>
+            <p className="text-sm text-muted-foreground">{t("lapExcelHint")}</p>
+            {gagalExcel && (
+              <p className="mt-1 text-xs text-red-600">{t("lapExcelGagal")}</p>
+            )}
+          </div>
+          <Button
+            onClick={exportExcel}
+            disabled={menyusun}
+            className="shrink-0 rounded-xl bg-[#e6ad1a] hover:bg-amber-400 text-[#0a2240] font-semibold"
+          >
+            <FileSpreadsheet className="h-4 w-4" />{" "}
+            {menyusun ? t("lapExcelMenyusun") : t("lapUnduh")}
+          </Button>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -177,6 +168,11 @@ export default function ReportsPage() {
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="space-y-1.5 text-sm">
+                {categories.length === 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    {t("noCategoriesYet")}
+                  </p>
+                )}
                 {categories.map((c) => {
                   const total = assets.filter(
                     (a) => a.categoryId === c.id
@@ -203,32 +199,6 @@ export default function ReportsPage() {
                   );
                 })}
               </div>
-              <div className="flex gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={exportKategoriCsv}
-                  className="rounded-xl"
-                >
-                  <Download className="h-4 w-4" /> CSV
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={exportExcel}
-                  disabled={menyusun}
-                  title={t("lapExcelHint")}
-                  className="rounded-xl bg-[#e6ad1a] hover:bg-amber-400 text-[#0a2240] font-semibold"
-                >
-                  <FileSpreadsheet className="h-4 w-4" />{" "}
-                  {menyusun ? t("lapExcelMenyusun") : "Excel"}
-                </Button>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {t("lapExcelHint")}
-              </p>
-              {gagalExcel && (
-                <p className="text-xs text-red-600">{t("lapExcelGagal")}</p>
-              )}
             </CardContent>
           </Card>
 
@@ -268,14 +238,6 @@ export default function ReportsPage() {
                   );
                 })}
               </div>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={exportKondisiCsv}
-                className="w-full rounded-xl"
-              >
-                <Download className="h-4 w-4" /> {t("exportCsv")}
-              </Button>
             </CardContent>
           </Card>
 
@@ -330,14 +292,6 @@ export default function ReportsPage() {
                   </div>
                 )
               )}
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={exportLokasiCsv}
-                className="w-full rounded-xl"
-              >
-                <Download className="h-4 w-4" /> {t("exportCsv")}
-              </Button>
             </CardContent>
           </Card>
         </div>

@@ -37,7 +37,6 @@ export function isDemoAset(): boolean {
 
 type KeadaanDemo = Record<SimpleResourceKey, Baris[]> & {
   assets: Baris[];
-  assetTags: { asset_id: string; tag_id: string }[];
   holders: Baris[];
 };
 
@@ -48,10 +47,8 @@ const BERKAS = path.join(
 
 const kosong = (): KeadaanDemo => ({
   categories: [],
-  tags: [],
   locations: [],
   assets: [],
-  assetTags: [],
   holders: [],
 });
 
@@ -119,15 +116,8 @@ export function demoDataAset() {
   const k = keadaan();
   return {
     categories: k.categories.map(fromDbRow),
-    tags: k.tags.map(fromDbRow),
     locations: k.locations.map(fromDbRow),
-    assets: k.assets.map((a) => ({
-      ...fromDbRow(a),
-      tagIds: k.assetTags
-        .filter((t) => t.asset_id === a.id)
-        .map((t) => t.tag_id),
-      notes: [],
-    })),
+    assets: k.assets.map((a) => ({ ...fromDbRow(a), notes: [] })),
   };
 }
 
@@ -160,11 +150,9 @@ export function demoHapus(resource: SimpleResourceKey, id: string): void {
   k[resource] = k[resource].filter((x) => x.id !== id);
   if (resource === "categories") {
     for (const a of k.assets) if (a.category_id === id) a.category_id = null;
-  } else if (resource === "locations") {
+  } else {
     for (const a of k.assets) if (a.location_id === id) a.location_id = null;
     for (const l of k.locations) if (l.parent_id === id) l.parent_id = null;
-  } else {
-    k.assetTags = k.assetTags.filter((t) => t.tag_id !== id);
   }
   simpan();
 }
@@ -173,15 +161,8 @@ export function demoHapus(resource: SimpleResourceKey, id: string): void {
 // Aset
 // ---------------------------------------------------------------------------
 
-function pasangTag(assetId: string, tagIds: string[]) {
-  const k = keadaan();
-  k.assetTags = k.assetTags
-    .filter((t) => t.asset_id !== assetId)
-    .concat(tagIds.map((tagId) => ({ asset_id: assetId, tag_id: tagId })));
-}
-
 /** null bila kode QR sudah dipakai (di database: UNIQUE qr_code). */
-export function demoTambahAset(row: Baris, tagIds: string[]): Baris | null {
+export function demoTambahAset(row: Baris): Baris | null {
   const k = keadaan();
   if (k.assets.some((a) => a.qr_code === row.qr_code)) return null;
   const waktu = sekarangIso();
@@ -200,22 +181,16 @@ export function demoTambahAset(row: Baris, tagIds: string[]): Baris | null {
     ...row,
   };
   k.assets.push(baris);
-  pasangTag(baris.id as string, tagIds);
   simpan();
   return baris;
 }
 
-export function demoUbahAset(
-  id: string,
-  patch: Baris,
-  tagIds?: string[]
-): Baris | null {
+export function demoUbahAset(id: string, patch: Baris): Baris | null {
   const baris = keadaan().assets.find((a) => a.id === id);
   if (!baris) return null;
   if (Object.keys(patch).length > 0) {
     Object.assign(baris, patch, { updated_at: sekarangIso() });
   }
-  if (tagIds) pasangTag(id, tagIds);
   simpan();
   return baris;
 }
@@ -223,7 +198,6 @@ export function demoUbahAset(
 export function demoHapusAset(id: string): void {
   const k = keadaan();
   k.assets = k.assets.filter((a) => a.id !== id);
-  k.assetTags = k.assetTags.filter((t) => t.asset_id !== id);
   k.holders = k.holders.filter((h) => h.asset_id !== id);
   simpan();
 }

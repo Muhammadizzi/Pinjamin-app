@@ -25,14 +25,15 @@ dan **melayani keluhan karyawan lewat tiket helpdesk**.
 
 **Manajemen aset** — admin peran `ASSET`
 
-- Registri aset lengkap dengan kategori, tag, lokasi berjenjang, foto, dan
+- Registri aset lengkap dengan kategori, lokasi berjenjang, foto, dan
   riwayat pemakai.
 - Stiker QR berkode `PIN-…` yang bisa dipindai kamera HP siapa pun untuk
   membuka halaman data aset (baca-saja, tanpa login).
 - Dasbor kondisi aset (Baik, Rusak, Dalam Perbaikan) dan daftar aset yang
   datanya belum lengkap.
-- Laporan yang bisa diekspor ke CSV dan Excel: ringkasan, per kategori, per
-  lokasi, dan daftar aset.
+- Satu laporan Excel siap cetak berkop: ringkasan kondisi, rekap per kategori
+  dan per lokasi, aset yang perlu tindak lanjut, kolom tanda tangan, dan
+  daftar aset.
 
 **Helpdesk tiket** — admin peran `HELPDESK`, satu admin per meja (GA, Utility, IT)
 

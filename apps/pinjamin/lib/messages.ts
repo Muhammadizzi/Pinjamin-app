@@ -14,7 +14,6 @@ export const messages = {
   home: ["Home", "Home"],
   assets: ["Aset", "Assets"],
   categories: ["Kategori", "Categories"],
-  tags: ["Tag", "Tags"],
   locations: ["Lokasi", "Locations"],
   reports: ["Laporan", "Reports"],
   accountSetting: ["Pengaturan Akun", "Account Settings"],
@@ -142,21 +141,6 @@ export const messages = {
   ],
 
   // ---------- Tag ----------
-  tagsSub: [
-    "Label fleksibel lintas kategori (many-to-many) • atur warna tiap tag",
-    "Flexible cross-category labels (many-to-many) • pick a color per tag",
-  ],
-  newTagPlaceholder: ["Nama tag baru...", "New tag name..."],
-  pickColor: ["Pilih warna {color}", "Pick color {color}"],
-  customColor: ["Warna custom", "Custom color"],
-  previewTag: ["Preview tag", "Tag preview"],
-  changeTagColor: ["Ubah warna tag", "Change tag color"],
-  confirmAddTag: ['Tambah tag "{name}"?', 'Add the tag "{name}"?'],
-  confirmDeleteTag: ["Hapus tag?", "Delete tag?"],
-  confirmDeleteTagBody: [
-    'Tag "{name}" akan dihapus permanen dari {count} aset terkait.',
-    'The tag "{name}" will be permanently removed from {count} related assets.',
-  ],
 
   // ---------- Peminjam ----------
   email: ["Email", "Email"],
@@ -300,7 +284,6 @@ export const messages = {
   allStatus: ["Semua Status", "All Status"],
   allCategories: ["Semua Kategori", "All Categories"],
   allLocations: ["Semua Lokasi", "All Locations"],
-  allTags: ["Semua Tag", "All Tags"],
   sortDateCreated: ["Tanggal dibuat", "Date created"],
   sortNameAz: ["Nama A-Z", "Name A-Z"],
   sortValue: ["Nilai", "Value"],
@@ -311,7 +294,6 @@ export const messages = {
   filter: ["Filter", "Filter"],
   filtersActive: ["{count} aktif", "{count} active"],
   clearFilters: ["Hapus filter", "Clear filters"],
-  tagLabel: ["Tag", "Tag"],
   perPage: ["Per halaman", "Per page"],
   perPageOption: ["{count} / halaman", "{count} / page"],
   noAssetsYet: ["Belum ada aset", "No assets yet"],
@@ -354,7 +336,6 @@ export const messages = {
   colValue: ["Nilai", "Value"],
   colSerial: ["Nomor Seri", "Serial Number"],
   colDescription: ["Deskripsi", "Description"],
-  colTags: ["Tag", "Tags"],
   sheetAssets: ["Aset", "Assets"],
 
   // ---------- Form aset ----------
@@ -440,14 +421,6 @@ export const messages = {
     "Nomor urut otomatis mulai 001, tidak perlu isi manual.",
     "Auto-numbered from 001 — no need to type it in.",
   ],
-  noTagsYet: [
-    "Belum ada tag — buat di menu Tag",
-    "No tags yet — create one from the Tags menu",
-  ],
-  tagsSelected: [
-    "{count} tag dipilih • klik untuk pilih/hapus",
-    "{count} tags selected • click to select/deselect",
-  ],
   saveAsset: ["Simpan Aset", "Save Asset"],
   nameRequired: ["Nama wajib diisi", "Name is required"],
   confirmAddAsset: ['Tambah aset "{name}"?', 'Add the asset "{name}"?'],
@@ -492,7 +465,6 @@ export const messages = {
     "The asset will be updated with the values in this form.",
   ],
   serialAutoLocked: ["Otomatis, tidak diubah", "Automatic, not editable"],
-  noTagsShort: ["Belum ada tag", "No tags yet"],
 
   // ---------- Lokasi ----------
   locationsSummary: [
@@ -607,11 +579,6 @@ export const messages = {
   genericFailed: ["Gagal", "Failed"],
 
   // ---------- Laporan ----------
-  reportsSub: [
-    "Laporan & ekspor — SIGAP Garudafood",
-    "Reports & exports — SIGAP Garudafood",
-  ],
-  exportCsv: ["Ekspor CSV", "Export CSV"],
   reportConditionTitle: ["Aset per Kondisi", "Assets by Condition"],
   reportConditionSub: [
     "Rekap jumlah aset untuk tiap kondisi barang.",
@@ -623,10 +590,8 @@ export const messages = {
     "How assets are spread across rooms, buildings, and areas.",
   ],
   reportInventoryTitle: ["Inventaris Aset", "Asset Inventory"],
-  reportInventorySub: [
-    "Jumlah per kategori/lokasi/status",
-    "Counts by category / location / status",
-  ],
+  reportInventorySub: ["Jumlah aset per kategori.", "Asset count by category."],
+  noCategoriesYet: ["Belum ada kategori", "No categories yet"],
   sheetReport: ["Laporan", "Report"],
   lapTotal: ["Total", "Total"],
   lapJumlah: ["Jumlah", "Count"],
@@ -638,9 +603,10 @@ export const messages = {
   lapSheetRingkasan: ["Ringkasan", "Summary"],
   lapSheetAset: ["Daftar Aset", "Asset List"],
   lapExcelHint: [
-    "Excel siap cetak: lembar Ringkasan berkop dengan rekap dan kolom tanda tangan, serta lembar Daftar Aset.",
-    "Print-ready Excel: a Summary sheet with letterhead, recaps, and signature block, plus the Asset List sheet.",
+    "Satu berkas Excel siap cetak: ringkasan kondisi, rekap kategori dan lokasi, aset yang perlu tindak lanjut, serta daftar aset.",
+    "One print-ready Excel file: condition summary, category and location recaps, assets needing follow-up, and the asset list.",
   ],
+  lapUnduh: ["Unduh Laporan", "Download Report"],
   lapExcelMenyusun: ["Menyusun…", "Building…"],
   lapExcelGagal: [
     "Laporan Excel gagal disusun. Coba lagi.",

@@ -42,7 +42,7 @@ ada akun yang memegang keduanya (`supabase/11-admin-roles.sql`):
 
 | Peran      | Akses                                                                            |
 | ---------- | -------------------------------------------------------------------------------- |
-| `ASSET`    | Dashboard, aset, kategori, tag, lokasi, dan laporan                              |
+| `ASSET`    | Dashboard, aset, kategori, lokasi, dan laporan                                   |
 | `HELPDESK` | Hanya `/tickets`, dan hanya tiket sesuai `working_order`-nya (GA / Utility / IT) |
 
 `/settings` (profil & ganti password sendiri) terbuka untuk semua peran.
@@ -93,9 +93,10 @@ Jalankan SQL berikut berurutan di **SQL Editor** (folder `supabase/`):
 | 15     | `03-seed.sql`                                  | _opsional_ — data contoh (masih mengisi tabel lama `kits` & `bookings`) |
 | 16     | `04-enable-rls.sql`                            | **paling akhir**, setelah app ter-deploy                                |
 
-`15-drop-modul-lama.sql` sengaja tidak masuk urutan di atas: ia **menghapus**
-tabel modul lama (`kits`, `bookings`, dll) dan hanya dijalankan kalau sudah
-yakin. Berkas `schema.sql` tanpa nomor adalah sisa lama, tidak dipakai.
+`15-drop-modul-lama.sql` dan `18-hapus-tag.sql` sengaja tidak masuk urutan di
+atas: keduanya **menghapus** tabel yang sudah tidak dipakai aplikasi (modul
+lama seperti `kits` dan `bookings`, lalu `tags` dan `asset_tags`) dan hanya
+dijalankan kalau sudah yakin. Berkas `schema.sql` tanpa nomor adalah sisa lama, tidak dipakai.
 
 > `07` dan `08` juga menyentuh tabel `kits` — sisa modul kit yang sudah dihapus
 > dari aplikasi. Skripnya aman dijalankan apa adanya.

@@ -1,11 +1,4 @@
-import type {
-  AppData,
-  Asset,
-  AssetNote,
-  Category,
-  Location,
-  Tag,
-} from "./types";
+import type { AppData, Asset, AssetNote, Category, Location } from "./types";
 
 /** Offset hari dari hari ini (negatif = masa lalu). */
 function iso(days: number, hour = 9) {
@@ -73,45 +66,6 @@ const categories: Category[] = [
     description: "Booth, kamera, merchandise kit",
     color: "#ec4899",
     createdAt: iso(-200),
-  },
-];
-
-const tags: Tag[] = [
-  {
-    id: "gf-tag-prioritas",
-    name: "Prioritas",
-    color: "#ef4444",
-    createdAt: iso(-200),
-  },
-  {
-    id: "gf-tag-baru",
-    name: "Baru 2025/2026",
-    color: "#10b981",
-    createdAt: iso(-180),
-  },
-  {
-    id: "gf-tag-kalibrasi",
-    name: "Perlu Kalibrasi",
-    color: "#f59e0b",
-    createdAt: iso(-180),
-  },
-  {
-    id: "gf-tag-shared",
-    name: "Shared Pool",
-    color: "#3b82f6",
-    createdAt: iso(-160),
-  },
-  {
-    id: "gf-tag-haccp",
-    name: "HACCP Critical",
-    color: "#CBA12C",
-    createdAt: iso(-160),
-  },
-  {
-    id: "gf-tag-rusak",
-    name: "Rusak Ringan",
-    color: "#64748b",
-    createdAt: iso(-140),
   },
 ];
 
@@ -216,13 +170,11 @@ function note(
 }
 
 function asset(
-  partial: Omit<Asset, "notes" | "tagIds"> & {
-    tagIds?: string[];
+  partial: Omit<Asset, "notes"> & {
     notes?: AssetNote[];
   }
 ): Asset {
   return {
-    tagIds: [],
     notes: [],
     ...partial,
   };
@@ -239,7 +191,6 @@ const assets: Asset[] = [
     qrCode: "PIN-MBA001",
     value: 21500000,
     serialNumber: "C02-GF-MBA-001",
-    tagIds: ["gf-tag-baru", "gf-tag-shared"],
     notes: [
       note(
         "gf-ast-001",
@@ -261,7 +212,6 @@ const assets: Asset[] = [
     qrCode: "PIN-TP002",
     value: 24800000,
     serialNumber: "PF4-GF-X1-002",
-    tagIds: ["gf-tag-prioritas"],
     createdAt: iso(-280),
     updatedAt: iso(-6),
   }),
@@ -275,7 +225,6 @@ const assets: Asset[] = [
     qrCode: "PIN-PRJ003",
     value: 8200000,
     serialNumber: "EPS-X51-003",
-    tagIds: ["gf-tag-shared"],
     createdAt: iso(-400),
     updatedAt: iso(-1),
   }),
@@ -289,7 +238,6 @@ const assets: Asset[] = [
     qrCode: "PIN-AVZ004",
     value: 265000000,
     serialNumber: "B1234GF",
-    tagIds: ["gf-tag-shared"],
     createdAt: iso(-320),
     updatedAt: iso(-10),
   }),
@@ -303,7 +251,6 @@ const assets: Asset[] = [
     qrCode: "PIN-INV005",
     value: 520000000,
     serialNumber: "B88GF",
-    tagIds: ["gf-tag-prioritas", "gf-tag-baru"],
     createdAt: iso(-90),
     updatedAt: iso(-3),
   }),
@@ -317,7 +264,6 @@ const assets: Asset[] = [
     qrCode: "PIN-MEJ006",
     value: 4500000,
     serialNumber: "SD-IT-006",
-    tagIds: ["gf-tag-rusak"],
     notes: [
       note(
         "gf-ast-006",
@@ -339,7 +285,6 @@ const assets: Asset[] = [
     qrCode: "PIN-SND007",
     value: 12500000,
     serialNumber: "SND-MKT-007",
-    tagIds: ["gf-tag-shared"],
     createdAt: iso(-360),
     updatedAt: iso(-20),
   }),
@@ -353,7 +298,6 @@ const assets: Asset[] = [
     qrCode: "PIN-CAM008",
     value: 18900000,
     serialNumber: "CN-R50-008",
-    tagIds: ["gf-tag-prioritas"],
     createdAt: iso(-150),
     updatedAt: iso(-8),
   }),
@@ -367,7 +311,6 @@ const assets: Asset[] = [
     qrCode: "PIN-MIX009",
     value: 780000000,
     serialNumber: "MX-PTI-L1-009",
-    tagIds: ["gf-tag-haccp", "gf-tag-prioritas"],
     createdAt: iso(-1200),
     updatedAt: iso(-15),
   }),
@@ -381,7 +324,6 @@ const assets: Asset[] = [
     qrCode: "PIN-OVN010",
     value: 1450000000,
     serialNumber: "OV-PTI-L1-010",
-    tagIds: ["gf-tag-haccp", "gf-tag-prioritas"],
     createdAt: iso(-1400),
     updatedAt: iso(-12),
   }),
@@ -395,7 +337,6 @@ const assets: Asset[] = [
     qrCode: "PIN-PCK011",
     value: 620000000,
     serialNumber: "PK-PTI-011",
-    tagIds: ["gf-tag-haccp", "gf-tag-rusak"],
     notes: [
       note(
         "gf-ast-011",
@@ -417,7 +358,6 @@ const assets: Asset[] = [
     qrCode: "PIN-TBG012",
     value: 28500000,
     serialNumber: "OH-PX224-012",
-    tagIds: ["gf-tag-kalibrasi", "gf-tag-haccp"],
     createdAt: iso(-600),
     updatedAt: iso(-18),
   }),
@@ -431,7 +371,6 @@ const assets: Asset[] = [
     qrCode: "PIN-MST013",
     value: 41000000,
     serialNumber: "MA-QC-013",
-    tagIds: ["gf-tag-kalibrasi", "gf-tag-haccp"],
     createdAt: iso(-700),
     updatedAt: iso(-5),
   }),
@@ -445,7 +384,6 @@ const assets: Asset[] = [
     qrCode: "PIN-PH014",
     value: 6500000,
     serialNumber: "PH-QC-014",
-    tagIds: ["gf-tag-kalibrasi"],
     createdAt: iso(-450),
     updatedAt: iso(-30),
   }),
@@ -459,7 +397,6 @@ const assets: Asset[] = [
     qrCode: "PIN-FRK015",
     value: 285000000,
     serialNumber: "TK-8FBE-015",
-    tagIds: ["gf-tag-shared"],
     createdAt: iso(-800),
     updatedAt: iso(-7),
   }),
@@ -473,7 +410,6 @@ const assets: Asset[] = [
     qrCode: "PIN-FRK016",
     value: 150000000,
     serialNumber: "TK-DSL-016",
-    tagIds: ["gf-tag-rusak"],
     notes: [
       note(
         "gf-ast-016",
@@ -495,7 +431,6 @@ const assets: Asset[] = [
     qrCode: "PIN-HPL017",
     value: 18000000,
     serialNumber: "HP-SET-017",
-    tagIds: ["gf-tag-shared"],
     createdAt: iso(-500),
     updatedAt: iso(-40),
   }),
@@ -509,7 +444,6 @@ const assets: Asset[] = [
     qrCode: "PIN-GEN018",
     value: 890000000,
     serialNumber: "GN-500-018",
-    tagIds: ["gf-tag-prioritas"],
     createdAt: iso(-1600),
     updatedAt: iso(-21),
   }),
@@ -523,7 +457,6 @@ const assets: Asset[] = [
     qrCode: "PIN-CHL019",
     value: 410000000,
     serialNumber: "CH-PTI-019",
-    tagIds: ["gf-tag-haccp"],
     createdAt: iso(-950),
     updatedAt: iso(-14),
   }),
@@ -537,7 +470,6 @@ const assets: Asset[] = [
     qrCode: "PIN-APR020",
     value: 8500000,
     serialNumber: "APR-SET-020",
-    tagIds: ["gf-tag-kalibrasi", "gf-tag-prioritas"],
     createdAt: iso(-200),
     updatedAt: iso(-9),
   }),
@@ -551,7 +483,6 @@ const assets: Asset[] = [
     qrCode: "PIN-DLL021",
     value: 16200000,
     serialNumber: "DL-LAT-021",
-    tagIds: ["gf-tag-shared"],
     createdAt: iso(-420),
     updatedAt: iso(-5),
   }),
@@ -565,7 +496,6 @@ const assets: Asset[] = [
     qrCode: "PIN-ZBR022",
     value: 9800000,
     serialNumber: "ZB-ZT411-022",
-    tagIds: ["gf-tag-shared"],
     createdAt: iso(-260),
     updatedAt: iso(-11),
   }),
@@ -579,7 +509,6 @@ const assets: Asset[] = [
     qrCode: "PIN-HNW023",
     value: 4200000,
     serialNumber: "HW-CKR-023",
-    tagIds: ["gf-tag-shared"],
     createdAt: iso(-210),
     updatedAt: iso(-16),
   }),
@@ -593,7 +522,6 @@ const assets: Asset[] = [
     qrCode: "PIN-L30024",
     value: 195000000,
     serialNumber: "L-1234SBY",
-    tagIds: ["gf-tag-shared"],
     createdAt: iso(-850),
     updatedAt: iso(-1),
   }),
@@ -607,7 +535,6 @@ const assets: Asset[] = [
     qrCode: "PIN-BTH025",
     value: 22000000,
     serialNumber: "BTH-MKT-025",
-    tagIds: ["gf-tag-shared"],
     createdAt: iso(-300),
     updatedAt: iso(-22),
   }),
@@ -621,7 +548,6 @@ const assets: Asset[] = [
     qrCode: "PIN-MTD026",
     value: 175000000,
     serialNumber: "MD-L1-026",
-    tagIds: ["gf-tag-haccp", "gf-tag-kalibrasi", "gf-tag-prioritas"],
     createdAt: iso(-780),
     updatedAt: iso(-6),
   }),
@@ -635,7 +561,6 @@ const assets: Asset[] = [
     qrCode: "PIN-HP027",
     value: 17800000,
     serialNumber: "HP-EB-027",
-    tagIds: ["gf-tag-baru"],
     createdAt: iso(-120),
     updatedAt: iso(-3),
   }),
@@ -649,7 +574,6 @@ const assets: Asset[] = [
     qrCode: "PIN-HT028",
     value: 14400000,
     serialNumber: "HT-SET-028",
-    tagIds: ["gf-tag-shared"],
     createdAt: iso(-380),
     updatedAt: iso(-19),
   }),
@@ -658,7 +582,6 @@ const assets: Asset[] = [
 /** Data contoh lengkap — situs & aset khas operasional Garudafood. */
 export const seedData: AppData = {
   categories,
-  tags,
   locations,
   assets,
 };

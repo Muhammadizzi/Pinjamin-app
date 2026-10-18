@@ -26,7 +26,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /** Koleksi AppData yang diizinkan — payload di-sanitize ke kunci ini saja. */
-const COLLECTIONS = ["categories", "tags", "locations", "assets"] as const;
+const COLLECTIONS = ["categories", "locations", "assets"] as const;
 
 const DATA_DIR =
   process.env.PINJAMIN_DATA_DIR || path.join(process.cwd(), "data");

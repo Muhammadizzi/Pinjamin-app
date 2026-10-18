@@ -11,7 +11,7 @@
  * ekspor CSV, jadi kedua ekspor tidak mungkin menyajikan angka berbeda.
  */
 import type { Borders, Fill, Worksheet } from "exceljs";
-import type { Asset, Category, Location, Tag } from "./types";
+import type { Asset, Category, Location } from "./types";
 import {
   KONDISI,
   asetPerluTindakLanjut,
@@ -57,7 +57,6 @@ export interface DataCetak {
   aset: Asset[];
   kategori: Category[];
   lokasi: Location[];
-  tag: Tag[];
   /** Nama admin yang mencetak — tampil di kolom "Dibuat oleh". */
   pembuat: string;
   /** Format tanggal kolom "Terdaftar" di Daftar Aset. */
@@ -487,16 +486,16 @@ function lembarRingkasan(
 
 /**
  * Lebar kolom mengikuti urutan barisAset(): No, Kode QR, Nama, Kategori,
- * Lokasi, Kondisi, Pemegang, Spesifikasi, No. Seri, Tag, Deskripsi,
+ * Lokasi, Kondisi, Pemegang, Spesifikasi, No. Seri, Deskripsi,
  * Terdaftar. Dipersempit dan dibungkus supaya A4 mendatar tetap terbaca —
  * lebar alami isinya membuat skala cetak turun di bawah 70%.
  */
-const LEBAR_DAFTAR = [5, 14, 24, 12, 19, 11, 15, 25, 13, 13, 22, 12];
-const KOLOM_TENGAH = new Set([1, 6, 12]);
+const LEBAR_DAFTAR = [5, 14, 26, 12, 20, 11, 16, 28, 14, 26, 12];
+const KOLOM_TENGAH = new Set([1, 6, 11]);
 const BARIS_KEPALA = 5;
 
 function lembarDaftar(ws: Worksheet, d: DataCetak, L: LabelCetak) {
-  const rows = barisAset(d.aset, d.kategori, d.lokasi, d.tag, L, d.tanggal);
+  const rows = barisAset(d.aset, d.kategori, d.lokasi, L, d.tanggal);
   const kolom = rows.length
     ? Object.keys(rows[0])
     : [
@@ -509,7 +508,6 @@ function lembarDaftar(ws: Worksheet, d: DataCetak, L: LabelCetak) {
         L.pemakai,
         L.spesifikasi,
         L.nomorSeri,
-        L.tag,
         L.deskripsi,
         L.terdaftar,
       ];

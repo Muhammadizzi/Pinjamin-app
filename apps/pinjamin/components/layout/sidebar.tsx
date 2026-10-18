@@ -322,7 +322,6 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           { href: "/dashboard", label: t("home"), icon: LayoutDashboard },
           { href: "/assets", label: t("assets"), icon: Package },
           { href: "/categories", label: t("categories"), icon: Tag },
-          { href: "/tags", label: t("tags"), icon: Tag },
           { href: "/locations", label: t("locations"), icon: MapPin },
           { href: "/reports", label: t("reports"), icon: BarChart3 },
         ];

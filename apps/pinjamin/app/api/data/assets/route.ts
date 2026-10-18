@@ -7,7 +7,6 @@ import {
   clientIdRow,
   isQrCode,
   fromDbRow,
-  isUuid,
 } from "@/lib/resource-config";
 import { generateQRCode } from "@/lib/utils";
 import { demoTambahAset, isDemoAset } from "@/lib/demo-aset";
@@ -38,18 +37,14 @@ export async function POST(req: NextRequest) {
   row.status = row.status || "GOOD";
 
   if (isDemoAset()) {
-    const tagIdsDemo: unknown = (body as Record<string, unknown>).tagIds;
-    const validDemo = Array.isArray(tagIdsDemo)
-      ? tagIdsDemo.filter(isUuid)
-      : [];
-    const baris = demoTambahAset(row, validDemo);
+    const baris = demoTambahAset(row);
     if (!baris)
       return NextResponse.json(
         { error: "Gagal menyimpan aset." },
         { status: 500 }
       );
     return NextResponse.json({
-      data: { ...fromDbRow(baris), tagIds: validDemo, notes: [] },
+      data: { ...fromDbRow(baris), notes: [] },
     });
   }
 
@@ -73,23 +68,9 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const tagIds: unknown = (body as Record<string, unknown>).tagIds;
-
-  const validTagIds = Array.isArray(tagIds) ? tagIds.filter(isUuid) : [];
-  if (validTagIds.length) {
-    const { error: tagErr } = await supa
-      .from("asset_tags")
-      .insert(
-        validTagIds.map((tagId) => ({ asset_id: asset.id, tag_id: tagId }))
-      );
-    if (tagErr)
-      console.warn("[assets POST] asset_tags insert failed:", tagErr.message);
-  }
-
   return NextResponse.json({
     data: {
       ...fromDbRow(asset),
-      tagIds: validTagIds,
       notes: [],
     },
   });

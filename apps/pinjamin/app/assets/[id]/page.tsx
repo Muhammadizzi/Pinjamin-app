@@ -10,7 +10,7 @@ import { useStore } from "@/lib/store";
 import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useT } from "@/lib/i18n";
 import { locationLabel } from "@/lib/location-path";
-import { assetPublicUrl, contrastTextColor } from "@/lib/utils";
+import { assetPublicUrl } from "@/lib/utils";
 import { downloadQrPng, printQrPng } from "@/lib/qr-download";
 import { QRCodeSVG } from "qrcode.react";
 import {
@@ -32,7 +32,7 @@ export default function AssetDetailPage() {
   const params = useParams();
   const id = params.id as string;
   const router = useRouter();
-  const { assets, categories, locations, tags, deleteAsset } = useStore();
+  const { assets, categories, locations, deleteAsset } = useStore();
   const { t, formatDate, assetStatus } = useT();
   const { ask, confirmDialog } = useConfirmDialog();
   const [downloadingQr, setDownloadingQr] = useState(false);
@@ -100,26 +100,6 @@ export default function AssetDetailPage() {
                     <p className="text-sm text-muted-foreground line-clamp-3">
                       {asset.description || t("noDescription")}
                     </p>
-                    {asset.tagIds.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5 pt-1 justify-center sm:justify-start">
-                        {asset.tagIds.map((tid) => {
-                          const tg = tags.find((x) => x.id === tid);
-                          return tg ? (
-                            <span
-                              key={tid}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold shadow-sm"
-                              style={{
-                                background: tg.color || "#64748b",
-                                color: contrastTextColor(tg.color || "#64748b"),
-                              }}
-                            >
-                              <TagIcon className="h-3 w-3" />
-                              {tg.name}
-                            </span>
-                          ) : null;
-                        })}
-                      </div>
-                    )}
                   </div>
                 </div>
 

@@ -13,12 +13,11 @@ import { useStore } from "@/lib/store";
 import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useT } from "@/lib/i18n";
 import { locationOptions } from "@/lib/location-path";
-import { contrastTextColor } from "@/lib/utils";
 import { ImageUpload } from "@/components/ui/image-upload";
 
 export default function NewAssetPage() {
   const router = useRouter();
-  const { categories, locations, tags, addAsset, assets } = useStore();
+  const { categories, locations, addAsset, assets } = useStore();
   const { t, assetStatus } = useT();
   const { ask, confirmDialog } = useConfirmDialog();
   const [form, setForm] = useState<any>({
@@ -28,7 +27,6 @@ export default function NewAssetPage() {
     spec: "",
     categoryId: "",
     locationId: "",
-    tagIds: [] as string[],
     mainImage: "",
   });
 
@@ -53,21 +51,12 @@ export default function NewAssetPage() {
           // Nilai dihilangkan sesuai request
           serialNumber: nextSerial,
           spec: form.spec.trim() || undefined,
-          tagIds: form.tagIds,
           mainImage: form.mainImage,
         });
         router.push("/assets");
       },
     });
   };
-
-  const toggleTag = (id: string) =>
-    setForm((f: any) => ({
-      ...f,
-      tagIds: f.tagIds.includes(id)
-        ? f.tagIds.filter((x: string) => x !== id)
-        : [...f.tagIds, id],
-    }));
 
   return (
     <AppShell>
@@ -190,45 +179,6 @@ export default function NewAssetPage() {
                     label={t("assetPhoto")}
                     uploadOnly
                   />
-                </div>
-                {/* Tags rapi */}
-                <div className="sm:col-span-2 space-y-2">
-                  <Label>{t("tags")}</Label>
-                  <div className="flex flex-wrap gap-2 p-3 rounded-xl border bg-slate-50/50 dark:bg-slate-800/30 border-slate-200 dark:border-slate-700">
-                    {tags.length === 0 && (
-                      <span className="text-xs text-muted-foreground">
-                        {t("noTagsYet")}
-                      </span>
-                    )}
-                    {tags.map((tItem) => (
-                      <button
-                        key={tItem.id}
-                        type="button"
-                        onClick={() => toggleTag(tItem.id)}
-                        className={`px-3.5 py-1.5 rounded-full text-sm font-medium border-2 transition-all ${
-                          form.tagIds.includes(tItem.id)
-                            ? "shadow"
-                            : "bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-600 hover:border-slate-400 dark:hover:border-slate-500"
-                        }`}
-                        style={
-                          form.tagIds.includes(tItem.id)
-                            ? {
-                                background: tItem.color || "#1a365d",
-                                borderColor: tItem.color || "#1a365d",
-                                color: contrastTextColor(
-                                  tItem.color || "#1a365d"
-                                ),
-                              }
-                            : undefined
-                        }
-                      >
-                        {tItem.name}
-                      </button>
-                    ))}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {t("tagsSelected", { count: form.tagIds.length })}
-                  </p>
                 </div>
               </div>
 

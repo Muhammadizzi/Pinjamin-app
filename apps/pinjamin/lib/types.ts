@@ -13,13 +13,6 @@ export interface Category {
   createdAt: string;
 }
 
-export interface Tag {
-  id: string;
-  name: string;
-  color?: string;
-  createdAt: string;
-}
-
 export interface Location {
   id: string;
   name: string;
@@ -47,7 +40,6 @@ export interface Asset {
   owner?: string;
   /** Spesifikasi teknis bebas, mis. "Core i5, RAM 8GB, SSD 512GB". */
   spec?: string;
-  tagIds: string[];
   notes: AssetNote[];
   createdAt: string;
   updatedAt: string;
@@ -63,7 +55,6 @@ export interface AssetNote {
 
 export interface AppData {
   categories: Category[];
-  tags: Tag[];
   locations: Location[];
   assets: Asset[];
 }

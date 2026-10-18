@@ -9,14 +9,7 @@ import React, {
 } from "react";
 import { usePathname } from "next/navigation";
 import { seedData } from "./seed";
-import type {
-  AppData,
-  Asset,
-  AssetStatus,
-  Category,
-  Tag,
-  Location,
-} from "./types";
+import type { AppData, Asset, AssetStatus, Category, Location } from "./types";
 import { generateId, generateQRCode } from "./utils";
 import { isSupabaseConfigured } from "./supabase";
 import { getCachedAdminUsername } from "./auth-client";
@@ -37,7 +30,6 @@ const STORAGE_KEY = "pinjamin_data_v3_gf";
  */
 const dataKosong: AppData = {
   categories: [],
-  tags: [],
   locations: [],
   assets: [],
 };
@@ -58,9 +50,6 @@ export type StoreContextType = AppData & {
   addCategory: (c: Omit<Category, "id" | "createdAt">) => void;
   updateCategory: (id: string, patch: Partial<Category>) => void;
   deleteCategory: (id: string) => void;
-  addTag: (t: Omit<Tag, "id" | "createdAt">) => void;
-  updateTag: (id: string, patch: Partial<Tag>) => void;
-  deleteTag: (id: string) => void;
   addLocation: (l: Omit<Location, "id" | "createdAt">) => string;
   updateLocation: (id: string, patch: Partial<Location>) => void;
   deleteLocation: (id: string) => void;
@@ -169,11 +158,10 @@ function fireSupaError(context: string, err: unknown) {
 }
 
 // Mapping nama tabel DB -> resource generic di /api/data/[resource] untuk
-// resource sederhana (categories, tags, dll). assets/audits TIDAK ada di
+// resource sederhana (categories, locations). assets TIDAK ada di
 // sini untuk insert — mereka pakai route khusus (lihat apiMutate).
 const TABLE_TO_API: Record<string, string> = {
   categories: "categories",
-  tags: "tags",
   locations: "locations",
   assets: "assets",
 };
@@ -509,8 +497,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       } as Asset;
-      // Sinkron ke Supabase via route khusus /api/data/assets
-      // (route tsb yang membuat asset + relasi asset_tags sekaligus).
+      // Sinkron ke Supabase via route khusus /api/data/assets.
       if (isSupabaseConfigured()) {
         apiMutate("/api/data/assets", "POST", {
           ...toDbRow({
@@ -526,19 +513,22 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             mainImage: newAsset.mainImage,
             value: newAsset.value,
             serialNumber: newAsset.serialNumber,
+            // Dulu tertinggal: spesifikasi tampil sebentar di layar lalu
+            // hilang setelah muat ulang karena tidak pernah sampai ke DB.
+            spec: newAsset.spec,
           }),
-          tagIds: a.tagIds || [],
         });
       }
       setData((d) => ({ ...d, assets: [newAsset, ...d.assets] }));
     },
     updateAsset: (id, patch) => {
       if (isSupabaseConfigured()) {
-        const { tagIds, notes: _notes, ...fields } = patch;
-        apiMutate(`/api/data/assets/${encodeURIComponent(id)}`, "PATCH", {
-          ...toDbRow(fields),
-          ...(Array.isArray(tagIds) ? { tagIds } : {}),
-        });
+        const { notes: _notes, ...fields } = patch;
+        apiMutate(
+          `/api/data/assets/${encodeURIComponent(id)}`,
+          "PATCH",
+          toDbRow(fields)
+        );
       }
       setData((d) => ({
         ...d,
@@ -576,29 +566,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       setData((d) => ({
         ...d,
         categories: d.categories.filter((x) => x.id !== id),
-      }));
-    },
-    addTag: (t) => {
-      const row = {
-        ...t,
-        id: generateId(),
-        createdAt: new Date().toISOString(),
-      } as Tag;
-      if (isSupabaseConfigured()) supaInsert("tags", row);
-      setData((d) => ({ ...d, tags: [row, ...d.tags] }));
-    },
-    updateTag: (id, patch) => {
-      if (isSupabaseConfigured()) supaUpdate("tags", id, patch);
-      setData((d) => ({
-        ...d,
-        tags: d.tags.map((x) => (x.id === id ? { ...x, ...patch } : x)),
-      }));
-    },
-    deleteTag: (id) => {
-      if (isSupabaseConfigured()) supaDelete("tags", id);
-      setData((d) => ({
-        ...d,
-        tags: d.tags.filter((x) => x.id !== id),
       }));
     },
     addLocation: (l) => {

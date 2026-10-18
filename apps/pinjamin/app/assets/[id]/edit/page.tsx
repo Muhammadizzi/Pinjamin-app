@@ -12,14 +12,13 @@ import { useStore } from "@/lib/store";
 import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useT } from "@/lib/i18n";
 import { locationOptions } from "@/lib/location-path";
-import { contrastTextColor } from "@/lib/utils";
 import { ImageUpload } from "@/components/ui/image-upload";
 
 export default function EditAssetPage() {
   const params = useParams();
   const id = params.id as string;
   const router = useRouter();
-  const { assets, categories, locations, tags, updateAsset } = useStore();
+  const { assets, categories, locations, updateAsset } = useStore();
   const { t, assetStatus } = useT();
   const { ask, confirmDialog } = useConfirmDialog();
   const asset = assets.find((a) => a.id === id);
@@ -140,48 +139,6 @@ export default function EditAssetPage() {
                     label={t("assetPhoto")}
                     uploadOnly
                   />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label>{t("tags")}</Label>
-                <div className="flex flex-wrap gap-2 p-3 rounded-xl border bg-slate-50/50 dark:bg-slate-800/30 border-slate-200 dark:border-slate-700">
-                  {tags.map((tItem) => (
-                    <button
-                      key={tItem.id}
-                      type="button"
-                      onClick={() =>
-                        setForm({
-                          ...form,
-                          tagIds: form.tagIds.includes(tItem.id)
-                            ? form.tagIds.filter((x: string) => x !== tItem.id)
-                            : [...form.tagIds, tItem.id],
-                        })
-                      }
-                      className={`px-3.5 py-1.5 rounded-full text-sm font-medium border-2 transition-all ${
-                        form.tagIds.includes(tItem.id)
-                          ? "shadow"
-                          : "bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-600 hover:border-slate-400 dark:hover:border-slate-500"
-                      }`}
-                      style={
-                        form.tagIds.includes(tItem.id)
-                          ? {
-                              background: tItem.color || "#1a365d",
-                              borderColor: tItem.color || "#1a365d",
-                              color: contrastTextColor(
-                                tItem.color || "#1a365d"
-                              ),
-                            }
-                          : undefined
-                      }
-                    >
-                      {tItem.name}
-                    </button>
-                  ))}
-                  {tags.length === 0 && (
-                    <span className="text-xs text-muted-foreground">
-                      {t("noTagsShort")}
-                    </span>
-                  )}
                 </div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

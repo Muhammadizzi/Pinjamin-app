@@ -2,17 +2,15 @@
 // against these lists (not spread blindly) so a crafted payload can't set
 // columns like id / created_at / qr_code / created_by.
 
-export type SimpleResourceKey = "categories" | "tags" | "locations";
+export type SimpleResourceKey = "categories" | "locations";
 
 export const SIMPLE_RESOURCE_TABLE: Record<SimpleResourceKey, string> = {
   categories: "categories",
-  tags: "tags",
   locations: "locations",
 };
 
 export const SIMPLE_RESOURCE_FIELDS: Record<SimpleResourceKey, string[]> = {
   categories: ["name", "description", "color"],
-  tags: ["name", "color"],
   locations: [
     "name",
     "description",

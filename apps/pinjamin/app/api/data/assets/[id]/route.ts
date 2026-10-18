@@ -33,12 +33,7 @@ export async function PATCH(
   const patch = pickAllowed(body, ASSET_FIELDS);
 
   if (isDemoAset()) {
-    const tagIdsDemo: unknown = (body as Record<string, unknown>).tagIds;
-    const baris = demoUbahAset(
-      id,
-      patch,
-      Array.isArray(tagIdsDemo) ? tagIdsDemo.filter(isUuid) : undefined
-    );
+    const baris = demoUbahAset(id, patch);
     return baris
       ? NextResponse.json({ data: fromDbRow(baris) })
       : NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -68,27 +63,6 @@ export async function PATCH(
       );
     }
     asset = data;
-  }
-
-  const tagIds: unknown = (body as Record<string, unknown>).tagIds;
-  if (Array.isArray(tagIds)) {
-    const validTagIds = tagIds.filter(isUuid);
-    const { error: delErr } = await supa
-      .from("asset_tags")
-      .delete()
-      .eq("asset_id", id);
-    if (delErr)
-      console.warn("[assets PATCH] asset_tags delete failed:", delErr.message);
-    if (validTagIds.length) {
-      const { error: insErr } = await supa
-        .from("asset_tags")
-        .insert(validTagIds.map((tagId) => ({ asset_id: id, tag_id: tagId })));
-      if (insErr)
-        console.warn(
-          "[assets PATCH] asset_tags insert failed:",
-          insErr.message
-        );
-    }
   }
 
   return NextResponse.json({ data: asset ? fromDbRow(asset) : { id } });

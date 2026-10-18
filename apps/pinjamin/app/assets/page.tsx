@@ -35,7 +35,7 @@ import * as XLSX from "xlsx";
 import { AssetImage } from "@/components/ui/asset-image";
 
 export default function AssetsPage() {
-  const { assets, categories, locations, tags, deleteAsset } = useStore();
+  const { assets, categories, locations, deleteAsset } = useStore();
   const { t, formatDate, assetStatus } = useT();
 
   // Jalur lokasi dipetakan sekali, bukan dirakit ulang tiap baris tabel —
@@ -48,7 +48,7 @@ export default function AssetsPage() {
   }, [locations]);
   const { ask, confirmDialog } = useConfirmDialog();
   /**
-   * Panel filter (kategori/lokasi/tag/per-halaman) makan ~280px tinggi di
+   * Panel filter (kategori/lokasi/per-halaman) makan ~280px tinggi di
    * ponsel — daftar aset baru terlihat setelah scroll panjang. Di layar kecil
    * panel ditutup dulu; mulai sm ia selalu terbuka seperti sebelumnya.
    */
@@ -77,7 +77,6 @@ export default function AssetsPage() {
   }, []);
   const [cat, setCat] = useState("ALL");
   const [loc, setLoc] = useState("ALL");
-  const [tag, setTag] = useState("ALL");
   const [sort, setSort] = useState("newest");
   const [view, setView] = useState<"list" | "card">("list");
   const [perPage, setPerPage] = useState(8);
@@ -95,13 +94,12 @@ export default function AssetsPage() {
     if (status !== "ALL") r = r.filter((a) => a.status === status);
     if (cat !== "ALL") r = r.filter((a) => a.categoryId === cat);
     if (loc !== "ALL") r = r.filter((a) => a.locationId === loc);
-    if (tag !== "ALL") r = r.filter((a) => a.tagIds.includes(tag));
     if (sort === "newest")
       r.sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
     if (sort === "name") r.sort((a, b) => a.name.localeCompare(b.name));
     if (sort === "value") r.sort((a, b) => (b.value || 0) - (a.value || 0));
     return r;
-  }, [assets, q, status, cat, loc, tag, sort]);
+  }, [assets, q, status, cat, loc, sort]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / perPage));
   const paged = filtered.slice((page - 1) * perPage, page * perPage);
@@ -133,10 +131,6 @@ export default function AssetsPage() {
       [t("colDescription")]: a.description ?? "",
       [t("ownerLabel")]: a.owner ?? "",
       [t("specLabel")]: a.spec ?? "",
-      [t("colTags")]: a.tagIds
-        .map((id) => tags.find((tg) => tg.id === id)?.name)
-        .filter(Boolean)
-        .join(", "),
     }));
     const stamp = new Date().toISOString().slice(0, 10);
     const ws = XLSX.utils.json_to_sheet(rows);
@@ -283,7 +277,7 @@ export default function AssetsPage() {
               </div>
             </div>
 
-            {/* Bar bawah: Filter kategori/lokasi/tag/perpage + chips */}
+            {/* Bar bawah: Filter kategori/lokasi/perpage + chips */}
             <div className="p-3 sm:p-4 space-y-3">
               <div className="flex items-center gap-2 text-xs font-semibold tracking-widest text-slate-500 dark:text-slate-400 uppercase">
                 <button
@@ -300,27 +294,19 @@ export default function AssetsPage() {
                     }`}
                   />
                 </button>
-                {(cat !== "ALL" || loc !== "ALL" || tag !== "ALL") && (
+                {(cat !== "ALL" || loc !== "ALL") && (
                   <span className="ml-1 bg-[#1a365d] text-white text-[10px] px-2 py-0.5 rounded-full">
                     {t("filtersActive", {
-                      count: [
-                        cat !== "ALL",
-                        loc !== "ALL",
-                        tag !== "ALL",
-                      ].filter(Boolean).length,
+                      count: [cat !== "ALL", loc !== "ALL"].filter(Boolean)
+                        .length,
                     })}
                   </span>
                 )}
-                {(cat !== "ALL" ||
-                  loc !== "ALL" ||
-                  tag !== "ALL" ||
-                  status !== "ALL" ||
-                  q) && (
+                {(cat !== "ALL" || loc !== "ALL" || status !== "ALL" || q) && (
                   <button
                     onClick={() => {
                       setCat("ALL");
                       setLoc("ALL");
-                      setTag("ALL");
                       setStatus("ALL");
                       setQ("");
                       setPage(1);
@@ -334,7 +320,7 @@ export default function AssetsPage() {
               </div>
 
               <div
-                className={`grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 sm:grid ${
+                className={`grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3 sm:grid ${
                   filterOpen ? "grid" : "hidden"
                 }`}
               >
@@ -383,28 +369,6 @@ export default function AssetsPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
-                    <TagIcon className="h-3 w-3 text-slate-400" />
-                    {t("tagLabel")}
-                  </label>
-                  <Select
-                    value={tag}
-                    onChange={(e) => {
-                      setTag(e.target.value);
-                      setPage(1);
-                    }}
-                    className="h-11 rounded-xl bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700"
-                  >
-                    <option value="ALL">{t("allTags")}</option>
-                    {tags.map((tg) => (
-                      <option key={tg.id} value={tg.id}>
-                        {tg.name}
-                      </option>
-                    ))}
-                  </Select>
-                </div>
-
-                <div className="space-y-1.5">
                   <label className="text-xs font-medium text-slate-600 dark:text-slate-300">
                     {t("perPage")}
                   </label>
@@ -430,10 +394,7 @@ export default function AssetsPage() {
               </div>
 
               {/* Active filter chips */}
-              {(cat !== "ALL" ||
-                loc !== "ALL" ||
-                tag !== "ALL" ||
-                status !== "ALL") && (
+              {(cat !== "ALL" || loc !== "ALL" || status !== "ALL") && (
                 <div className="flex flex-wrap gap-2 pt-1">
                   {status !== "ALL" && (
                     <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#1a365d] text-white text-xs font-medium">
@@ -462,17 +423,6 @@ export default function AssetsPage() {
                       {labelLokasi(loc)}
                       <button
                         onClick={() => setLoc("ALL")}
-                        className="hover:bg-black/10 rounded-full p-0.5"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </span>
-                  )}
-                  {tag !== "ALL" && (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-200 border border-emerald-200 dark:border-emerald-800 text-xs font-medium">
-                      {tags.find((tg) => tg.id === tag)?.name}
-                      <button
-                        onClick={() => setTag("ALL")}
                         className="hover:bg-black/10 rounded-full p-0.5"
                       >
                         <X className="h-3 w-3" />

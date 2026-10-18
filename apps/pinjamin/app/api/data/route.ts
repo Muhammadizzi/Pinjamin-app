@@ -19,19 +19,13 @@ export async function GET(req: NextRequest) {
   const supa = getSupabaseAdmin();
   if (!supa) return NextResponse.json({ configured: false });
 
-  const [categories, tags, locations, assetsRes] = await Promise.all([
+  const [categories, locations, assetsRes] = await Promise.all([
     supa.from("categories").select("*").limit(500),
-    supa.from("tags").select("*").limit(500),
     supa.from("locations").select("*").limit(500),
-    supa
-      .from("assets")
-      .select("*, asset_tags(tag_id), asset_notes(*)")
-      .limit(500),
+    supa.from("assets").select("*, asset_notes(*)").limit(500),
   ]);
 
-  const firstError = [categories, tags, locations, assetsRes].find(
-    (r) => r.error
-  );
+  const firstError = [categories, locations, assetsRes].find((r) => r.error);
   if (firstError?.error) {
     return NextResponse.json(
       { error: firstError.error.message },
@@ -41,7 +35,6 @@ export async function GET(req: NextRequest) {
 
   const assets = (assetsRes.data || []).map((row: Row) => ({
     ...fromDbRow(row),
-    tagIds: (row.asset_tags || []).map((t: Row) => t.tag_id),
     notes: (row.asset_notes || []).map(fromDbRow),
   }));
 
@@ -49,7 +42,6 @@ export async function GET(req: NextRequest) {
     configured: true,
     data: {
       categories: (categories.data || []).map(fromDbRow),
-      tags: (tags.data || []).map(fromDbRow),
       locations: (locations.data || []).map(fromDbRow),
       assets,
     },
