@@ -335,7 +335,6 @@ export const messages = {
   assetInfo: ["Informasi Aset", "Asset Information"],
   assetName: ["Nama Aset", "Asset Name"],
   descriptionPlaceholder: ["Deskripsi aset...", "Asset description..."],
-  ownerLabel: ["Pemilik", "Owner"],
   holderHistory: ["Riwayat & Catatan", "History & Notes"],
   loadingShort: ["Memuat…", "Loading…"],
   holderSince: [
@@ -351,8 +350,8 @@ export const messages = {
     'Delete "{name}" from history?',
   ],
   confirmDeleteHolderBody: [
-    "Baris riwayat ini dihapus permanen. Kolom Pemilik akan mengikuti baris yang tersisa.",
-    "This history row is deleted permanently. The Owner field follows whichever row remains.",
+    "Baris riwayat ini dihapus permanen. Pemakai sekarang akan mengikuti baris yang tersisa.",
+    "This history row is deleted permanently. The current holder follows whichever row remains.",
   ],
   holderSaveFailed: [
     "Gagal menyimpan riwayat pemakai.",
@@ -379,9 +378,9 @@ export const messages = {
     "The row stays in the history and is simply closed today. The asset has no holder until a successor is recorded.",
   ],
   yesEnd: ["Ya, akhiri", "Yes, end it"],
-  holderIsOwner: [
-    "Pemilik aset mengikuti pemakai yang masih berjalan di daftar ini.",
-    "The asset owner follows whichever holder is still active in this list.",
+  holderAutoClose: [
+    "Mencatat pemakai baru otomatis menutup pemakaian sebelumnya; riwayatnya tetap tersimpan.",
+    "Recording a new holder automatically closes the previous one; its history is kept.",
   ],
   holderAfterCreate: [
     "Pemakai aset dicatat lewat kartu Riwayat & Catatan setelah aset tersimpan.",

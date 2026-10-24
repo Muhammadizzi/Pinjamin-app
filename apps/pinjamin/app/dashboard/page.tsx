@@ -217,7 +217,7 @@ export default function DashboardPage() {
             <CardContent className="space-y-3">
               <div className="grid grid-cols-3 gap-2 text-center">
                 <RingkasKurang
-                  label={t("ownerLabel")}
+                  label={t("custodian")}
                   jumlah={tanpaPemilik.length}
                 />
                 <RingkasKurang
@@ -238,7 +238,7 @@ export default function DashboardPage() {
                 <ul className="space-y-1.5">
                   {belumLengkap.map((a) => {
                     const kurang = [
-                      !a.owner?.trim() && t("ownerLabel"),
+                      !a.owner?.trim() && t("custodian"),
                       !a.locationId && t("location"),
                       !a.mainImage && t("assetPhoto"),
                     ].filter(Boolean) as string[];

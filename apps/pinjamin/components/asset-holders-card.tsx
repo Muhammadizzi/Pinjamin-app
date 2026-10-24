@@ -236,7 +236,7 @@ export function AssetHoldersCard({ assetId }: { assetId: string }) {
           </ul>
         )}
 
-        <p className="text-xs text-muted-foreground">{t("holderIsOwner")}</p>
+        <p className="text-xs text-muted-foreground">{t("holderAutoClose")}</p>
       </CardContent>
       {confirmDialog}
     </Card>

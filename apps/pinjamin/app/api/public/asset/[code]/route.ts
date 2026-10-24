@@ -57,7 +57,7 @@ export async function GET(
     .from("assets")
     .select(
       `id, qr_code, name, description, status, main_image, serial_number,
-       owner, spec, created_at, updated_at,
+       spec, created_at, updated_at,
        categories(name, color), locations(name, parent_id)`
     )
     .eq("qr_code", code)

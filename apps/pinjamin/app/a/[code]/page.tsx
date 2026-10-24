@@ -1,15 +1,7 @@
 "use client";
 import { use, useCallback, useEffect, useState } from "react";
 import Image from "next/image";
-import {
-  Loader2,
-  MapPin,
-  Tag,
-  User,
-  Calendar,
-  Cpu,
-  History,
-} from "lucide-react";
+import { Loader2, MapPin, Tag, Calendar, Cpu, History } from "lucide-react";
 import { STATUS_LABEL_ID, STATUS_CLS_ASET } from "@/lib/asset-labels-id";
 import { formatDateTime } from "@/lib/utils";
 
@@ -20,7 +12,6 @@ interface AsetPublik {
   status: string;
   mainImage?: string | null;
   serialNumber?: string | null;
-  owner?: string | null;
   spec?: string | null;
   createdAt: string;
   category?: string | null;
@@ -160,7 +151,6 @@ export default function HalamanAsetPublik({
               <dl className="mt-5 grid grid-cols-1 gap-x-6 gap-y-3 border-t border-[#243a5e] pt-4 text-sm sm:grid-cols-2">
                 <Baris ikon={Tag} label="Kategori" nilai={aset.category} />
                 <BarisLokasi jalur={aset.locationPath} nama={aset.location} />
-                <Baris ikon={User} label="Pemilik" nilai={aset.owner} />
                 <Baris
                   ikon={Calendar}
                   label="Terdaftar"

@@ -20,7 +20,6 @@ import {
   QrCode,
   MapPin,
   Tag as TagIcon,
-  User,
   Calendar,
   Download,
   Printer,
@@ -120,11 +119,6 @@ export default function AssetDetailPage() {
                       <MapPin className="h-4 w-4 text-muted-foreground" />{" "}
                       {t("location")}:{" "}
                       <span className="font-medium">{jalurLokasi || "-"}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <User className="h-4 w-4 text-muted-foreground" />{" "}
-                      {t("ownerLabel")}:{" "}
-                      <span className="font-medium">{asset.owner || "-"}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <Calendar className="h-4 w-4 text-muted-foreground" />{" "}
