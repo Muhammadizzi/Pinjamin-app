@@ -82,7 +82,7 @@ export default function NewLocationPage() {
                 <Input
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  placeholder="Ruang IT, Gudang A"
+                  placeholder="Exist Plant, New Plant"
                   className="h-11 rounded-xl"
                   required
                 />

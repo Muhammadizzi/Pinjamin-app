@@ -487,14 +487,6 @@ export const messages = {
     "Lokasi baru akan tersedia untuk dipilih pada aset.",
     "The new location becomes selectable on assets.",
   ],
-  noParentYet: [
-    'Belum ada lokasi parent — buat lewat tombol "Buat Parent Baru" di atas, atau pilih tipe "Lokasi Parent".',
-    'No parent locations yet — use the "Create New Parent" button above, or pick the "Parent Location" type.',
-  ],
-  parentDropdownHintLong: [
-    "Dropdown hanya menampilkan lokasi bertipe parent. Pilih parent jika lokasi ini anak dari gedung/area lain.",
-    "The dropdown only lists parent-type locations. Pick one if this location sits inside another building or area.",
-  ],
   locationDescriptionPlaceholder: [
     "Deskripsi lokasi, kapasitas, fasilitas...",
     "Location description, capacity, facilities...",
@@ -511,8 +503,8 @@ export const messages = {
   ],
   reportLocationTitle: ["Aset per Lokasi", "Assets by Location"],
   reportLocationSub: [
-    "Sebaran aset di tiap ruang, gedung, dan area.",
-    "How assets are spread across rooms, buildings, and areas.",
+    "Jumlah aset di tiap lokasi.",
+    "Asset count by location.",
   ],
   reportInventoryTitle: ["Inventaris Aset", "Asset Inventory"],
   reportInventorySub: ["Jumlah aset per kategori.", "Asset count by category."],
