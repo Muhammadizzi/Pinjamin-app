@@ -454,52 +454,9 @@ export const messages = {
   serialAutoLocked: ["Otomatis, tidak diubah", "Automatic, not editable"],
 
   // ---------- Lokasi ----------
-  locationsSummary: [
-    "{parents} area • {regular} lokasi berdiri sendiri",
-    "{parents} areas • {regular} standalone locations",
-  ],
+  locationsSummary: ["{count} lokasi", "{count} locations"],
   editLocation: ["Edit Lokasi", "Edit Location"],
-  areaLabel: ["Area", "Area"],
-  noAreaStandalone: [
-    "— Tidak ada, lokasi ini berdiri sendiri —",
-    "— None, this location stands alone —",
-  ],
-  createNewArea: ["Buat Area Baru", "New Area"],
-  areaHint: [
-    "Area adalah tempat yang menaungi lokasi ini — gedung, pabrik, atau kawasan. Kosongkan bila lokasi ini tidak berada di dalam apa pun.",
-    "An area is the place that contains this location — a building, plant, or site. Leave it empty if this location is not inside anything.",
-  ],
-  areaSection: ["AREA", "AREAS"],
-  areaSectionHint: [
-    "Lokasi yang menaungi lokasi lain",
-    "Locations that contain other locations",
-  ],
-  standaloneSection: ["LOKASI", "LOCATIONS"],
-  descriptionPositionHint: [
-    'Posisi persis aset bisa ditulis di sini, misalnya "di meja A" atau "rak 3 baris atas".',
-    'The exact spot can go here, e.g. "on desk A" or "rack 3, top row".',
-  ],
-  locationType: ["Tipe Lokasi", "Location Type"],
-  regularLocation: ["Lokasi Biasa", "Regular Location"],
-  regularLocationHint: [
-    "Ruangan/titik — bisa masuk parent",
-    "A room or spot — can sit inside a parent",
-  ],
-  parentLocation: ["Lokasi Parent", "Parent Location"],
-  parentLocationHint: [
-    "Gedung/area — menaungi sub-lokasi",
-    "A building or area — holds sub-locations",
-  ],
-  parentOf: ["Parent Lokasi", "Parent Location"],
-  noParentStandalone: ["— Tidak ada (mandiri) —", "— None (standalone) —"],
-  parentDropdownHint: [
-    "Dropdown hanya menampilkan lokasi bertipe parent.",
-    "The dropdown only lists locations of the parent type.",
-  ],
   placePhoto: ["Foto Tempat", "Place Photo"],
-  parentBadge: ["Parent", "Parent"],
-  subCount: [" • {count} sub", " • {count} sub"],
-  insideOf: ["Di dalam: {name} • ", "Inside: {name} • "],
   noLocationsYet: ["Belum ada lokasi", "No locations yet"],
   noLocationsHint: [
     "Buat lokasi pertama dengan foto",
@@ -515,10 +472,6 @@ export const messages = {
     '"{name}" akan dihapus permanen. Aset di lokasi ini tidak ikut terhapus.',
     '"{name}" will be permanently deleted. Assets in this location are not deleted.',
   ],
-  confirmDeleteLocationParentExtra: [
-    " Sub-lokasi di dalamnya menjadi lokasi biasa.",
-    " Its sub-locations become regular locations.",
-  ],
   confirmAddLocation: ['Tambah lokasi "{name}"?', 'Add the location "{name}"?'],
   saveLocation: ["Simpan Lokasi", "Save Location"],
 
@@ -526,32 +479,17 @@ export const messages = {
   backToLocations: ["Kembali ke Daftar Lokasi", "Back to Locations"],
   addLocationHeading: ["Tambah Lokasi Baru", "Add a New Location"],
   addLocationHeadingSub: [
-    "Pilih tipe: lokasi parent (gedung/area) atau lokasi biasa (ruangan/titik yang bisa masuk parent).",
-    "Pick a type: parent location (building/area) or regular location (a room or spot that can sit inside a parent).",
+    "Lokasi baru dapat dipilih saat menambah atau mengubah aset.",
+    "The new location can be chosen when adding or editing an asset.",
   ],
   newLocationForm: ["Form Lokasi Baru", "New Location Form"],
-  confirmAddLocationParentBody: [
-    "Akan terdaftar sebagai lokasi parent (bisa menaungi sub-lokasi).",
-    "It will be registered as a parent location (it can hold sub-locations).",
-  ],
   confirmAddLocationRegularBody: [
-    "Lokasi baru akan tersedia untuk dipilih pada aset dan kit.",
-    "The new location becomes selectable on assets and kits.",
-  ],
-  createNewParent: ["Buat Parent Baru", "Create New Parent"],
-  confirmAddParentLocation: [
-    'Tambah lokasi parent "{name}"?',
-    'Add the parent location "{name}"?',
+    "Lokasi baru akan tersedia untuk dipilih pada aset.",
+    "The new location becomes selectable on assets.",
   ],
   noParentYet: [
     'Belum ada lokasi parent — buat lewat tombol "Buat Parent Baru" di atas, atau pilih tipe "Lokasi Parent".',
     'No parent locations yet — use the "Create New Parent" button above, or pick the "Parent Location" type.',
-  ],
-  newParentName: ["Nama Parent Baru", "New Parent Name"],
-  createShort: ["Buat", "Create"],
-  parentAutoSelected: [
-    "Parent langsung terpilih di dropdown setelah dibuat.",
-    "The parent is selected in the dropdown as soon as it is created.",
   ],
   parentDropdownHintLong: [
     "Dropdown hanya menampilkan lokasi bertipe parent. Pilih parent jika lokasi ini anak dari gedung/area lain.",
@@ -606,7 +544,6 @@ export const messages = {
   lapCetakTotalTerdaftar: ["Total aset terdaftar", "Total registered assets"],
   lapCetakKategori: ["B. Rekap per Kategori", "B. Recap by Category"],
   lapCetakLokasi: ["C. Rekap per Lokasi", "C. Recap by Location"],
-  lapCetakLangsung: ["(langsung di lokasi ini)", "(directly at this location)"],
   lapCetakTindakLanjut: [
     "D. Aset yang Perlu Tindak Lanjut",
     "D. Assets Requiring Follow-up",

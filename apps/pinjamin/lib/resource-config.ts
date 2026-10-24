@@ -11,14 +11,9 @@ export const SIMPLE_RESOURCE_TABLE: Record<SimpleResourceKey, string> = {
 
 export const SIMPLE_RESOURCE_FIELDS: Record<SimpleResourceKey, string[]> = {
   categories: ["name", "description", "color"],
-  locations: [
-    "name",
-    "description",
-    "address",
-    "parent_id",
-    "is_parent",
-    "image",
-  ],
+  // parent_id & is_parent sengaja tidak ada: fitur area/sub-lokasi dihapus
+  // 24 Okt 2026, kolomnya dibiarkan di database tetapi tidak boleh ditulis.
+  locations: ["name", "description", "address", "image"],
 };
 
 /**

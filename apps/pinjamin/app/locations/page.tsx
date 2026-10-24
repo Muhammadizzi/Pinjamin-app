@@ -8,13 +8,19 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ImageUpload } from "@/components/ui/image-upload";
-import { Select } from "@/components/ui/select";
 import { useStore } from "@/lib/store";
 import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useT } from "@/lib/i18n";
-import { Plus, Trash2, MapPin, Pencil, FolderTree } from "lucide-react";
+import { Plus, Trash2, MapPin, Pencil } from "lucide-react";
 import type { Location } from "@/lib/types";
 
+/**
+ * Daftar lokasi — satu tingkat, berurut nama.
+ *
+ * Dulu lokasi bisa bersarang (area › ruangan) dan halaman ini membaginya ke
+ * seksi Area dan Lokasi. Fitur itu dihapus 24 Okt 2026; lihat
+ * lib/location-path.ts.
+ */
 export default function LocationsPage() {
   const { locations, assets, updateLocation, deleteLocation } = useStore();
   const { t } = useT();
@@ -23,63 +29,15 @@ export default function LocationsPage() {
   const [form, setForm] = useState({
     name: "",
     description: "",
-    parentId: "",
     image: "",
   });
 
-  // ---- Struktur data ----
-  const locationById = new Map(locations.map((l) => [l.id, l]));
-  const hasValidParent = (l: Location) =>
-    !!l.parentId && locationById.has(l.parentId);
-  const childrenMap = new Map<string, Location[]>();
-  locations.forEach((l) => {
-    if (hasValidParent(l)) {
-      const arr = childrenMap.get(l.parentId!) || [];
-      arr.push(l);
-      childrenMap.set(l.parentId!, arr);
-    }
-  });
-  const hasChildren = (id: string) => (childrenMap.get(id)?.length ?? 0) > 0;
-  /**
-   * Sebuah lokasi disebut AREA kalau memang ada lokasi lain di dalamnya.
-   *
-   * Dulu ini juga melihat tanda `isParent` yang dipilih admin di form. Tanda
-   * itu dihapus: memaksa admin menyatakan "ini parent" sebelum boleh mengisi
-   * apa pun membuat dropdown area KOSONG pada pemasangan baru, tanpa petunjuk
-   * apa yang keliru. Sekarang statusnya mengikuti kenyataan, bukan deklarasi.
-   */
-  const isEffectiveParent = (l: Location) => hasChildren(l.id);
-
-  // Seksi parent: parent efektif yang tidak tampil di bawah parent lain
-  const parentLocs = locations.filter(
-    (l) => isEffectiveParent(l) && !hasValidParent(l)
-  );
-  // Seksi biasa: bukan parent efektif & tidak tampil di bawah parent lain
-  const regularLocs = locations.filter(
-    (l) => !isEffectiveParent(l) && !hasValidParent(l)
-  );
-
-  // Cegah siklus: saat edit, sembunyikan diri sendiri + semua turunannya
-  const descendantIds = (id: string): Set<string> => {
-    const out = new Set<string>([id]);
-    const queue = [id];
-    while (queue.length) {
-      const cur = queue.pop()!;
-      for (const c of childrenMap.get(cur) || []) {
-        if (!out.has(c.id)) {
-          out.add(c.id);
-          queue.push(c.id);
-        }
-      }
-    }
-    return out;
-  };
+  const urut = [...locations].sort((a, b) => a.name.localeCompare(b.name));
 
   const startEdit = (l: Location) => {
     setForm({
       name: l.name,
       description: l.description || "",
-      parentId: l.parentId || "",
       image: l.image || "",
     });
     setEdit(l.id);
@@ -97,42 +55,23 @@ export default function LocationsPage() {
         updateLocation(edit, {
           name: form.name,
           description: form.description,
-          parentId: form.parentId || null,
           image: form.image || undefined,
         } as any);
         setEdit(null);
-        setForm({
-          name: "",
-          description: "",
-          parentId: "",
-          image: "",
-        });
+        setForm({ name: "", description: "", image: "" });
       },
     });
   };
 
   const cancelEdit = () => {
     setEdit(null);
-    setForm({
-      name: "",
-      description: "",
-      parentId: "",
-      image: "",
-    });
+    setForm({ name: "", description: "", image: "" });
   };
 
-  const LocRow = ({ l, child = false }: { l: Location; child?: boolean }) => {
+  const LocRow = ({ l }: { l: Location }) => {
     const assetCount = assets.filter((a) => a.locationId === l.id).length;
-    const parent = hasValidParent(l) ? locationById.get(l.parentId!) : null;
-    const childCount = childrenMap.get(l.id)?.length ?? 0;
     return (
-      <div
-        className={`flex items-center gap-3 ${
-          child
-            ? "rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700/60 p-2.5"
-            : ""
-        }`}
-      >
+      <div className="flex items-center gap-3">
         {l.image ? (
           <img
             src={l.image}
@@ -140,31 +79,13 @@ export default function LocationsPage() {
             className="h-10 w-10 rounded-lg object-cover border shrink-0"
           />
         ) : (
-          <div
-            className={`h-10 w-10 rounded-lg flex items-center justify-center shrink-0 ${
-              child ? "bg-white dark:bg-slate-700 border" : "bg-[#1a365d]"
-            }`}
-          >
-            <MapPin
-              className={`h-5 w-5 ${
-                child ? "text-slate-500 dark:text-slate-300" : "text-white"
-              }`}
-              strokeWidth={1.5}
-            />
+          <div className="h-10 w-10 rounded-lg flex items-center justify-center shrink-0 bg-[#1a365d]">
+            <MapPin className="h-5 w-5 text-white" strokeWidth={1.5} />
           </div>
         )}
         <div className="flex-1 min-w-0">
-          <div className="font-medium text-sm truncate flex items-center gap-2">
-            {l.name}
-            {isEffectiveParent(l) && (
-              <span className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-[#CBA12C]/15 text-[#8a6d1d] dark:text-[#CBA12C] text-[10px] font-semibold">
-                <FolderTree className="h-3 w-3" /> {t("parentBadge")}
-                {childCount > 0 ? t("subCount", { count: childCount }) : ""}
-              </span>
-            )}
-          </div>
+          <div className="font-medium text-sm truncate">{l.name}</div>
           <div className="text-xs text-muted-foreground truncate">
-            {parent ? t("insideOf", { name: parent.name }) : ""}
             {l.description || "-"}
           </div>
           <div className="text-xs text-muted-foreground">
@@ -186,11 +107,7 @@ export default function LocationsPage() {
           onClick={() =>
             ask({
               title: t("confirmDeleteLocation"),
-              description:
-                t("confirmDeleteLocationBody", { name: l.name }) +
-                (isEffectiveParent(l)
-                  ? t("confirmDeleteLocationParentExtra")
-                  : ""),
+              description: t("confirmDeleteLocationBody", { name: l.name }),
               confirmLabel: t("yesDelete"),
               action: () => deleteLocation(l.id),
             })
@@ -202,18 +119,6 @@ export default function LocationsPage() {
     );
   };
 
-  const renderChildren = (parentId: string): React.ReactNode =>
-    (childrenMap.get(parentId) || []).map((l) => (
-      <div key={l.id} className="space-y-2">
-        <LocRow l={l} child />
-        {hasChildren(l.id) && (
-          <div className="ml-5 pl-3 border-l-2 border-slate-200 dark:border-slate-700 space-y-2">
-            {renderChildren(l.id)}
-          </div>
-        )}
-      </div>
-    ));
-
   return (
     <AppShell>
       <div className="max-w-3xl mx-auto space-y-6">
@@ -221,10 +126,7 @@ export default function LocationsPage() {
           <div>
             <h1 className="text-xl sm:text-2xl font-bold">{t("locations")}</h1>
             <p className="text-sm text-muted-foreground">
-              {t("locationsSummary", {
-                parents: parentLocs.length,
-                regular: regularLocs.length,
-              })}
+              {t("locationsSummary", { count: locations.length })}
             </p>
           </div>
           <Link href="/locations/new">
@@ -258,29 +160,6 @@ export default function LocationsPage() {
                     className="h-11 rounded-xl"
                     required
                   />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>{t("areaLabel")}</Label>
-                  <Select
-                    value={form.parentId}
-                    onChange={(e) =>
-                      setForm({ ...form, parentId: e.target.value })
-                    }
-                  >
-                    <option value="">{t("noAreaStandalone")}</option>
-                    {locations
-                      .filter((l) => !descendantIds(edit).has(l.id))
-                      .sort((a, b) => a.name.localeCompare(b.name))
-                      .map((l) => (
-                        <option key={l.id} value={l.id}>
-                          {l.name}
-                        </option>
-                      ))}
-                  </Select>
-                  <p className="text-xs text-muted-foreground">
-                    {t("areaHint")}
-                  </p>
                 </div>
 
                 <ImageUpload
@@ -321,43 +200,9 @@ export default function LocationsPage() {
           </Card>
         )}
 
-        {/* Seksi 1: Lokasi Parent */}
-        {parentLocs.length > 0 && (
+        {urut.length > 0 && (
           <div className="space-y-2">
-            <h2 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-              <FolderTree className="h-4 w-4" /> {t("areaSection")}
-              <span className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[10px] px-2 py-0.5 rounded-full">
-                {parentLocs.length}
-              </span>
-            </h2>
-            {parentLocs.map((p) => {
-              const children = childrenMap.get(p.id) || [];
-              return (
-                <Card key={p.id} className="overflow-hidden">
-                  <CardContent className="p-3 space-y-2">
-                    <LocRow l={p} />
-                    {children.length > 0 && (
-                      <div className="ml-5 pl-3 border-l-2 border-[#CBA12C]/40 space-y-2">
-                        {renderChildren(p.id)}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Seksi 2: Lokasi Biasa */}
-        {regularLocs.length > 0 && (
-          <div className="space-y-2">
-            <h2 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-              <MapPin className="h-4 w-4" /> {t("standaloneSection")}
-              <span className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[10px] px-2 py-0.5 rounded-full">
-                {regularLocs.length}
-              </span>
-            </h2>
-            {regularLocs.map((l) => (
+            {urut.map((l) => (
               <Card key={l.id} className="overflow-hidden">
                 <CardContent className="p-3">
                   <LocRow l={l} />
@@ -383,12 +228,6 @@ export default function LocationsPage() {
             </CardContent>
           </Card>
         )}
-
-        {/*
-          Catatan edge case: lokasi anak yatim (parentId menunjuk lokasi yang
-          sudah dihapus) otomatis diperlakukan sebagai lokasi biasa agar tidak
-          hilang dari daftar.
-        */}
       </div>
 
       {confirmDialog}

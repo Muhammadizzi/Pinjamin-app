@@ -75,8 +75,6 @@ const locations: Location[] = [
     name: "Kantor Pusat Jakarta",
     description: "HQ Garudafood",
     address: "Bintaro Jaya, Tangerang Selatan",
-    parentId: null,
-    isParent: true,
     createdAt: iso(-250),
   },
   {
@@ -84,7 +82,6 @@ const locations: Location[] = [
     name: "HQ — Lantai 5 IT",
     description: "Ruang server & helpdesk",
     address: "Kantor Pusat Lt.5",
-    parentId: "gf-loc-hq",
     createdAt: iso(-250),
   },
   {
@@ -92,13 +89,11 @@ const locations: Location[] = [
     name: "HQ — Ruang Meeting Garuda",
     description: "Ruang rapat direksi",
     address: "Kantor Pusat Lt.2",
-    parentId: "gf-loc-hq",
     createdAt: iso(-250),
   },
   {
     id: "gf-loc-hq-mkt",
     name: "HQ — Lantai 3 Marketing",
-    parentId: "gf-loc-hq",
     createdAt: iso(-250),
   },
   {
@@ -106,26 +101,21 @@ const locations: Location[] = [
     name: "Pabrik Pati",
     description: "Pabrik snack utama",
     address: "Pati, Jawa Tengah",
-    parentId: null,
-    isParent: true,
     createdAt: iso(-250),
   },
   {
     id: "gf-loc-pati-line1",
     name: "Pati — Produksi Line 1",
-    parentId: "gf-loc-pati",
     createdAt: iso(-250),
   },
   {
     id: "gf-loc-pati-qc",
     name: "Pati — Laboratorium QC",
-    parentId: "gf-loc-pati",
     createdAt: iso(-250),
   },
   {
     id: "gf-loc-pati-gudang",
     name: "Pati — Gudang Finished Goods",
-    parentId: "gf-loc-pati",
     createdAt: iso(-250),
   },
   {
@@ -133,8 +123,6 @@ const locations: Location[] = [
     name: "Pabrik Rembang",
     description: "Pabrik biskuit & wafer",
     address: "Rembang, Jawa Tengah",
-    parentId: null,
-    isParent: true,
     createdAt: iso(-240),
   },
   {
@@ -142,14 +130,12 @@ const locations: Location[] = [
     name: "DC Cikarang",
     description: "Distribution center Jawa Barat",
     address: "MM2100, Cikarang",
-    parentId: null,
     createdAt: iso(-240),
   },
   {
     id: "gf-loc-sby",
     name: "Cabang Surabaya",
     address: "Rungkut Industri, Surabaya",
-    parentId: null,
     createdAt: iso(-230),
   },
 ];

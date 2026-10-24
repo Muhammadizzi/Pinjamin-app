@@ -11,7 +11,7 @@ import { useAuth } from "@/lib/auth-client";
 import {
   KONDISI,
   capTanggal,
-  rekapLokasiBertingkat,
+  rekapLokasi,
   type LabelLaporan,
 } from "@/lib/laporan";
 import { FileSpreadsheet, FileText, BarChart3 } from "lucide-react";
@@ -45,7 +45,6 @@ export default function ReportsPage() {
     terdaftar: t("lapTerdaftar"),
     tanpaKategori: t("lapTanpaKategori"),
     tanpaLokasi: t("lapTanpaLokasi"),
-    langsungDiLokasi: t("lapCetakLangsung"),
   };
 
   const countByStatus = (status: string) =>
@@ -260,38 +259,25 @@ export default function ReportsPage() {
                   {t("noLocationsYet")}
                 </p>
               )}
-              {/* Bertingkat seperti lembar Excel: area dengan subtotal seluruh
-                  ruangannya, lalu ruangan menjorok di bawahnya. Daftar datar
-                  sebelumnya menulis "Dairy: 0" karena asetnya tercatat di
-                  ruangan, bukan di area. */}
-              {rekapLokasiBertingkat(assets, locations, L.langsungDiLokasi).map(
-                (b, i) => (
-                  <div
-                    key={`${i}-${b.nama}`}
-                    className="flex items-center gap-3 py-1"
-                    style={{ paddingLeft: `${b.tingkat * 1.25}rem` }}
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div
-                        className={`truncate text-sm ${
-                          b.induk ? "font-semibold" : "font-medium"
-                        }`}
-                      >
-                        {b.nama}
+              {rekapLokasi(assets, locations).map((b, i) => (
+                <div
+                  key={`${i}-${b.nama}`}
+                  className="flex items-center gap-3 py-1"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-medium">{b.nama}</div>
+                    {b.jumlah.DAMAGED > 0 && (
+                      <div className="text-xs text-red-600">
+                        {b.jumlah.DAMAGED}{" "}
+                        {assetStatus("DAMAGED").toLowerCase()}
                       </div>
-                      {b.jumlah.DAMAGED > 0 && (
-                        <div className="text-xs text-red-600">
-                          {b.jumlah.DAMAGED}{" "}
-                          {assetStatus("DAMAGED").toLowerCase()}
-                        </div>
-                      )}
-                    </div>
-                    <Badge variant={b.total > 0 ? "info" : "secondary"}>
-                      {b.total}
-                    </Badge>
+                    )}
                   </div>
-                )
-              )}
+                  <Badge variant={b.total > 0 ? "info" : "secondary"}>
+                    {b.total}
+                  </Badge>
+                </div>
+              ))}
             </CardContent>
           </Card>
         </div>

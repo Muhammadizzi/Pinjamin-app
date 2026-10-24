@@ -30,8 +30,6 @@ export interface LabelLaporan {
   terdaftar: string;
   tanpaKategori: string;
   tanpaLokasi: string;
-  /** Baris aset yang ditaruh langsung di lokasi induk (bukan di ruangannya). */
-  langsungDiLokasi: string;
 }
 
 export type Baris = Record<string, string | number>;
@@ -92,87 +90,21 @@ export function barisPerKategori(
 /** Satu baris rekap lokasi untuk laporan cetak. */
 export interface BarisLokasiCetak {
   nama: string;
-  /** 0 = area teratas, 1 = ruangan di bawahnya, dan seterusnya. */
-  tingkat: number;
-  /** Punya sub-lokasi: angkanya mencakup seluruh isi di bawahnya. */
-  induk: boolean;
   jumlah: Record<Kondisi, number>;
   total: number;
 }
 
-/**
- * Rekap lokasi mengikuti pohonnya: tiap area dengan subtotal, lalu ruangan di
- * bawahnya menjorok ke dalam.
- *
- * Rekap datar per lokasi menampilkan area induk dengan angka 0 — asetnya
- * memang tercatat di ruangan, bukan di area — dan pembaca laporan cetak tidak
- * bisa melihat bahwa Office dan Ruang Server sama-sama milik Exist Plant.
- *
- * Aset yang ditaruh langsung di lokasi induk mendapat baris sendiri
- * (`labelLangsung`), supaya jumlah ruangan selalu sama dengan subtotal
- * areanya. Lokasi yang induknya hilang atau saling menunjuk diperlakukan
- * sebagai area, sehingga tidak ada aset yang terlewat dari laporan.
- */
-export function rekapLokasiBertingkat(
+/** Rekap kondisi aset per lokasi, berurut nama. Lokasi hanya satu tingkat. */
+export function rekapLokasi(
   aset: Asset[],
-  lokasi: Location[],
-  labelLangsung: string
+  lokasi: Location[]
 ): BarisLokasiCetak[] {
-  const byId = new Map(lokasi.map((l) => [l.id, l]));
-  const anak = new Map<string, Location[]>();
-  for (const l of lokasi) {
-    if (!l.parentId || !byId.has(l.parentId)) continue;
-    anak.set(l.parentId, [...(anak.get(l.parentId) ?? []), l]);
-  }
-  const urut = (xs: Location[]) =>
-    [...xs].sort((a, b) => a.name.localeCompare(b.name, "id"));
-
-  const di = (id: string) => aset.filter((a) => a.locationId === id);
-  const baris = (
-    nama: string,
-    tingkat: number,
-    induk: boolean,
-    isi: Asset[]
-  ) => ({
-    nama,
-    tingkat,
-    induk,
-    jumlah: rekap(isi),
-    total: isi.length,
-  });
-
-  const hasil: BarisLokasiCetak[] = [];
-  const dikunjungi = new Set<string>();
-
-  /** Kumpulkan aset seluruh cabang sambil menulis barisnya. */
-  const jelajah = (l: Location, tingkat: number): Asset[] => {
-    dikunjungi.add(l.id);
-    const cabang = urut(anak.get(l.id) ?? []).filter(
-      (c) => !dikunjungi.has(c.id)
-    );
-    if (cabang.length === 0) {
-      const isi = di(l.id);
-      hasil.push(baris(l.name, tingkat, false, isi));
-      return isi;
-    }
-    const posisi = hasil.length;
-    hasil.push(baris(l.name, tingkat, true, [])); // diisi setelah cabangnya
-    const langsung = di(l.id);
-    if (langsung.length)
-      hasil.push(baris(labelLangsung, tingkat + 1, false, langsung));
-    const semua = [...langsung];
-    for (const c of cabang) semua.push(...jelajah(c, tingkat + 1));
-    hasil[posisi] = baris(l.name, tingkat, true, semua);
-    return semua;
-  };
-
-  const akar = urut(lokasi.filter((l) => !l.parentId || !byId.has(l.parentId)));
-  for (const l of akar) jelajah(l, 0);
-  // Sisa yang tak terjangkau dari akar mana pun hanya mungkin lahir dari
-  // induk yang saling menunjuk.
-  for (const l of urut(lokasi)) if (!dikunjungi.has(l.id)) jelajah(l, 0);
-
-  return hasil;
+  return [...lokasi]
+    .sort((a, b) => a.name.localeCompare(b.name, "id"))
+    .map((l) => {
+      const isi = aset.filter((a) => a.locationId === l.id);
+      return { nama: l.name, jumlah: rekap(isi), total: isi.length };
+    });
 }
 
 /** Aset Rusak lalu Dalam Perbaikan, masing-masing berurut nama. */

@@ -18,7 +18,7 @@ import {
   barisAset,
   barisPerKategori,
   rekap,
-  rekapLokasiBertingkat,
+  rekapLokasi,
   type LabelLaporan,
 } from "./laporan";
 import { locationLabel } from "./location-path";
@@ -178,8 +178,8 @@ function cetakA4(ws: Worksheet, arah: "portrait" | "landscape", L: LabelCetak) {
 
 /**
  * Penjorokan dengan spasi, bukan properti indent: Google Sheets, Numbers, dan
- * pratinjau ponsel mengabaikan indent Excel, sehingga ruangan tampil sejajar
- * dengan areanya.
+ * pratinjau ponsel mengabaikan indent Excel, sehingga baris rincian tampil
+ * sejajar dengan judulnya.
  */
 const jorok = (teks: string, tingkat: number) => "    ".repeat(tingkat) + teks;
 
@@ -359,18 +359,13 @@ function lembarRingkasan(
   });
   r++;
 
-  // --- C. Per lokasi (bertingkat) ---
+  // --- C. Per lokasi ---
   judulBagian(L.bagianLokasi);
   kepalaRekap(L.lokasi, false);
-  for (const b of rekapLokasiBertingkat(d.aset, d.lokasi, L.langsungDiLokasi)) {
+  for (const b of rekapLokasi(d.aset, d.lokasi)) {
     tabel(ws, r++, [
-      {
-        dari: 1,
-        sampai: 3,
-        nilai: jorok(b.nama, b.tingkat),
-        tebal: b.induk,
-      },
-      ...angkaRekap(b.jumlah, b.total, b.induk),
+      { dari: 1, sampai: 3, nilai: b.nama },
+      ...angkaRekap(b.jumlah, b.total),
     ]);
   }
   const adaLokasi = new Set(d.lokasi.map((l) => l.id));
