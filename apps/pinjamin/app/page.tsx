@@ -40,7 +40,6 @@ import {
   Package,
   QrCode,
   BarChart3,
-  Sparkles,
   Headset,
   FileText,
   Hash,
@@ -573,22 +572,19 @@ export default function LandingPage() {
       <main className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6">
         {/* Hero — menjelaskan halaman ini sebelum menampilkan form. */}
         <section className="pt-8 sm:pt-16 pb-8 sm:pb-10 text-center max-w-3xl mx-auto">
-          {/* Tagline. Memakai rounded-2xl (bukan rounded-full) supaya tetap
-              rapi kalau teksnya membungkus jadi 2 baris di layar sempit. */}
-          <div className="inline-flex items-center gap-2 rounded-2xl border border-amber-400/30 bg-amber-400/10 px-3 py-1.5 text-[11px] sm:text-xs font-semibold text-amber-200 leading-snug text-left">
-            <Sparkles className="h-3.5 w-3.5 shrink-0" />
-            Pusat Kendali Aset dan Layanan Terpadu Garudafood
-          </div>
-          <h1 className="mt-4 sm:mt-5 text-[26px] sm:text-4xl lg:text-5xl font-extrabold tracking-tight leading-[1.15] sm:leading-[1.1]">
-            Butuh bantuan soal aset?
+          {/* Badge tagline di atas judul dihapus: wireframe beranda (Gambar
+              3.9 laporan KP) tidak memuatnya. Judul menyebut "kendala di
+              tempat kerja", bukan "aset", karena tiket ditujukan ke GA,
+              Utility, dan IT. "Tanpa akun" sudah ada di baris bawah. */}
+          <h1 className="text-[26px] sm:text-4xl lg:text-5xl font-extrabold tracking-tight leading-[1.15] sm:leading-[1.1]">
+            Ada kendala di tempat kerja?
             <span className="block text-[#CBA12C]">
-              Kirim tiket, kami urus.
+              Kirim tiket, kami tindak lanjuti.
             </span>
           </h1>
           <p className="mt-3 sm:mt-4 text-[13px] sm:text-base text-slate-300/90 leading-relaxed">
-            Portal helpdesk Garudafood untuk kendala aset, IT, dan fasilitas.
-            Laporkan tanpa akun, dapatkan nomor tiket, lalu pantau statusnya
-            kapan saja.
+            Laporkan kendala fasilitas, utilitas, atau perangkat IT, lalu pantau
+            penanganannya lewat nomor tiket.
           </p>
           {/* CTA hero dihapus: header kini sticky sehingga tombol "Lacak"
               dan "Buat tiket" selalu terlihat sepanjang halaman — dua tombol
