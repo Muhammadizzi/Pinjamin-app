@@ -129,12 +129,16 @@ interface TrackTicket {
   createdAt: string;
 }
 
-/** Chip fitur SIGAP di kartu "Satu platform". */
+/**
+ * Chip fitur SIGAP di kartu "Satu platform". Nama modul mengikuti laporan KP
+ * (helpdesk & registri aset). Tidak ada pemindai QR di dalam aplikasi —
+ * stiker dipindai dengan kamera ponsel — jadi chip-nya "Stiker QR".
+ */
 const SIGAP_FEATURES = [
-  { icon: Package, label: "Manajemen Aset" },
-  { icon: QrCode, label: "QR Scanner" },
-  { icon: BarChart3, label: "Laporan" },
   { icon: Headset, label: "Helpdesk" },
+  { icon: Package, label: "Registri Aset" },
+  { icon: QrCode, label: "Stiker QR" },
+  { icon: BarChart3, label: "Laporan Aset" },
 ];
 
 /**
@@ -157,9 +161,12 @@ function PlatformCard({ className }: { className?: string }) {
       </div>
       {/* Kalimat penjelas disembunyikan di ponsel — chip fitur di
           bawahnya sudah menyampaikan hal yang sama secara ringkas. */}
+      {/* Kedua modul memang terpisah: tiket tidak tertaut ke aset. Jangan
+          tulis klaim seolah-olah tim bisa menautkan tiket ke aset. */}
       <p className="hidden sm:block text-xs text-slate-400 leading-relaxed">
-        Tiket Anda masuk ke sistem yang sama dengan katalog aset, jadi tim bisa
-        langsung menautkannya ke aset terkait.
+        SIGAP memuat dua modul terpisah dalam satu aplikasi: helpdesk untuk
+        laporan kendala ke GA, Utility, dan IT, serta registri aset divisi IT
+        yang datanya dapat dibuka lewat stiker QR.
       </p>
       <div className="flex flex-wrap gap-1.5 sm:gap-2">
         {SIGAP_FEATURES.map((f) => (
