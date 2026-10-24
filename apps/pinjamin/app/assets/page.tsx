@@ -16,7 +16,6 @@ import { locationOptions } from "@/lib/location-path";
 import {
   Search,
   Plus,
-  Download,
   QrCode,
   MapPin,
   Tag as TagIcon,
@@ -28,10 +27,7 @@ import {
   LayoutGrid,
   List,
   X,
-  CheckCircle2,
-  AlertCircle,
 } from "lucide-react";
-import * as XLSX from "xlsx";
 import { AssetImage } from "@/components/ui/asset-image";
 
 export default function AssetsPage() {
@@ -53,10 +49,6 @@ export default function AssetsPage() {
    * panel ditutup dulu; mulai sm ia selalu terbuka seperti sebelumnya.
    */
   const [filterOpen, setFilterOpen] = useState(false);
-  const [notice, setNotice] = useState<{
-    kind: "success" | "error";
-    msg: string;
-  } | null>(null);
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("ALL");
 
@@ -112,37 +104,6 @@ export default function AssetsPage() {
       action: () => deleteAsset(a.id),
     });
 
-  const exportCSV = () => {
-    if (filtered.length === 0) {
-      setNotice({ kind: "error", msg: t("exportEmpty") });
-      return;
-    }
-    // Judul kolom ikut bahasa aktif. Aman untuk diimpor balik: pendeteksi
-    // header di lib/import-file.ts mengenali istilah ID maupun EN.
-    const rows = filtered.map((a) => ({
-      [t("colName")]: a.name,
-      [t("colStatus")]: a.status,
-      [t("colCategory")]:
-        categories.find((c) => c.id === a.categoryId)?.name ?? "",
-      [t("colLocation")]: labelLokasi(a.locationId),
-      [t("colQr")]: a.qrCode,
-      [t("colValue")]: a.value ?? "",
-      [t("colSerial")]: a.serialNumber ?? "",
-      [t("colDescription")]: a.description ?? "",
-      [t("ownerLabel")]: a.owner ?? "",
-      [t("specLabel")]: a.spec ?? "",
-    }));
-    const stamp = new Date().toISOString().slice(0, 10);
-    const ws = XLSX.utils.json_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, t("sheetAssets"));
-    XLSX.writeFile(wb, `pinjamin-aset-${stamp}.xlsx`);
-    setNotice({
-      kind: "success",
-      msg: t("exportDone", { count: rows.length }),
-    });
-  };
-
   return (
     <AppShell>
       <div className="space-y-4">
@@ -156,16 +117,9 @@ export default function AssetsPage() {
               })}
             </p>
           </div>
-          {/* Di ponsel: 3 tombol dibagi rata satu baris, label Import
-              dipendekkan agar muat tanpa membungkus. */}
+          {/* Ekspor daftar aset dihapus: unduhan Excel cukup satu pintu,
+              yaitu Unduh Laporan di menu Laporan. */}
           <div className="grid grid-cols-2 gap-2 sm:flex sm:gap-2">
-            <Button
-              variant="outline"
-              onClick={exportCSV}
-              className="rounded-xl px-2 sm:px-6"
-            >
-              <Download className="h-4 w-4" /> {t("exportLabel")}
-            </Button>
             <Link href="/assets/new" className="contents sm:block">
               <Button className="rounded-xl w-full px-2 sm:w-auto sm:px-6">
                 <Plus className="h-4 w-4" />
@@ -175,32 +129,6 @@ export default function AssetsPage() {
             </Link>
           </div>
         </div>
-
-        {/* Notifikasi hasil import/export */}
-        {notice && (
-          <div
-            className={`flex items-start gap-2 rounded-xl border px-4 py-3 text-sm ${
-              notice.kind === "success"
-                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-200"
-                : "border-red-500/30 bg-red-500/10 text-red-200"
-            }`}
-            role="status"
-          >
-            {notice.kind === "success" ? (
-              <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0" />
-            ) : (
-              <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
-            )}
-            <span className="flex-1">{notice.msg}</span>
-            <button
-              onClick={() => setNotice(null)}
-              aria-label={t("closeNotification")}
-              className="shrink-0 opacity-70 hover:opacity-100 transition-opacity"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-        )}
 
         {/* Toolbar — Filter Rapi */}
         <Card className="border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">

@@ -277,9 +277,7 @@ export const messages = {
     "{filtered} aset • {total} total",
     "{filtered} assets • {total} total",
   ],
-  exportLabel: ["Ekspor", "Export"],
   newShort: ["Baru", "New"],
-  closeNotification: ["Tutup notifikasi", "Close notification"],
   searchAssets: ["Cari aset, QR, serial...", "Search assets, QR, serial..."],
   allStatus: ["Semua Status", "All Status"],
   allCategories: ["Semua Kategori", "All Categories"],
@@ -320,23 +318,13 @@ export const messages = {
     '"{name}" ({qr}) akan dihapus permanen dan tidak bisa dikembalikan.',
     '"{name}" ({qr}) will be permanently deleted and cannot be restored.',
   ],
-  exportEmpty: [
-    "Tidak ada aset untuk diekspor — filter saat ini kosong.",
-    "Nothing to export — the current filter matches no assets.",
-  ],
-  exportDone: [
-    "{count} aset diekspor ke Excel (.xlsx).",
-    "{count} assets exported to Excel (.xlsx).",
-  ],
   colName: ["Nama", "Name"],
   colStatus: ["Kondisi", "Condition"],
   colCategory: ["Kategori", "Category"],
   colLocation: ["Lokasi", "Location"],
   colQr: ["Kode QR", "QR Code"],
-  colValue: ["Nilai", "Value"],
   colSerial: ["Nomor Seri", "Serial Number"],
   colDescription: ["Deskripsi", "Description"],
-  sheetAssets: ["Aset", "Assets"],
 
   // ---------- Form aset ----------
   addAssetTitle: ["Tambah Aset", "Add Asset"],
