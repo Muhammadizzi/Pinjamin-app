@@ -25,8 +25,8 @@ export const messages = {
   helpdesk: ["Helpdesk", "Helpdesk"],
   helpdeskTickets: ["Tiket Bantuan", "Support Tickets"],
   sidebarHelpdeskHint: [
-    "Tiket masuk dari landing page tanpa login. Ubah statusnya agar user bisa melacak lewat nomor tiket.",
-    "Tickets arrive from the landing page without login. Update the status so users can track it by ticket number.",
+    "Tiket masuk dari beranda tanpa login. Ubah statusnya agar pelapor bisa melacak lewat nomor tiket.",
+    "Tickets arrive from the home page without login. Update the status so reporters can track it by ticket number.",
   ],
   tips: ["Tips", "Tips"],
   sidebarScanHint: [
@@ -165,8 +165,8 @@ export const messages = {
     "Only image files are allowed (jpg, png, webp).",
   ],
   maxFileSize: [
-    "Maksimal 5MB. Kompres dulu ya.",
-    "5MB maximum. Please compress it first.",
+    "Maksimal 5 MB. Kompres terlebih dahulu bila lebih besar.",
+    "5 MB maximum. Compress the file first if it is larger.",
   ],
   uploadFailed: ["Gagal upload", "Upload failed"],
   offlineStorageNote: [
@@ -176,8 +176,8 @@ export const messages = {
 
   // ---------- Tiket (admin helpdesk) ----------
   ticketsSub: [
-    "Terima, lacak, dan selesaikan permintaan bantuan dari landing page — user tidak perlu login.",
-    "Receive, track, and resolve help requests from the landing page — users don't need to log in.",
+    "Terima, lacak, dan selesaikan permintaan bantuan dari beranda. Pelapor tidak perlu login.",
+    "Receive, track, and resolve help requests from the home page. Reporters don't need to log in.",
   ],
   reload: ["Muat Ulang", "Reload"],
   loadDemoData: ["Muat data demo", "Load demo data"],
@@ -203,8 +203,8 @@ export const messages = {
   loadingTickets: ["Memuat tiket...", "Loading tickets..."],
   noTicketsYet: ["Belum ada tiket", "No tickets yet"],
   noTicketsHintAll: [
-    "Tiket dari landing page akan muncul di sini, atau muat data contoh Garudafood.",
-    "Tickets from the landing page show up here, or load the Garudafood sample data.",
+    "Tiket yang dikirim dari beranda akan muncul di sini.",
+    "Tickets sent from the home page show up here.",
   ],
   noTicketsHintFiltered: [
     "Tidak ada tiket berstatus {status}.",
@@ -221,7 +221,7 @@ export const messages = {
     "Hapus tiket {number} ({subject})? Tindakan ini tidak bisa dibatalkan.",
     "Delete ticket {number} ({subject})? This cannot be undone.",
   ],
-  ticketDeleted: ["Tiket dihapus ✓", "Ticket deleted ✓"],
+  ticketDeleted: ["Tiket {number} dihapus", "Ticket {number} deleted"],
   ticketDeleteFailed: [
     "Gagal menghapus tiket.",
     "Failed to delete the ticket.",
@@ -241,11 +241,11 @@ export const messages = {
     "Write a reply the reporter will read...",
   ],
   sendReply: ["Kirim Balasan", "Send Reply"],
-  replySent: ["Balasan terkirim ✓", "Reply sent ✓"],
+  replySent: ["Balasan terkirim", "Reply sent"],
   messageFailed: ["Gagal mengirim pesan.", "Failed to send the message."],
   replyVisibleHint: [
-    "Balasan ini tampil di portal pelapor dan mengubah status tiket menjadi Dibalas.",
-    "This reply appears in the reporter's portal and moves the ticket to Replied.",
+    "Balasan ini tampil di halaman Lacak Tiket pelapor dan mengubah status tiket menjadi Diproses.",
+    "This reply shows on the reporter's ticket page and moves the ticket to In Progress.",
   ],
   attachmentsLabel: ["Lampiran", "Attachments"],
   addAttachment: ["Tambah lampiran", "Add attachment"],
@@ -257,7 +257,14 @@ export const messages = {
   ],
   removeAttachment: ["Hapus lampiran", "Remove attachment"],
   changePriority: ["Prioritas", "Priority"],
-  prioritySaved: ["Prioritas diperbarui ✓", "Priority updated ✓"],
+  priorityChangedTo: [
+    "Prioritas {number} diubah ke {priority}",
+    "{number} priority set to {priority}",
+  ],
+  statusChangedTo: [
+    "Status {number} diubah ke {status}",
+    "{number} status set to {status}",
+  ],
   priorityHint: [
     "Prioritas dipakai tim untuk mengurutkan pekerjaan. Pelapor tidak memilihnya dan tidak melihatnya berubah.",
     "Priority is how the team orders its work. Reporters neither set it nor see it change.",
@@ -292,8 +299,8 @@ export const messages = {
   perPageOption: ["{count} / halaman", "{count} / page"],
   noAssetsYet: ["Belum ada aset", "No assets yet"],
   noAssetsHint: [
-    "Tambahkan aset pertama lewat tombol Aset Baru, atau muat data contoh Garudafood.",
-    "Add your first asset with the New Asset button, or load the Garudafood sample data.",
+    "Tambahkan aset pertama lewat tombol Aset Baru.",
+    "Add your first asset with the New Asset button.",
   ],
   createFirstAsset: ["Buat aset pertama", "Create the first asset"],
   demoDataLoaded: [
@@ -581,7 +588,7 @@ export const messages = {
     "Gagal menyimpan profil. Coba lagi.",
     "Failed to save the profile. Please try again.",
   ],
-  profileSaved: ["Profil berhasil disimpan ✓", "Profile saved ✓"],
+  profileSaved: ["Profil disimpan", "Profile saved"],
   usernameHint: [
     "3–32 karakter: huruf, angka, titik, strip, underscore. Dipakai saat login.",
     "3–32 characters: letters, digits, dots, hyphens, underscores. Used to sign in.",
@@ -607,19 +614,19 @@ export const messages = {
     "The new password confirmation does not match.",
   ],
   passwordResetFailed: [
-    "Gagal mereset password.",
-    "Failed to reset the password.",
+    "Password gagal diganti.",
+    "Couldn't change the password.",
   ],
   passwordResetFailedRetry: [
-    "Gagal mereset password. Coba lagi.",
-    "Failed to reset the password. Please try again.",
+    "Password gagal diganti. Coba lagi.",
+    "Couldn't change the password. Try again.",
   ],
   passwordResetOk: [
-    "Password berhasil direset — pakai password baru di login berikutnya ✓",
-    "Password reset — use the new one at your next sign-in ✓",
+    "Password diganti. Pakai password baru saat login berikutnya.",
+    "Password changed. Use the new one next time you sign in.",
   ],
   processing: ["Memproses...", "Processing..."],
-  resetPassword: ["Reset Password", "Reset Password"],
+  resetPassword: ["Ganti Password", "Change Password"],
   demoDataSection: ["Data contoh Garudafood", "Garudafood Sample Data"],
   demoDataSectionHint: [
     "Muat ulang dataset demo: 28 aset, pabrik Pati/Rembang, dan DC Cikarang. PERINGATAN: seluruh data aset yang ada sekarang akan ditimpa dan tidak bisa dikembalikan.",
@@ -689,12 +696,12 @@ export const messages = {
     "Change your login username?",
   ],
   confirmChangeUsernameBody: [
-    'Mulai sekarang kamu masuk memakai "{baru}", bukan "{lama}". Catat dulu sebelum melanjutkan — salah lima kali membuat login terkunci 15 menit.',
+    'Mulai sekarang Anda masuk memakai "{baru}", bukan "{lama}". Catat dulu sebelum melanjutkan — salah lima kali membuat login terkunci 15 menit.',
     'From now on you sign in as "{baru}", not "{lama}". Write it down before continuing — five wrong attempts lock login for 15 minutes.',
   ],
   yesChangeUsername: ["Ya, ganti username", "Yes, change it"],
   newLoginUsername: [
-    "Username login kamu sekarang",
+    "Username login Anda sekarang",
     "Your login username is now",
   ],
   newLoginUsernameHint: [

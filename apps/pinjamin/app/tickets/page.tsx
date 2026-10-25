@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useConfirmDialog } from "@/components/ui/confirm-dialog";
+import { useNoticeToast } from "@/components/ui/notice-toast";
 import { useT } from "@/lib/i18n";
 import {
   MessageBubble,
@@ -166,12 +167,7 @@ export default function TicketsPage() {
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
 
-  const [notice, setNotice] = useState<{
-    kind: "ok" | "err";
-    text: string;
-  } | null>(null);
   const [copied, setCopied] = useState(false);
-  const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -180,11 +176,7 @@ export default function TicketsPage() {
     failed: t("attachmentFailed"),
   });
 
-  const showNotice = useCallback((kind: "ok" | "err", text: string) => {
-    setNotice({ kind, text });
-    if (noticeTimer.current) clearTimeout(noticeTimer.current);
-    noticeTimer.current = setTimeout(() => setNotice(null), 2500);
-  }, []);
+  const { showNotice, noticeToast } = useNoticeToast();
 
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -384,9 +376,22 @@ export default function TicketsPage() {
       setSelected((prev) =>
         prev && prev.id === id ? { ...prev, ...updated } : prev
       );
-      if (patch.priority) showNotice("ok", t("prioritySaved"));
-      // Perubahan status sengaja TANPA toast — sudah terlihat langsung pada
-      // pill status yang aktif.
+      if (patch.status)
+        showNotice(
+          "ok",
+          t("statusChangedTo", {
+            number: updated.number,
+            status: ticketStatus(updated.status),
+          })
+        );
+      if (patch.priority)
+        showNotice(
+          "ok",
+          t("priorityChangedTo", {
+            number: updated.number,
+            priority: ticketPriority(updated.priority),
+          })
+        );
     } finally {
       setSaving(false);
     }
@@ -451,8 +456,7 @@ export default function TicketsPage() {
         if (res.ok) {
           setTickets((prev) => prev.filter((x) => x.id !== ticket.id));
           setSelected(null);
-          // Toast merah — penanda tindakan destruktif, bukan hijau (sukses biasa).
-          showNotice("err", t("ticketDeleted"));
+          showNotice("ok", t("ticketDeleted", { number: ticket.number }));
         } else {
           showNotice("err", t("ticketDeleteFailed"));
         }
@@ -953,19 +957,7 @@ export default function TicketsPage() {
           </Card>
         </div>
       )}
-      {/* Toast feedback (status tersimpan, tiket dihapus, dsb.) */}
-      {notice && (
-        <div
-          role="status"
-          className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] rounded-xl border px-4 py-2.5 text-sm font-medium shadow-2xl backdrop-blur-xl ${
-            notice.kind === "ok"
-              ? "bg-emerald-950/90 border-emerald-500/40 text-emerald-300"
-              : "bg-red-950/90 border-red-500/40 text-red-300"
-          }`}
-        >
-          {notice.text}
-        </div>
-      )}
+      {noticeToast}
       {confirmDialog}
     </AppShell>
   );

@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { useT } from "@/lib/i18n";
 import { useAuth } from "@/lib/auth-client";
 import { useConfirmDialog } from "@/components/ui/confirm-dialog";
+import { useNoticeToast } from "@/components/ui/notice-toast";
 import { uploadImage } from "@/lib/supabase";
 import { UserCog, KeyRound, ImagePlus, Trash2, Check } from "lucide-react";
 
@@ -21,6 +22,7 @@ export default function AccountSettingsPage() {
   const { t, serverError } = useT();
   const { user, loading: authLoading, setUser } = useAuth();
   const { ask, confirmDialog } = useConfirmDialog();
+  const { showNotice, noticeToast } = useNoticeToast();
 
   // --- Profil ------------------------------------------------------------
   const [profile, setProfile] = useState<Profile>({
@@ -103,7 +105,7 @@ export default function AccountSettingsPage() {
       setProfile(j.profile);
       setUser(j.profile);
       if (bergantiNama) setNamaLoginBaru(j.profile.username);
-      setProfileMsg({ ok: true, text: t("profileSaved") });
+      showNotice("ok", t("profileSaved"));
     } catch {
       setProfileMsg({ ok: false, text: t("profileSaveFailedRetry") });
     } finally {
@@ -167,7 +169,7 @@ export default function AccountSettingsPage() {
         setPwMsg({ ok: false, text: serverError(j, t("passwordResetFailed")) });
         return;
       }
-      setPwMsg({ ok: true, text: t("passwordResetOk") });
+      showNotice("ok", t("passwordResetOk"));
       setCurPw("");
       setNewPw("");
       setConfPw("");
@@ -378,6 +380,7 @@ export default function AccountSettingsPage() {
           </CardContent>
         </Card>
       </div>
+      {noticeToast}
       {confirmDialog}
     </AppShell>
   );
