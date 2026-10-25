@@ -570,9 +570,9 @@ export function TopBar({ onMenu }: { onMenu: () => void }) {
           <span className="hidden text-xs font-semibold text-slate-200 md:inline">
             {mode === "tickets"
               ? profile.workingOrder
-                ? `Ticketing · ${profile.workingOrder}`
-                : "Ticketing"
-              : "Aset"}
+                ? `${t("helpdesk")} · ${profile.workingOrder}`
+                : t("helpdesk")
+              : t("assets")}
           </span>
         </div>
         <LanguageToggle />

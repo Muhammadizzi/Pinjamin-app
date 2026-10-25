@@ -266,8 +266,8 @@ export const messages = {
     "{number} status set to {status}",
   ],
   priorityHint: [
-    "Prioritas dipakai tim untuk mengurutkan pekerjaan. Pelapor tidak memilihnya dan tidak melihatnya berubah.",
-    "Priority is how the team orders its work. Reporters neither set it nor see it change.",
+    "Prioritas dipakai tim untuk mengurutkan pekerjaan. Pelapor tidak bisa mengubahnya.",
+    "Priority is how the team orders its work. Reporters can't change it.",
   ],
   newReply: ["Balasan baru", "New reply"],
   newReplyHint: [

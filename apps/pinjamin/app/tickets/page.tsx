@@ -44,7 +44,7 @@ import {
   Send,
   Copy,
   Check,
-  ShieldAlert,
+  CheckCircle2,
 } from "lucide-react";
 
 /** Bentuk tiket seperti dikirim GET /api/tickets (lihat lib/tickets.ts). */
@@ -504,7 +504,7 @@ export default function TicketsPage() {
       key: "RESOLVED",
       label: ticketStatus("RESOLVED"),
       value: stats.resolved,
-      icon: ShieldAlert,
+      icon: CheckCircle2,
       cls: "from-emerald-500/20 to-emerald-500/5 text-emerald-300",
     },
   ];
