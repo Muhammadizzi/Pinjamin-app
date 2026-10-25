@@ -610,7 +610,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       {supaError && (
         <div className="fixed top-4 right-4 z-[9999] max-w-md bg-red-50 dark:bg-red-900/80 border border-red-200 dark:border-red-700 text-red-800 dark:text-red-200 px-4 py-3 rounded-lg shadow-xl text-sm">
           <div className="flex items-start justify-between gap-2">
-            <span className="font-medium">⚠️ {supaError}</span>
+            <span className="font-medium">{supaError}</span>
             <button
               onClick={() => setSupaError(null)}
               className="text-red-500 hover:text-red-700 dark:text-red-300 dark:hover:text-red-100 shrink-0 ml-2"

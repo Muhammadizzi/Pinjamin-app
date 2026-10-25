@@ -302,7 +302,7 @@ export function ImageUpload({
 
       {!isSupabase && (
         <p className="text-[11px] leading-relaxed text-amber-700 dark:text-amber-300/80">
-          ⚠️ {t("offlineStorageNote")}
+          {t("offlineStorageNote")}
         </p>
       )}
     </div>

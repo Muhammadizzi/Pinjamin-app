@@ -13,7 +13,6 @@ import {
   AlertTriangle,
   Plus,
   TrendingUp,
-  Sparkles,
 } from "lucide-react";
 
 function KartuAngka({
@@ -129,21 +128,16 @@ export default function DashboardPage() {
       <div className="space-y-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-1">
-            <div className="inline-flex items-center gap-2 rounded-full bg-[#1a365d]/5 dark:bg-white/5 border border-[#1a365d]/10 dark:border-white/10 px-3 py-1.5 text-xs backdrop-blur">
-              <Sparkles className="h-3 w-3 text-[#CBA12C]" strokeWidth={1.5} />
-              <span className="font-semibold tracking-wide">
-                {t("dashboard")} • Garudafood
-              </span>
-              <span className="h-3 w-px bg-slate-200 dark:bg-white/10" />
-              <span className="text-muted-foreground">
-                {t("todayIs", {
-                  date: new Date().toLocaleDateString(
-                    lang === "id" ? "id-ID" : "en-US",
-                    { weekday: "long", day: "numeric", month: "short" }
-                  ),
-                })}
-              </span>
-            </div>
+            {/* Label tanggal hari ini (wireframe Gambar 3.16). Dulu lencana
+                berikon bintang yang mengulang judul "Dasbor"; kini teks biasa. */}
+            <p className="text-xs text-muted-foreground">
+              {t("todayIs", {
+                date: new Date().toLocaleDateString(
+                  lang === "id" ? "id-ID" : "en-US",
+                  { weekday: "long", day: "numeric", month: "short" }
+                ),
+              })}
+            </p>
             <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight">
               {t("dashboard")}
             </h1>

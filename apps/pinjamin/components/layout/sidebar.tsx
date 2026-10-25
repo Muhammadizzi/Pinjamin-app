@@ -357,10 +357,6 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
             Garudafood
           </div>
         </div>
-        <div
-          className="ml-auto hidden lg:block h-2 w-2 rounded-full bg-emerald-400 animate-pulse"
-          title="online"
-        />
       </div>
 
       <div className="flex-1 overflow-y-auto px-3 py-4 space-y-6">
@@ -405,7 +401,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           {mode === "tickets" ? (
             <>
               <div className="text-xs font-semibold text-amber-200 mb-1">
-                🎧 {t("helpdesk")}
+                {t("helpdesk")}
               </div>
               <div className="text-xs text-slate-300 leading-relaxed">
                 {t("sidebarHelpdeskHint")}
@@ -414,7 +410,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           ) : (
             <>
               <div className="text-xs font-semibold text-amber-200 mb-1">
-                💡 {t("tips")}
+                {t("tips")}
               </div>
               <div className="text-xs text-slate-300 leading-relaxed">
                 {t("sidebarScanHint")}
@@ -552,10 +548,6 @@ export function TopBar({ onMenu }: { onMenu: () => void }) {
         <span className="text-[#CBA12C] font-bold tracking-wide">SIGAP</span>
         <span className="text-white/20">/</span>
         <span className="text-white/60 font-medium">Garudafood</span>
-        <span className="ml-3 hidden xl:inline-flex items-center gap-2 text-xs text-white/40">
-          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-          {t("systemActive")}
-        </span>
       </div>
       <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
         {/* Lencana wilayah kerja — BUKAN switcher lagi.

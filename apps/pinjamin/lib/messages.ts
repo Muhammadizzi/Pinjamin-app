@@ -33,7 +33,6 @@ export const messages = {
     "Tempel stiker QR di asetnya. Siapa pun bisa memindainya dengan kamera HP untuk melihat data aset — tanpa login.",
     "Stick the QR label on the asset. Anyone can scan it with a phone camera to see the asset data — no login needed.",
   ],
-  systemActive: ["Sistem aktif", "System online"],
 
   // ---------- Umum ----------
   add: ["Tambah", "Add"],
@@ -96,18 +95,15 @@ export const messages = {
   needsCheck: ["Perlu pengecekan", "Needs a check"],
   needsRepair: ["Perlu diperbaiki", "Needs repair"],
   noDamagedAssets: ["Tidak ada yang rusak", "Nothing damaged"],
-  allAssetsGood: [
-    "Semua aset kondisi baik 🎉",
-    "All assets in good condition 🎉",
-  ],
+  allAssetsGood: ["Semua aset kondisi baik", "All assets in good condition"],
   needsCompleting: ["Perlu Dilengkapi", "Needs Completing"],
   needsCompletingSub: [
     "Aset yang stikernya sudah bisa dipindai tapi datanya masih kosong.",
     "Assets whose sticker already scans but whose data is still empty.",
   ],
   allAssetsComplete: [
-    "Semua aset sudah lengkap datanya 🎉",
-    "Every asset has complete data 🎉",
+    "Semua aset sudah lengkap datanya",
+    "Every asset has complete data",
   ],
   missingFields: ["belum: {fields}", "missing: {fields}"],
 
