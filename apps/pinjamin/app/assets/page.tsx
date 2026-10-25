@@ -89,7 +89,6 @@ export default function AssetsPage() {
     if (sort === "newest")
       r.sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
     if (sort === "name") r.sort((a, b) => a.name.localeCompare(b.name));
-    if (sort === "value") r.sort((a, b) => (b.value || 0) - (a.value || 0));
     return r;
   }, [assets, q, status, cat, loc, sort]);
 
@@ -173,7 +172,6 @@ export default function AssetsPage() {
                   >
                     <option value="newest">{t("sortDateCreated")}</option>
                     <option value="name">{t("sortNameAz")}</option>
-                    <option value="value">{t("sortValue")}</option>
                   </Select>
                   <div className="hidden sm:flex rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden bg-white dark:bg-slate-900 p-1 gap-1">
                     <button

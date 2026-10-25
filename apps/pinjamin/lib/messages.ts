@@ -287,7 +287,6 @@ export const messages = {
   allLocations: ["Semua Lokasi", "All Locations"],
   sortDateCreated: ["Tanggal dibuat", "Date created"],
   sortNameAz: ["Nama A-Z", "Name A-Z"],
-  sortValue: ["Nilai", "Value"],
   listView: ["Tampilan daftar", "List view"],
   gridView: ["Tampilan kartu", "Grid view"],
   listLabel: ["Daftar", "List"],
@@ -403,13 +402,9 @@ export const messages = {
     "Free text. For non-computer assets, use capacity or power rating.",
   ],
   serialAuto: ["Serial Number (Otomatis)", "Serial Number (Automatic)"],
-  serialWillBe: [
-    "— akan jadi {serial} untuk aset ini",
-    "— will be {serial} for this asset",
-  ],
   serialAutoHint: [
-    "Nomor urut otomatis mulai 001, tidak perlu isi manual.",
-    "Auto-numbered from 001 — no need to type it in.",
+    "Nomor urut aset berikutnya, terisi otomatis.",
+    "The next asset number, filled in automatically.",
   ],
   saveAsset: ["Simpan Aset", "Save Asset"],
   nameRequired: ["Nama wajib diisi", "Name is required"],

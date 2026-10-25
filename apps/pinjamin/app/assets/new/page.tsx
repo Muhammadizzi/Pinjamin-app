@@ -163,10 +163,7 @@ export default function NewAssetPage() {
                 <div className="sm:col-span-2 space-y-2">
                   <Label>{t("serialAuto")}</Label>
                   <div className="h-11 rounded-xl border-2 border-dashed border-[#1a365d]/20 bg-slate-50 dark:bg-slate-800 flex items-center px-4 font-mono text-sm font-bold text-[#1a365d] dark:text-white">
-                    {nextSerial}{" "}
-                    <span className="ml-2 text-xs font-normal text-muted-foreground">
-                      {t("serialWillBe", { serial: nextSerial })}
-                    </span>
+                    {nextSerial}
                   </div>
                   <p className="text-xs text-muted-foreground">
                     {t("serialAutoHint")}

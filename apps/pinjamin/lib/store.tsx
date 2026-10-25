@@ -166,10 +166,31 @@ const TABLE_TO_API: Record<string, string> = {
   assets: "assets",
 };
 
+/**
+ * Pelacak mutasi yang masih dalam perjalanan ke server.
+ *
+ * Store mengambil ulang /api/data setiap admin pindah halaman. GET yang
+ * berangkat sebelum POST/PATCH/DELETE selesai bisa membawa data lama dan
+ * menimpa perubahan yang baru saja dibuat — gejalanya: aset yang baru
+ * disimpan tidak muncul di daftar sampai halaman dimuat ulang. Hasil GET
+ * dibuang bila ada mutasi yang berjalan saat GET berangkat atau dimulai
+ * selama GET berlangsung; perubahan lokal sudah ada di state.
+ */
+let mutasiBerjalan = 0;
+let mutasiKe = 0;
+function mulaiMutasi() {
+  mutasiBerjalan++;
+  mutasiKe++;
+}
+function selesaiMutasi() {
+  mutasiBerjalan = Math.max(0, mutasiBerjalan - 1);
+}
+
 // Mutasi via /api/data/[resource] — ganti direct Supabase (anon key).
 async function supaInsert(table: string, row: any) {
   const resource = TABLE_TO_API[table];
   if (!resource || !isSupabaseConfigured()) return;
+  mulaiMutasi();
   try {
     const dbRow = toDbRow(row);
     const res = await fetch(`/api/data/${resource}`, {
@@ -187,11 +208,14 @@ async function supaInsert(table: string, row: any) {
     }
   } catch (e) {
     fireSupaError(`insert ${table} via API exception`, e);
+  } finally {
+    selesaiMutasi();
   }
 }
 async function supaUpdate(table: string, id: string, patch: any) {
   const resource = TABLE_TO_API[table];
   if (!resource || !isSupabaseConfigured()) return;
+  mulaiMutasi();
   try {
     const dbPatch = toDbRow(patch);
     // Patch kosong (mis. hanya field yang di-undefined) tidak perlu bulak-balik
@@ -212,11 +236,14 @@ async function supaUpdate(table: string, id: string, patch: any) {
     }
   } catch (e) {
     fireSupaError(`update ${table} via API exception`, e);
+  } finally {
+    selesaiMutasi();
   }
 }
 async function supaDelete(table: string, id: string) {
   const resource = TABLE_TO_API[table];
   if (!resource || !isSupabaseConfigured()) return;
+  mulaiMutasi();
   try {
     const res = await fetch(`/api/data/${resource}/${encodeURIComponent(id)}`, {
       method: "DELETE",
@@ -231,6 +258,8 @@ async function supaDelete(table: string, id: string) {
     }
   } catch (e) {
     fireSupaError(`delete ${table} via API exception`, e);
+  } finally {
+    selesaiMutasi();
   }
 }
 
@@ -245,6 +274,7 @@ async function apiMutate(
   body?: any
 ) {
   if (!isSupabaseConfigured()) return;
+  mulaiMutasi();
   try {
     const res = await fetch(path, {
       method,
@@ -262,6 +292,8 @@ async function apiMutate(
     }
   } catch (e) {
     fireSupaError(`${method} ${path} exception`, e);
+  } finally {
+    selesaiMutasi();
   }
 }
 export function StoreProvider({ children }: { children: React.ReactNode }) {
@@ -416,10 +448,17 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       // Untuk mode Supabase: re-fetch data setelah login.
       if (isSupabase) {
         (async () => {
+          const sibukSaatBerangkat = mutasiBerjalan > 0;
+          const mutasiSaatBerangkat = mutasiKe;
           try {
             const res = await fetch("/api/data", { cache: "no-store" });
             if (res.ok) {
               const json = await res.json();
+              // Lihat catatan pada mutasiBerjalan: data ini mungkin dibaca
+              // sebelum perubahan terakhir tersimpan.
+              if (sibukSaatBerangkat || mutasiKe !== mutasiSaatBerangkat) {
+                return;
+              }
               if (json.configured && json.data) {
                 const fresh = json.data as AppData;
                 setData(fresh);
