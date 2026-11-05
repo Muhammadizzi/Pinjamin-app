@@ -82,7 +82,6 @@ export default function NewLocationPage() {
                 <Input
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  placeholder="Exist Plant, New Plant"
                   className="h-11 rounded-xl"
                   required
                 />
@@ -103,7 +102,6 @@ export default function NewLocationPage() {
                   onChange={(e) =>
                     setForm({ ...form, description: e.target.value })
                   }
-                  placeholder={t("locationDescriptionPlaceholder")}
                   rows={3}
                 />
               </div>

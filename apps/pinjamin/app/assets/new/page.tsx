@@ -80,7 +80,6 @@ export default function NewAssetPage() {
                   <Input
                     value={form.name}
                     onChange={(e) => setForm({ ...form, name: e.target.value })}
-                    placeholder="MacBook Pro 16 - IT"
                     required
                     className="h-11 rounded-xl"
                   />
@@ -92,7 +91,6 @@ export default function NewAssetPage() {
                     onChange={(e) =>
                       setForm({ ...form, description: e.target.value })
                     }
-                    placeholder={t("descriptionPlaceholder")}
                   />
                 </div>
                 <div className="space-y-2">

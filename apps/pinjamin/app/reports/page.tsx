@@ -69,9 +69,6 @@ export default function ReportsPage() {
     setGagalExcel(false);
     try {
       const { susunLaporanExcel } = await import("@/lib/laporan-excel");
-      const logo = await fetch("/sigap-logo-kop.png")
-        .then((r) => (r.ok ? r.arrayBuffer() : null))
-        .catch(() => null);
       const sekarang = new Date();
       const tanggal = new Intl.DateTimeFormat(
         lang === "en" ? "en-GB" : "id-ID",
@@ -86,7 +83,6 @@ export default function ReportsPage() {
           lokasi: locations,
           pembuat,
           tanggal: (iso) => formatDate(iso),
-          logo,
         },
         {
           ...L,
@@ -139,7 +135,6 @@ export default function ReportsPage() {
             <h1 className="text-xl sm:text-2xl font-bold tracking-tight">
               {t("reports")}
             </h1>
-            <p className="text-sm text-muted-foreground">{t("lapExcelHint")}</p>
             {gagalExcel && (
               <p className="mt-1 text-xs text-red-600">{t("lapExcelGagal")}</p>
             )}

@@ -397,27 +397,16 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           })}
         </div>
 
-        <div className="rounded-xl bg-[#1e3250] border border-[#2a4a6b] p-3">
-          {mode === "tickets" ? (
-            <>
-              <div className="text-xs font-semibold text-amber-200 mb-1">
-                {t("helpdesk")}
-              </div>
-              <div className="text-xs text-slate-300 leading-relaxed">
-                {t("sidebarHelpdeskHint")}
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="text-xs font-semibold text-amber-200 mb-1">
-                {t("tips")}
-              </div>
-              <div className="text-xs text-slate-300 leading-relaxed">
-                {t("sidebarScanHint")}
-              </div>
-            </>
-          )}
-        </div>
+        {mode === "tickets" && (
+          <div className="rounded-xl bg-[#1e3250] border border-[#2a4a6b] p-3">
+            <div className="text-xs font-semibold text-amber-200 mb-1">
+              {t("helpdesk")}
+            </div>
+            <div className="text-xs text-slate-300 leading-relaxed">
+              {t("sidebarHelpdeskHint")}
+            </div>
+          </div>
+        )}
       </div>
 
       <div

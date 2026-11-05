@@ -28,11 +28,6 @@ export const messages = {
     "Tiket masuk dari beranda tanpa login. Ubah statusnya agar pelapor bisa melacak lewat nomor tiket.",
     "Tickets arrive from the home page without login. Update the status so reporters can track it by ticket number.",
   ],
-  tips: ["Tips", "Tips"],
-  sidebarScanHint: [
-    "Tempel stiker QR di asetnya. Siapa pun bisa memindainya dengan kamera HP untuk melihat data aset — tanpa login.",
-    "Stick the QR label on the asset. Anyone can scan it with a phone camera to see the asset data — no login needed.",
-  ],
 
   // ---------- Umum ----------
   add: ["Tambah", "Add"],
@@ -336,7 +331,6 @@ export const messages = {
   ],
   assetInfo: ["Informasi Aset", "Asset Information"],
   assetName: ["Nama Aset", "Asset Name"],
-  descriptionPlaceholder: ["Deskripsi aset...", "Asset description..."],
   holderHistory: ["Riwayat & Catatan", "History & Notes"],
   loadingShort: ["Memuat…", "Loading…"],
   holderSince: [
@@ -485,10 +479,6 @@ export const messages = {
     "Lokasi baru akan tersedia untuk dipilih pada aset.",
     "The new location becomes selectable on assets.",
   ],
-  locationDescriptionPlaceholder: [
-    "Deskripsi lokasi, kapasitas, fasilitas...",
-    "Location description, capacity, facilities...",
-  ],
 
   // ---------- Peminjaman ----------
   genericFailed: ["Gagal", "Failed"],
@@ -517,10 +507,6 @@ export const messages = {
   lapTanpaLokasi: ["Tanpa Lokasi", "No Location"],
   lapSheetRingkasan: ["Ringkasan", "Summary"],
   lapSheetAset: ["Daftar Aset", "Asset List"],
-  lapExcelHint: [
-    "Satu berkas Excel siap cetak: ringkasan kondisi, rekap kategori dan lokasi, aset yang perlu tindak lanjut, serta daftar aset.",
-    "One print-ready Excel file: condition summary, category and location recaps, assets needing follow-up, and the asset list.",
-  ],
   lapUnduh: ["Unduh Laporan", "Download Report"],
   lapExcelMenyusun: ["Menyusun…", "Building…"],
   lapExcelGagal: [
