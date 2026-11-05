@@ -24,10 +24,6 @@ export const messages = {
   assetManagement: ["Manajemen Aset", "Asset Management"],
   helpdesk: ["Helpdesk", "Helpdesk"],
   helpdeskTickets: ["Tiket Bantuan", "Support Tickets"],
-  sidebarHelpdeskHint: [
-    "Tiket masuk dari beranda tanpa login. Ubah statusnya agar pelapor bisa melacak lewat nomor tiket.",
-    "Tickets arrive from the home page without login. Update the status so reporters can track it by ticket number.",
-  ],
 
   // ---------- Umum ----------
   add: ["Tambah", "Add"],
@@ -170,10 +166,6 @@ export const messages = {
   ],
 
   // ---------- Tiket (admin helpdesk) ----------
-  ticketsSub: [
-    "Terima, lacak, dan selesaikan permintaan bantuan dari beranda. Pelapor tidak perlu login.",
-    "Receive, track, and resolve help requests from the home page. Reporters don't need to log in.",
-  ],
   reload: ["Muat Ulang", "Reload"],
   loadDemoData: ["Muat data demo", "Load demo data"],
   confirmLoadDemoTickets: ["Muat tiket contoh?", "Load sample tickets?"],
@@ -238,10 +230,6 @@ export const messages = {
   sendReply: ["Kirim Balasan", "Send Reply"],
   replySent: ["Balasan terkirim", "Reply sent"],
   messageFailed: ["Gagal mengirim pesan.", "Failed to send the message."],
-  replyVisibleHint: [
-    "Balasan ini tampil di halaman Lacak Tiket pelapor dan mengubah status tiket menjadi Diproses.",
-    "This reply shows on the reporter's ticket page and moves the ticket to In Progress.",
-  ],
   attachmentsLabel: ["Lampiran", "Attachments"],
   addAttachment: ["Tambah lampiran", "Add attachment"],
   uploadingAttachment: ["Mengunggah...", "Uploading..."],
@@ -575,10 +563,6 @@ export const messages = {
     "3–32 characters: letters, digits, dots, hyphens, underscores. Used to sign in.",
   ],
   saveChanges: ["Simpan Perubahan", "Save Changes"],
-  passwordSectionHint: [
-    "Perbarui password di sini. Isi password saat ini untuk verifikasi, lalu masukkan password barunya.",
-    "Update your password here. Enter the current one to verify, then the new one.",
-  ],
   currentPassword: ["Password Saat Ini", "Current Password"],
   newPassword: ["Password Baru", "New Password"],
   confirmNewPassword: ["Konfirmasi Password Baru", "Confirm New Password"],

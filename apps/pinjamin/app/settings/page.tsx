@@ -319,9 +319,6 @@ export default function AccountSettingsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              {t("passwordSectionHint")}
-            </p>
             <div className="space-y-2">
               <Label>{t("currentPassword")}</Label>
               <Input

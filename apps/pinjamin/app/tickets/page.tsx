@@ -523,11 +523,6 @@ export default function TicketsPage() {
                 </span>
               )}
             </h1>
-            {/* Deskripsi panjang disembunyikan di ponsel — memakan 3 baris
-                sebelum konten yang sebenarnya dicari. */}
-            <p className="hidden sm:block text-sm text-slate-400 mt-1">
-              {t("ticketsSub")}
-            </p>
           </div>
           <div className="flex gap-2 w-full sm:w-auto">
             <Button
@@ -829,10 +824,6 @@ export default function TicketsPage() {
                     placeholder={t("replyPlaceholder")}
                     className="rounded-xl bg-[#12263f]"
                   />
-
-                  <p className="text-[11px] text-slate-500">
-                    {t("replyVisibleHint")}
-                  </p>
 
                   <PendingAttachments
                     items={attach.items}
