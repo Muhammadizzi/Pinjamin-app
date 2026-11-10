@@ -75,7 +75,7 @@ function RingkasKurang({ label, jumlah }: { label: string; jumlah: number }) {
 }
 
 export default function DashboardPage() {
-  const { assets } = useStore();
+  const { assets, assetModels } = useStore();
   const { t, lang, assetStatus } = useT();
   const statsRef = useRef<HTMLDivElement>(null);
 
@@ -163,7 +163,9 @@ export default function DashboardPage() {
           <KartuAngka
             label={t("totalAsset")}
             nilai={total}
-            catatan={t("allAssetsTracked")}
+            catatan={`${total} ${t("allAssetsTracked", {
+              models: assetModels.length,
+            })}`}
             ikon={Package}
             kelasIkon="bg-[#1a365d]"
           />
