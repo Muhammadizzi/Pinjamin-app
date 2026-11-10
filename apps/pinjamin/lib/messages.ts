@@ -14,6 +14,7 @@ export const messages = {
   home: ["Home", "Home"],
   assets: ["Aset", "Assets"],
   categories: ["Kategori", "Categories"],
+  assetModels: ["Model Aset", "Asset Models"],
   locations: ["Lokasi", "Locations"],
   reports: ["Laporan", "Reports"],
   accountSetting: ["Pengaturan Akun", "Account Settings"],
@@ -391,8 +392,8 @@ export const messages = {
   // ---------- Form aset ----------
   addAssetTitle: ["Tambah Aset", "Add Asset"],
   addAssetSub: [
-    "Isi detail aset baru. QR & Serial akan dibuat otomatis.",
-    "Fill in the new asset's details. QR and serial are generated automatically.",
+    "Pilih model, lalu isi data unitnya. QR dibuat otomatis.",
+    "Pick a model, then fill in the unit details. The QR code is generated automatically.",
   ],
   assetInfo: ["Informasi Aset", "Asset Information"],
   assetName: ["Nama Aset", "Asset Name"],
@@ -509,6 +510,54 @@ export const messages = {
     "The asset will be updated with the values in this form.",
   ],
   serialAutoLocked: ["Otomatis, tidak diubah", "Automatic, not editable"],
+
+  // ---------- Model aset (induk) & unit ----------
+  addModelTitle: ["Tambah Model Aset", "Add Asset Model"],
+  editModelTitle: ["Ubah Model Aset", "Edit Asset Model"],
+  modelName: ["Nama Model", "Model Name"],
+  modelPhoto: ["Foto Model", "Model Photo"],
+  modelLabel: ["Model Aset", "Asset Model"],
+  confirmAddModel: ['Tambah model "{name}"?', 'Add the model "{name}"?'],
+  confirmEditModel: [
+    'Simpan perubahan model "{name}"?',
+    'Save changes to the model "{name}"?',
+  ],
+  confirmEditModelBody: [
+    "{count} unit dari model ini ikut diperbarui.",
+    "{count} units of this model will be updated too.",
+  ],
+  confirmDeleteModel: ["Hapus model ini?", "Delete this model?"],
+  confirmDeleteModelBody: [
+    'Model "{name}" akan dihapus permanen.',
+    'The model "{name}" will be permanently deleted.',
+  ],
+  modelHasUnits: [
+    "Model masih punya unit. Hapus atau pindahkan unitnya dulu.",
+    "This model still has units. Delete or move them first.",
+  ],
+  modelNameTaken: ["Nama model sudah dipakai.", "Model name already in use."],
+  unitCount: ["{count} unit", "{count} units"],
+  viewUnits: ["Lihat unit", "View units"],
+  addUnit: ["Tambah unit", "Add unit"],
+  noModelsYet: ["Belum ada model aset.", "No asset models yet."],
+  modelMissing: [
+    "Model belum ada? Tambahkan di menu Model Aset.",
+    "Model not listed? Add it under Asset Models.",
+  ],
+  unitData: ["Data Unit", "Unit Details"],
+  unitNote: ["Catatan Unit", "Unit Notes"],
+  serialOptionalHint: [
+    "Kosongkan untuk nomor urut otomatis ({serial}).",
+    "Leave blank for the next automatic number ({serial}).",
+  ],
+  serialTaken: [
+    "Serial number {serial} sudah dipakai unit lain.",
+    "Serial number {serial} is already used by another unit.",
+  ],
+  otherUnits: ["Unit dari Model Ini", "Units of This Model"],
+  thisUnit: ["Unit ini", "This unit"],
+  allModels: ["Semua Model", "All Models"],
+  modelRequired: ["Pilih model aset dulu.", "Pick an asset model first."],
 
   // ---------- Lokasi ----------
   locationsSummary: ["{count} lokasi", "{count} locations"],

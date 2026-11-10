@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { AssetImage } from "@/components/ui/asset-image";
 import { AssetHoldersCard } from "@/components/asset-holders-card";
+import { ModelUnitsCard } from "@/components/model-units-card";
 
 export default function AssetDetailPage() {
   const params = useParams();
@@ -143,6 +144,8 @@ export default function AssetDetailPage() {
                 </div>
               </CardContent>
             </Card>
+
+            <ModelUnitsCard asset={asset} />
 
             <AssetHoldersCard assetId={asset.id} />
           </div>

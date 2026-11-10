@@ -22,8 +22,31 @@ export interface Location {
   createdAt: string;
 }
 
+/**
+ * Model (induk) aset, mis. "PC Dell OptiPlex 3000 Tower". Satu model punya
+ * banyak unit (baris Asset). Nama, kategori, spesifikasi, dan foto diisi
+ * sekali di sini; unit menyalinnya otomatis (lihat app/api/data/assets/**).
+ * Tabel `asset_models`, lihat supabase/20-model-aset.sql.
+ */
+export interface AssetModel {
+  id: string;
+  name: string;
+  categoryId?: string;
+  spec?: string;
+  image?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+/**
+ * Satu UNIT aset fisik. name/categoryId/spec/mainImage adalah salinan dari
+ * modelnya (assetModelId) — jangan disunting langsung untuk unit bermodel;
+ * ubah modelnya, maka semua unit ikut. Yang benar-benar milik unit: serial
+ * number, kondisi, lokasi, catatan (description), QR, dan pemakai.
+ */
 export interface Asset {
   id: string;
+  assetModelId?: string;
   name: string;
   description?: string;
   status: AssetStatus;
@@ -54,6 +77,7 @@ export interface AppData {
   categories: Category[];
   locations: Location[];
   assets: Asset[];
+  assetModels: AssetModel[];
 }
 
 /**

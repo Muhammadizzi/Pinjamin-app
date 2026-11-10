@@ -570,4 +570,5 @@ export const seedData: AppData = {
   categories,
   locations,
   assets,
+  assetModels: [],
 };

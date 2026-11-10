@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { AppShell } from "@/components/layout/sidebar";
@@ -13,45 +13,63 @@ import { useStore } from "@/lib/store";
 import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useT } from "@/lib/i18n";
 import { locationOptions } from "@/lib/location-path";
-import { ImageUpload } from "@/components/ui/image-upload";
+import { nextSerial, serialDipakai } from "@/lib/asset-model";
+import type { AssetStatus } from "@/lib/types";
+import { ModelPreview } from "@/components/model-preview";
 
+/**
+ * Tambah UNIT aset. Nama, kategori, spesifikasi, dan foto TIDAK diketik di
+ * sini — semuanya ikut dari model yang dipilih (koreksi dosen pembimbing,
+ * 11 Nov 2026). Yang diisi hanya data milik unit itu sendiri.
+ */
 export default function NewAssetPage() {
   const router = useRouter();
-  const { categories, locations, addAsset, assets } = useStore();
+  const { assetModels, locations, addAsset, assets } = useStore();
   const { t, assetStatus } = useT();
   const { ask, confirmDialog } = useConfirmDialog();
-  const [form, setForm] = useState<any>({
-    name: "",
+  const [form, setForm] = useState({
+    assetModelId: "",
+    serialNumber: "",
     description: "",
-    status: "GOOD",
-    spec: "",
-    categoryId: "",
+    status: "GOOD" as AssetStatus,
     locationId: "",
-    mainImage: "",
   });
+  const [galatSerial, setGalatSerial] = useState("");
 
-  // Serial otomatis: 001, 002, dst berdasarkan jumlah aset + 1
-  const nextSerial = String(assets.length + 1).padStart(3, "0");
+  // Dari tombol "Tambah unit" di halaman Model Aset: /assets/new?model=<id>.
+  useEffect(() => {
+    const dari = new URLSearchParams(window.location.search).get("model");
+    if (dari) setForm((f) => ({ ...f, assetModelId: dari }));
+  }, []);
+
+  const model = assetModels.find((m) => m.id === form.assetModelId);
+  const serialOtomatis = nextSerial(assets);
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name) return alert(t("nameRequired"));
+    if (!model) return alert(t("modelRequired"));
+    const serial = form.serialNumber.trim() || serialOtomatis;
+    if (serialDipakai(assets, serial)) {
+      setGalatSerial(t("serialTaken", { serial }));
+      return;
+    }
     ask({
-      title: t("confirmAddAsset", { name: form.name }),
-      description: t("confirmAddAssetBody", { serial: nextSerial }),
+      title: t("confirmAddAsset", { name: model.name }),
+      description: t("confirmAddAssetBody", { serial }),
       confirmLabel: t("yesAdd"),
       variant: "primary",
       action: () => {
         addAsset({
-          name: form.name,
-          description: form.description,
+          assetModelId: model.id,
+          // Salinan model — store dan server tetap menimpanya dari model.
+          name: model.name,
+          categoryId: model.categoryId,
+          spec: model.spec,
+          mainImage: model.image,
+          description: form.description.trim() || undefined,
           status: form.status,
-          categoryId: form.categoryId || undefined,
           locationId: form.locationId || undefined,
-          // Nilai dihilangkan sesuai request
-          serialNumber: nextSerial,
-          spec: form.spec.trim() || undefined,
-          mainImage: form.mainImage,
+          serialNumber: serial,
         });
         router.push("/assets");
       },
@@ -74,106 +92,103 @@ export default function NewAssetPage() {
           </CardHeader>
           <CardContent>
             <form onSubmit={submit} className="space-y-5">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="sm:col-span-2 space-y-2">
-                  <Label>{t("assetName")} *</Label>
-                  <Input
-                    value={form.name}
-                    onChange={(e) => setForm({ ...form, name: e.target.value })}
-                    required
-                    className="h-11 rounded-xl"
-                  />
-                </div>
-                <div className="sm:col-span-2 space-y-2">
-                  <Label>{t("description")}</Label>
-                  <Textarea
-                    value={form.description}
-                    onChange={(e) =>
-                      setForm({ ...form, description: e.target.value })
-                    }
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>{t("category")}</Label>
-                  <Select
-                    value={form.categoryId}
-                    onChange={(e) =>
-                      setForm({ ...form, categoryId: e.target.value })
-                    }
-                  >
-                    <option value="">{t("selectPlaceholder")}</option>
-                    {categories.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>{t("location")}</Label>
-                  <Select
-                    value={form.locationId}
-                    onChange={(e) =>
-                      setForm({ ...form, locationId: e.target.value })
-                    }
-                  >
-                    <option value="">{t("selectPlaceholder")}</option>
-                    {locationOptions(locations).map((l) => (
-                      <option key={l.id} value={l.id}>
-                        {l.label}
-                      </option>
-                    ))}
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>{t("status")}</Label>
-                  <Select
-                    value={form.status}
-                    onChange={(e) =>
-                      setForm({ ...form, status: e.target.value })
-                    }
-                  >
-                    <option value="GOOD">{assetStatus("GOOD")}</option>
-                    <option value="DAMAGED">{assetStatus("DAMAGED")}</option>
-                    <option value="MAINTENANCE">
-                      {assetStatus("MAINTENANCE")}
+              <div className="space-y-2">
+                <Label>{t("modelLabel")} *</Label>
+                <Select
+                  value={form.assetModelId}
+                  onChange={(e) =>
+                    setForm({ ...form, assetModelId: e.target.value })
+                  }
+                  required
+                >
+                  <option value="">{t("selectPlaceholder")}</option>
+                  {assetModels.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.name}
                     </option>
-                  </Select>
-                </div>
-                <div className="sm:col-span-2 rounded-xl border border-dashed bg-muted/40 px-3 py-2.5">
-                  <p className="text-xs text-muted-foreground">
-                    {t("holderAfterCreate")}
-                  </p>
-                </div>
-                <div className="sm:col-span-2 space-y-2">
-                  <Label>{t("specLabel")}</Label>
-                  <Input
-                    value={form.spec}
-                    onChange={(e) => setForm({ ...form, spec: e.target.value })}
-                    placeholder={t("specPlaceholder")}
-                    className="h-11 rounded-xl"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    {t("specHint")}
-                  </p>
-                </div>
-                {/* Serial otomatis */}
-                <div className="sm:col-span-2 space-y-2">
-                  <Label>{t("serialAuto")}</Label>
-                  <div className="h-11 rounded-xl border-2 border-dashed border-[#1a365d]/20 bg-slate-50 dark:bg-slate-800 flex items-center px-4 font-mono text-sm font-bold text-[#1a365d] dark:text-white">
-                    {nextSerial}
+                  ))}
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  <Link
+                    href="/models"
+                    className="underline hover:text-foreground"
+                  >
+                    {t("modelMissing")}
+                  </Link>
+                </p>
+              </div>
+
+              {model && <ModelPreview model={model} />}
+
+              <div className="border-t pt-5 space-y-4">
+                <div className="text-sm font-semibold">{t("unitData")}</div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="sm:col-span-2 space-y-2">
+                    <Label>{t("serialNumber")}</Label>
+                    <Input
+                      value={form.serialNumber}
+                      onChange={(e) => {
+                        setForm({ ...form, serialNumber: e.target.value });
+                        setGalatSerial("");
+                      }}
+                      className="h-11 rounded-xl font-mono"
+                    />
+                    {galatSerial ? (
+                      <p className="text-xs text-red-500">{galatSerial}</p>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">
+                        {t("serialOptionalHint", { serial: serialOtomatis })}
+                      </p>
+                    )}
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    {t("serialAutoHint")}
-                  </p>
-                </div>
-                <div className="sm:col-span-2">
-                  <ImageUpload
-                    value={form.mainImage}
-                    onChange={(url) => setForm({ ...form, mainImage: url })}
-                    label={t("assetPhoto")}
-                    uploadOnly
-                  />
+                  <div className="space-y-2">
+                    <Label>{t("status")}</Label>
+                    <Select
+                      value={form.status}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          status: e.target.value as AssetStatus,
+                        })
+                      }
+                    >
+                      <option value="GOOD">{assetStatus("GOOD")}</option>
+                      <option value="DAMAGED">{assetStatus("DAMAGED")}</option>
+                      <option value="MAINTENANCE">
+                        {assetStatus("MAINTENANCE")}
+                      </option>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>{t("location")}</Label>
+                    <Select
+                      value={form.locationId}
+                      onChange={(e) =>
+                        setForm({ ...form, locationId: e.target.value })
+                      }
+                    >
+                      <option value="">{t("selectPlaceholder")}</option>
+                      {locationOptions(locations).map((l) => (
+                        <option key={l.id} value={l.id}>
+                          {l.label}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+                  <div className="sm:col-span-2 space-y-2">
+                    <Label>{t("unitNote")}</Label>
+                    <Textarea
+                      value={form.description}
+                      onChange={(e) =>
+                        setForm({ ...form, description: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div className="sm:col-span-2 rounded-xl border border-dashed bg-muted/40 px-3 py-2.5">
+                    <p className="text-xs text-muted-foreground">
+                      {t("holderAfterCreate")}
+                    </p>
+                  </div>
                 </div>
               </div>
 

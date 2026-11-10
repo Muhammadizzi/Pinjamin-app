@@ -9,6 +9,10 @@ import {
   fromDbRow,
 } from "@/lib/resource-config";
 import { generateQRCode } from "@/lib/utils";
+import { siapkanBarisUnit } from "@/lib/asset-unit-server";
+
+/** Kode error Postgres untuk pelanggaran UNIQUE (QR atau serial). */
+const PG_UNIQUE = "23505";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,10 +26,21 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid body" }, { status: 400 });
   }
 
-  const row: Record<string, unknown> = {
+  const supa = getSupabaseAdmin();
+  if (!supa)
+    return NextResponse.json(
+      { error: "Supabase not configured" },
+      { status: 503 }
+    );
+
+  // Unit bermodel: nama/kategori/spesifikasi/foto diambil dari modelnya.
+  const siap = await siapkanBarisUnit(supa, {
     ...pickAllowed(body, ASSET_FIELDS),
     ...clientIdRow(body),
-  };
+  });
+  if (!siap.ok)
+    return NextResponse.json({ error: siap.error }, { status: siap.status });
+  const row = siap.row;
   if (!row.name)
     return NextResponse.json({ error: "name wajib diisi" }, { status: 400 });
 
@@ -35,19 +50,18 @@ export async function POST(req: NextRequest) {
   row.qr_code = isQrCode(qr) ? qr : generateQRCode();
   row.status = row.status || "GOOD";
 
-  const supa = getSupabaseAdmin();
-  if (!supa)
-    return NextResponse.json(
-      { error: "Supabase not configured" },
-      { status: 503 }
-    );
-
   const { data: asset, error } = await supa
     .from("assets")
     .insert(row)
     .select()
     .single();
   if (error) {
+    if (error.code === PG_UNIQUE) {
+      return NextResponse.json(
+        { error: "Serial number atau kode QR sudah dipakai unit lain." },
+        { status: 409 }
+      );
+    }
     console.error("[assets POST]", error.message);
     return NextResponse.json(
       { error: "Gagal menyimpan aset." },

@@ -14,13 +14,20 @@ export async function GET(req: NextRequest) {
   const supa = getSupabaseAdmin();
   if (!supa) return NextResponse.json({ configured: false });
 
-  const [categories, locations, assetsRes] = await Promise.all([
+  // Model aset diambil sebagai kueri TERPISAH, bukan embed di kueri aset:
+  // embed yang relasinya tidak dikenali PostgREST menggagalkan seluruh
+  // /api/data, dan panel jatuh ke data contoh (insiden asset_notes, 5 Nov).
+  const [categories, locations, assetsRes, models] = await Promise.all([
     supa.from("categories").select("*").limit(500),
     supa.from("locations").select("*").limit(500),
-    supa.from("assets").select("*, asset_notes(*)").limit(500),
+    supa.from("assets").select("*, asset_notes(*)").limit(1000),
+    supa.from("asset_models").select("*").order("name").limit(1000),
   ]);
 
+  // Model aset pelengkap: kalau tabelnya bermasalah, aset tetap termuat
+  // (unit tetap membawa salinan nama/kategori/spesifikasi/fotonya sendiri).
   const firstError = [categories, locations, assetsRes].find((r) => r.error);
+  if (models.error) console.error("[data GET] asset_models", models.error);
   if (firstError?.error) {
     return NextResponse.json(
       { error: firstError.error.message },
@@ -39,6 +46,7 @@ export async function GET(req: NextRequest) {
       categories: (categories.data || []).map(fromDbRow),
       locations: (locations.data || []).map(fromDbRow),
       assets,
+      assetModels: (models.data || []).map(fromDbRow),
     },
   });
 }

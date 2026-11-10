@@ -9,7 +9,14 @@ import React, {
 } from "react";
 import { usePathname } from "next/navigation";
 import { seedData } from "./seed";
-import type { AppData, Asset, AssetStatus, Category, Location } from "./types";
+import type {
+  AppData,
+  Asset,
+  AssetModel,
+  AssetStatus,
+  Category,
+  Location,
+} from "./types";
 import { generateId, generateQRCode } from "./utils";
 import { isSupabaseConfigured } from "./supabase";
 import { getCachedAdminUsername } from "./auth-client";
@@ -32,7 +39,32 @@ const dataKosong: AppData = {
   categories: [],
   locations: [],
   assets: [],
+  assetModels: [],
 };
+
+/**
+ * Lengkapi AppData dari sumber yang mungkin lebih tua dari fitur model aset
+ * (cache localStorage, respons deployment lama) — koleksi yang hilang
+ * dianggap kosong, bukan undefined yang membuat halaman crash.
+ */
+function rapikan(d: Partial<AppData>): AppData {
+  return {
+    categories: d.categories ?? [],
+    locations: d.locations ?? [],
+    assets: d.assets ?? [],
+    assetModels: d.assetModels ?? [],
+  };
+}
+
+/** Kolom unit yang disalin dari modelnya (cermin salinanDariModel di server). */
+function salinanModel(m: AssetModel): Partial<Asset> {
+  return {
+    name: m.name,
+    categoryId: m.categoryId || undefined,
+    spec: m.spec || undefined,
+    mainImage: m.image || undefined,
+  };
+}
 
 /** Baris hasil parse CSV impor aset (lihat app/assets/page.tsx). */
 
@@ -40,6 +72,14 @@ export type StoreContextType = AppData & {
   addAsset: (
     a: Omit<Asset, "id" | "qrCode" | "createdAt" | "updatedAt" | "notes">
   ) => void;
+  /** Daftarkan model aset; mengembalikan id-nya. */
+  addAssetModel: (
+    m: Omit<AssetModel, "id" | "createdAt" | "updatedAt">
+  ) => string;
+  /** Ubah model — semua unitnya ikut berubah (nama/kategori/spek/foto). */
+  updateAssetModel: (id: string, patch: Partial<AssetModel>) => void;
+  /** Hapus model. Pemanggil wajib memastikan model tidak punya unit. */
+  deleteAssetModel: (id: string) => void;
   updateAsset: (id: string, patch: Partial<Asset>) => void;
   deleteAsset: (id: string) => void;
   /**
@@ -84,7 +124,7 @@ function loadFromStorage(): AppData {
         Array.isArray(parsed.assets) &&
         Object.values(parsed).some((v) => Array.isArray(v) && v.length > 0)
       ) {
-        return parsed;
+        return rapikan(parsed);
       }
     }
   } catch {}
@@ -346,7 +386,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
       if (serverData && hasAnyItems(serverData)) {
         // Server sudah punya data nyata → sumber kebenaran.
-        const normalized = serverData;
+        const normalized = rapikan(serverData);
         setData(normalized);
         saveToStorage(normalized);
       } else {
@@ -409,7 +449,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           if (!res.ok) throw new Error(`GET /api/data -> ${res.status}`);
           const json = await res.json();
           if (json.configured && json.data) {
-            const normalized = json.data as AppData;
+            const normalized = rapikan(json.data as Partial<AppData>);
             setData(normalized);
             saveToStorage(normalized);
           } else {
@@ -460,7 +500,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
                 return;
               }
               if (json.configured && json.data) {
-                const fresh = json.data as AppData;
+                const fresh = rapikan(json.data as Partial<AppData>);
                 setData(fresh);
                 saveToStorage(fresh);
               }
@@ -528,8 +568,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     isHydrated,
     isSupabase,
     addAsset: (a) => {
+      const model = a.assetModelId
+        ? data.assetModels.find((m) => m.id === a.assetModelId)
+        : undefined;
       const newAsset = {
         ...a,
+        ...(model ? salinanModel(model) : {}),
         id: generateId(),
         qrCode: generateQRCode(),
         notes: [],
@@ -544,6 +588,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             // sama dengan state lokal (edit/hapus setelahnya langsung kena).
             id: newAsset.id,
             qrCode: newAsset.qrCode,
+            assetModelId: newAsset.assetModelId,
             name: newAsset.name,
             description: newAsset.description,
             status: newAsset.status,
@@ -571,11 +616,87 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       }
       setData((d) => ({
         ...d,
-        assets: d.assets.map((x) =>
-          x.id === id
-            ? { ...x, ...patch, updatedAt: new Date().toISOString() }
-            : x
+        assets: d.assets.map((x) => {
+          if (x.id !== id) return x;
+          const next = { ...x, ...patch, updatedAt: new Date().toISOString() };
+          // Unit bermodel selalu memakai nama/kategori/spek/foto modelnya —
+          // sama dengan yang dilakukan server.
+          const model = next.assetModelId
+            ? d.assetModels.find((m) => m.id === next.assetModelId)
+            : undefined;
+          return model ? { ...next, ...salinanModel(model) } : next;
+        }),
+      }));
+    },
+    addAssetModel: (m) => {
+      const row: AssetModel = {
+        ...m,
+        id: generateId(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      if (isSupabaseConfigured()) {
+        apiMutate(
+          "/api/data/asset-models",
+          "POST",
+          toDbRow({
+            id: row.id,
+            name: row.name,
+            categoryId: row.categoryId || null,
+            spec: row.spec || null,
+            image: row.image || null,
+          })
+        );
+      }
+      setData((d) => ({
+        ...d,
+        assetModels: [...d.assetModels, row].sort((a, b) =>
+          a.name.localeCompare(b.name)
         ),
+      }));
+      return row.id;
+    },
+    updateAssetModel: (id, patch) => {
+      if (isSupabaseConfigured()) {
+        const { id: _i, createdAt: _c, updatedAt: _u, ...fields } = patch;
+        const body: Record<string, unknown> = {};
+        if ("name" in fields) body.name = fields.name;
+        if ("categoryId" in fields) body.categoryId = fields.categoryId || null;
+        if ("spec" in fields) body.spec = fields.spec || null;
+        if ("image" in fields) body.image = fields.image || null;
+        apiMutate(
+          `/api/data/asset-models/${encodeURIComponent(id)}`,
+          "PATCH",
+          toDbRow(body)
+        );
+      }
+      setData((d) => {
+        const assetModels = d.assetModels
+          .map((m) =>
+            m.id === id
+              ? { ...m, ...patch, updatedAt: new Date().toISOString() }
+              : m
+          )
+          .sort((a, b) => a.name.localeCompare(b.name));
+        const model = assetModels.find((m) => m.id === id);
+        return {
+          ...d,
+          assetModels,
+          assets: model
+            ? d.assets.map((x) =>
+                x.assetModelId === id ? { ...x, ...salinanModel(model) } : x
+              )
+            : d.assets,
+        };
+      });
+    },
+    deleteAssetModel: (id) => {
+      if (isSupabaseConfigured()) {
+        apiMutate(`/api/data/asset-models/${encodeURIComponent(id)}`, "DELETE");
+      }
+      setData((d) => ({
+        ...d,
+        assetModels: d.assetModels.filter((m) => m.id !== id),
       }));
     },
     deleteAsset: (id) => {

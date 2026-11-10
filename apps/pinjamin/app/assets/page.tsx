@@ -27,11 +27,13 @@ import {
   LayoutGrid,
   List,
   X,
+  Boxes,
 } from "lucide-react";
 import { AssetImage } from "@/components/ui/asset-image";
 
 export default function AssetsPage() {
-  const { assets, categories, locations, deleteAsset } = useStore();
+  const { assets, assetModels, categories, locations, deleteAsset } =
+    useStore();
   const { t, formatDate, assetStatus } = useT();
 
   // Jalur lokasi dipetakan sekali, bukan dirakit ulang tiap baris tabel —
@@ -62,11 +64,16 @@ export default function AssetsPage() {
    * untuk satu parameter opsional.
    */
   useEffect(() => {
-    const dari = new URLSearchParams(window.location.search).get("status");
+    const url = new URLSearchParams(window.location.search);
+    const dari = url.get("status");
     if (dari && ["GOOD", "DAMAGED", "MAINTENANCE"].includes(dari)) {
       setStatus(dari);
     }
+    // /assets?model=<id> — dari halaman Model Aset dan detail aset.
+    const dariModel = url.get("model");
+    if (dariModel) setModel(dariModel);
   }, []);
+  const [model, setModel] = useState("ALL");
   const [cat, setCat] = useState("ALL");
   const [loc, setLoc] = useState("ALL");
   const [sort, setSort] = useState("newest");
@@ -84,13 +91,14 @@ export default function AssetsPage() {
           a.serialNumber?.toLowerCase().includes(q.toLowerCase())
       );
     if (status !== "ALL") r = r.filter((a) => a.status === status);
+    if (model !== "ALL") r = r.filter((a) => a.assetModelId === model);
     if (cat !== "ALL") r = r.filter((a) => a.categoryId === cat);
     if (loc !== "ALL") r = r.filter((a) => a.locationId === loc);
     if (sort === "newest")
       r.sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
     if (sort === "name") r.sort((a, b) => a.name.localeCompare(b.name));
     return r;
-  }, [assets, q, status, cat, loc, sort]);
+  }, [assets, q, status, model, cat, loc, sort]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / perPage));
   const paged = filtered.slice((page - 1) * perPage, page * perPage);
@@ -220,17 +228,25 @@ export default function AssetsPage() {
                     }`}
                   />
                 </button>
-                {(cat !== "ALL" || loc !== "ALL") && (
+                {(model !== "ALL" || cat !== "ALL" || loc !== "ALL") && (
                   <span className="ml-1 bg-[#1a365d] text-white text-[10px] px-2 py-0.5 rounded-full">
                     {t("filtersActive", {
-                      count: [cat !== "ALL", loc !== "ALL"].filter(Boolean)
-                        .length,
+                      count: [
+                        model !== "ALL",
+                        cat !== "ALL",
+                        loc !== "ALL",
+                      ].filter(Boolean).length,
                     })}
                   </span>
                 )}
-                {(cat !== "ALL" || loc !== "ALL" || status !== "ALL" || q) && (
+                {(model !== "ALL" ||
+                  cat !== "ALL" ||
+                  loc !== "ALL" ||
+                  status !== "ALL" ||
+                  q) && (
                   <button
                     onClick={() => {
+                      setModel("ALL");
                       setCat("ALL");
                       setLoc("ALL");
                       setStatus("ALL");
@@ -246,10 +262,32 @@ export default function AssetsPage() {
               </div>
 
               <div
-                className={`grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3 sm:grid ${
+                className={`grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 sm:grid ${
                   filterOpen ? "grid" : "hidden"
                 }`}
               >
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
+                    <Boxes className="h-3 w-3 text-slate-400" />
+                    {t("modelLabel")}
+                  </label>
+                  <Select
+                    value={model}
+                    onChange={(e) => {
+                      setModel(e.target.value);
+                      setPage(1);
+                    }}
+                    className="h-11 rounded-xl bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700"
+                  >
+                    <option value="ALL">{t("allModels")}</option>
+                    {assetModels.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.name}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+
                 <div className="space-y-1.5">
                   <label className="text-xs font-medium text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
                     <TagIcon className="h-3 w-3 text-slate-400" />
@@ -320,8 +358,22 @@ export default function AssetsPage() {
               </div>
 
               {/* Active filter chips */}
-              {(cat !== "ALL" || loc !== "ALL" || status !== "ALL") && (
+              {(model !== "ALL" ||
+                cat !== "ALL" ||
+                loc !== "ALL" ||
+                status !== "ALL") && (
                 <div className="flex flex-wrap gap-2 pt-1">
+                  {model !== "ALL" && (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-200 border border-emerald-200 dark:border-emerald-800 text-xs font-medium">
+                      {assetModels.find((m) => m.id === model)?.name}
+                      <button
+                        onClick={() => setModel("ALL")}
+                        className="hover:bg-black/10 rounded-full p-0.5"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  )}
                   {status !== "ALL" && (
                     <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#1a365d] text-white text-xs font-medium">
                       {t("status")}: {assetStatus(status)}

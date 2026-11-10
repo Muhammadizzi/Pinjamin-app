@@ -26,6 +26,7 @@ export const IMAGE_COLUMN: Record<string, string> = {
 };
 
 export const ASSET_FIELDS = [
+  "asset_model_id",
   "name",
   "description",
   "status",
@@ -39,6 +40,22 @@ export const ASSET_FIELDS = [
   // langsung, nama pemilik dan riwayat bisa mulai bercerita berbeda.
   "spec",
 ];
+
+/** Kolom model aset yang boleh ditulis client. */
+export const MODEL_FIELDS = ["name", "category_id", "spec", "image"];
+
+/**
+ * Kolom unit yang SELALU disalin dari modelnya. Dipakai saat unit dibuat,
+ * saat unit dipindah model, dan saat model diubah (semua unitnya ikut).
+ */
+export function salinanDariModel(model: Record<string, unknown>) {
+  return {
+    name: model.name,
+    category_id: model.category_id ?? null,
+    spec: model.spec ?? null,
+    main_image: model.image ?? null,
+  };
+}
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

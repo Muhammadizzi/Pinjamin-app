@@ -13,6 +13,7 @@ import type { AdminRole } from "@/lib/auth-types";
 import {
   LayoutDashboard,
   Package,
+  Boxes,
   Tag,
   MapPin,
   BarChart3,
@@ -324,6 +325,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
       : [
           { href: "/dashboard", label: t("home"), icon: LayoutDashboard },
           { href: "/assets", label: t("assets"), icon: Package },
+          { href: "/models", label: t("assetModels"), icon: Boxes },
           { href: "/categories", label: t("categories"), icon: Tag },
           { href: "/locations", label: t("locations"), icon: MapPin },
           { href: "/reports", label: t("reports"), icon: BarChart3 },
