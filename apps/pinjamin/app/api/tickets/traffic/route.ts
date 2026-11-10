@@ -22,9 +22,13 @@ export async function GET(req: NextRequest) {
   if (!gate.ok) return gate.res;
   try {
     const traffic = await trafficBulanIni();
-    return NextResponse.json(traffic, {
-      headers: { "Cache-Control": "no-store" },
-    });
+    // unitSaya hanya untuk label tombol "Unduh Laporan <unit>" di halaman.
+    return NextResponse.json(
+      { ...traffic, unitSaya: gate.admin.workingOrder },
+      {
+        headers: { "Cache-Control": "no-store" },
+      }
+    );
   } catch (e) {
     console.error("[tickets traffic]", e);
     return NextResponse.json(

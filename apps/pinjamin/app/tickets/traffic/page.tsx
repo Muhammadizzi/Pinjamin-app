@@ -4,17 +4,19 @@ import { AppShell } from "@/components/layout/sidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useT } from "@/lib/i18n";
+import { useAuth } from "@/lib/auth-client";
 import {
   ISSUE_UNSET,
   TICKET_STATUSES,
   WORKING_ORDERS,
   type TicketPriority,
+  type LaporanTrafficUnit,
   type TicketStatus,
   type TrafficBulanan,
   type TrafficHari,
   type WorkingOrder,
 } from "@/lib/ticket-shared";
-import { BarChart3, Loader2, RefreshCw } from "lucide-react";
+import { BarChart3, FileSpreadsheet, Loader2, RefreshCw } from "lucide-react";
 
 /**
  * Warna tiap unit di grafik. Urutan tetap GA → Utility → IT dan warnanya
@@ -49,8 +51,14 @@ const totalHari = (h: TrafficHari) =>
   WORKING_ORDERS.reduce((n, wo) => n + h[wo], 0);
 
 export default function TrafficPage() {
-  const { t, lang, ticketStatus, ticketPriority, issueType } = useT();
-  const [data, setData] = useState<TrafficBulanan | null>(null);
+  const { t, lang, ticketStatus, ticketPriority, issueType, formatDateTime } =
+    useT();
+  const { user } = useAuth();
+  const [data, setData] = useState<
+    (TrafficBulanan & { unitSaya?: string }) | null
+  >(null);
+  const [menyusun, setMenyusun] = useState(false);
+  const [gagalUnduh, setGagalUnduh] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [gagal, setGagal] = useState(false);
@@ -103,6 +111,118 @@ export default function TrafficPage() {
   const labelTanggal = (tanggal: string) =>
     formatTanggal.format(new Date(`${tanggal}T12:00:00+07:00`));
 
+  /**
+   * Laporan Excel untuk unit admin ini saja — daftar tiketnya diambil dari
+   * endpoint terpisah yang mengunci unit dari sesi. ExcelJS dan penyusunnya
+   * baru dimuat saat tombol ditekan.
+   */
+  const unduhLaporan = async () => {
+    setMenyusun(true);
+    setGagalUnduh(false);
+    try {
+      const res = await fetch("/api/tickets/traffic/unit");
+      if (!res.ok) throw new Error(String(res.status));
+      const laporan: LaporanTrafficUnit = await res.json();
+      const { susunLaporanTraffic } = await import(
+        "@/lib/laporan-traffic-excel"
+      );
+      const sekarang = new Date();
+      const tanggalPanjang = (d: Date) =>
+        new Intl.DateTimeFormat(locale, {
+          day: "numeric",
+          month: "long",
+          year: "numeric",
+          timeZone: "Asia/Jakarta",
+        }).format(d);
+      const awal = new Date(`${laporan.hariIni}T12:00:00+07:00`);
+      const rentang =
+        awal.getUTCDate() === 1
+          ? tanggalPanjang(awal)
+          : `1–${tanggalPanjang(awal)}`;
+      const unit = laporan.workingOrder;
+      const pembuat = user?.fullName || user?.username || "admin";
+
+      const isi = await susunLaporanTraffic(
+        {
+          laporan,
+          pembuat,
+          tanggalJam: (iso) => formatDateTime(iso),
+          tanggalHari: (tgl) =>
+            new Intl.DateTimeFormat(locale, {
+              weekday: "long",
+              day: "numeric",
+              month: "long",
+              year: "numeric",
+              timeZone: "Asia/Jakarta",
+            }).format(new Date(`${tgl}T12:00:00+07:00`)),
+        },
+        {
+          judul: t("lapTrafJudul", { unit: unit.toUpperCase() }),
+          kopUnit: t("lapTrafKopUnit", { unit: unit.toUpperCase() }),
+          periode: t("lapTrafPeriode", { rentang }),
+          ringkasan: t("lapTrafRingkasan"),
+          uraian: t("lapCetakUraian"),
+          jumlah: t("lapJumlah"),
+          persentase: t("lapPersen"),
+          totalMasuk: t("lapTrafTotal"),
+          bagianJenis: t("lapTrafJenis"),
+          bagianPrioritas: t("lapTrafPrioritas"),
+          no: t("lapNo"),
+          total: t("lapTotal"),
+          status: Object.fromEntries(
+            TICKET_STATUSES.map((st) => [st, ticketStatus(st)])
+          ) as Record<TicketStatus, string>,
+          prioritas: Object.fromEntries(
+            URUTAN_PRIORITAS.map((p) => [p, ticketPriority(p)])
+          ) as Record<TicketPriority, string>,
+          jenis: (kode) => issueType(kode),
+          kolomJenis: t("lapTrafKolomJenis"),
+          kolomNomor: t("lapTrafKolomNomor"),
+          kolomMasuk: t("lapTrafKolomMasuk"),
+          kolomSubjek: t("lapTrafKolomSubjek"),
+          kolomPrioritas: t("lapTrafKolomPrioritas"),
+          kolomStatus: t("lapTrafKolomStatus"),
+          kolomSelesai: t("lapTrafKolomSelesai"),
+          kolomTanggal: t("lapTrafKolomTanggal"),
+          tanpaTiket: t("trafficEmpty"),
+          kotaTanggal: t("lapCetakKotaTanggal", {
+            tanggal: tanggalPanjang(sekarang),
+          }),
+          dibuatOleh: t("lapCetakDibuatOleh"),
+          mengetahui: t("lapCetakMengetahui"),
+          dicetakOtomatis: t("lapCetakOtomatis", {
+            waktu: formatDateTime(sekarang),
+            nama: pembuat,
+          }),
+          halaman: t("lapCetakHalaman"),
+          judulDaftar: t("lapTrafDaftarJudul", { unit: unit.toUpperCase() }),
+          judulHarian: t("lapTrafHarianJudul", { unit: unit.toUpperCase() }),
+          sheetRingkasan: t("lapSheetRingkasan"),
+          sheetTiket: t("lapTrafSheetTiket"),
+          sheetHarian: t("lapTrafSheetHarian"),
+        }
+      );
+
+      const url = URL.createObjectURL(
+        new Blob([isi], {
+          type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        })
+      );
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `traffic-helpdesk-${unit.toLowerCase()}-${
+        laporan.bulan
+      }.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error("[traffic] Excel gagal disusun", e);
+      setGagalUnduh(true);
+    } finally {
+      setMenyusun(false);
+    }
+  };
+
   const selesaiSemua = data
     ? WORKING_ORDERS.reduce((n, wo) => n + data.unit[wo].status.RESOLVED, 0)
     : 0;
@@ -127,19 +247,40 @@ export default function TrafficPage() {
               </span>
             )}
           </h1>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={load}
-            disabled={refreshing}
-            className="rounded-xl w-full sm:w-auto"
-          >
-            <RefreshCw
-              className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
-            />
-            {t("reload")}
-          </Button>
+          <div className="flex w-full gap-2 sm:w-auto">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={load}
+              disabled={refreshing}
+              className="rounded-xl flex-1 sm:flex-none"
+            >
+              <RefreshCw
+                className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
+              />
+              {t("reload")}
+            </Button>
+            {data?.unitSaya && (
+              <Button
+                size="sm"
+                onClick={unduhLaporan}
+                disabled={menyusun}
+                className="rounded-xl flex-1 sm:flex-none bg-[#e6ad1a] hover:bg-amber-400 text-[#0a2240] font-semibold"
+              >
+                <FileSpreadsheet className="h-4 w-4" />
+                {menyusun
+                  ? t("lapExcelMenyusun")
+                  : t("trafficDownload", { unit: data.unitSaya })}
+              </Button>
+            )}
+          </div>
         </div>
+
+        {gagalUnduh && (
+          <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+            {t("lapExcelGagal")}
+          </div>
+        )}
 
         {loading ? (
           <div className="py-16 text-center text-slate-400">

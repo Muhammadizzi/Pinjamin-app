@@ -57,6 +57,8 @@ import {
   type TicketMessage,
   type TicketPriority,
   type TicketStatus,
+  type LaporanTrafficUnit,
+  type TiketLaporan,
   type TrafficBulanan,
   type TrafficHari,
   type TrafficUnit,
@@ -1241,6 +1243,88 @@ export async function trafficBulanIni(
   }
 
   return { bulan, hariIni, total, unit, harian };
+}
+
+/**
+ * Bahan laporan Excel traffic untuk SATU unit: rekap angka unit itu (sama
+ * persis dengan yang tampil di halaman Traffic) ditambah daftar tiketnya
+ * bulan berjalan — termasuk tiket selesai yang sudah tersembunyi dari panel.
+ *
+ * Unitnya ditentukan pemanggil dari sesi admin, bukan dari permintaan, supaya
+ * admin GA tidak bisa mengunduh daftar tiket IT. Kolom yang dibaca dibatasi:
+ * nama, email, nomor WhatsApp, dan isi pesan tidak pernah diambil.
+ */
+export async function laporanTrafficUnit(
+  wo: WorkingOrder,
+  now: number = Date.now()
+): Promise<LaporanTrafficUnit> {
+  const semua = await trafficBulanIni(now);
+  const awal = awalBulanWib(now);
+  const supa = getSupabaseAdmin();
+
+  const tiket: TiketLaporan[] = [];
+  const keBaris = (r: {
+    number: unknown;
+    subject: unknown;
+    issueType: unknown;
+    priority: unknown;
+    status: unknown;
+    createdAt: unknown;
+    resolvedAt: unknown;
+  }): TiketLaporan => ({
+    number: str(r.number),
+    subject: str(r.subject),
+    issueType:
+      typeof r.issueType === "string" && r.issueType ? r.issueType : null,
+    priority: isTicketPriority(r.priority) ? r.priority : "MEDIUM",
+    status: normalizeStatus(r.status),
+    createdAt: str(r.createdAt),
+    resolvedAt: nullableIso(r.resolvedAt),
+  });
+
+  if (supa) {
+    for (let dari = 0; ; dari += REF_PAGE) {
+      const { data, error } = await supa
+        .from(TABLE)
+        .select(
+          "number, subject, issue_type, priority, status, created_at, resolved_at"
+        )
+        .eq("category", wo)
+        .gte("created_at", awal)
+        .order("created_at", { ascending: true })
+        .range(dari, dari + REF_PAGE - 1);
+      if (error) throw new Error(error.message);
+      for (const r of (data || []) as Row[]) {
+        tiket.push(
+          keBaris({
+            number: r.number,
+            subject: r.subject,
+            issueType: r.issue_type,
+            priority: r.priority,
+            status: r.status,
+            createdAt: r.created_at,
+            resolvedAt: r.resolved_at,
+          })
+        );
+      }
+      if (!data || data.length < REF_PAGE) break;
+    }
+  } else {
+    for (const t of [...loadFile()].sort((a, b) =>
+      a.createdAt.localeCompare(b.createdAt)
+    )) {
+      if (t.workingOrder === wo && t.createdAt >= awal) tiket.push(keBaris(t));
+    }
+  }
+
+  return {
+    workingOrder: wo,
+    bulan: semua.bulan,
+    hariIni: semua.hariIni,
+    rekap: semua.unit[wo],
+    harian: semua.harian.map((h) => ({ tanggal: h.tanggal, jumlah: h[wo] })),
+    tiket,
+  };
 }
 
 export async function sweepOrphanAttachments(

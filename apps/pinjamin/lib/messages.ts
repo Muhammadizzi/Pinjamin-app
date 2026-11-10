@@ -189,6 +189,40 @@ export const messages = {
   ],
   trafficLoading: ["Memuat traffic…", "Loading traffic…"],
   trafficByIssue: ["Jenis kendala", "Issue types"],
+  trafficDownload: ["Unduh Laporan {unit}", "Download {unit} Report"],
+
+  // ---------- Laporan Excel traffic (per unit) ----------
+  lapTrafJudul: [
+    "LAPORAN TRAFFIC HELPDESK {unit}",
+    "HELPDESK TRAFFIC REPORT — {unit}",
+  ],
+  lapTrafKopUnit: [
+    "PLANT SUMEDANG - HELPDESK {unit}",
+    "PLANT SUMEDANG - HELPDESK {unit}",
+  ],
+  lapTrafPeriode: ["Periode {rentang}", "Period {rentang}"],
+  lapTrafRingkasan: ["A. Ringkasan Tiket", "A. Ticket Summary"],
+  lapTrafTotal: ["Total tiket masuk", "Total tickets received"],
+  lapTrafJenis: ["B. Jenis Kendala", "B. Issue Types"],
+  lapTrafPrioritas: ["C. Rekap per Prioritas", "C. Recap by Priority"],
+  lapTrafKolomJenis: ["Jenis Kendala", "Issue Type"],
+  lapTrafKolomPrioritas: ["Prioritas", "Priority"],
+  lapTrafKolomStatus: ["Status", "Status"],
+  lapTrafKolomNomor: ["No. Tiket", "Ticket No."],
+  lapTrafKolomMasuk: ["Tanggal Masuk", "Received"],
+  lapTrafKolomSubjek: ["Subjek", "Subject"],
+  lapTrafKolomSelesai: ["Tanggal Selesai", "Resolved"],
+  lapTrafKolomTanggal: ["Tanggal", "Date"],
+  lapTrafDaftarJudul: [
+    "DAFTAR TIKET HELPDESK {unit}",
+    "HELPDESK TICKET LIST — {unit}",
+  ],
+  lapTrafHarianJudul: [
+    "TIKET MASUK PER HARI — HELPDESK {unit}",
+    "TICKETS RECEIVED PER DAY — HELPDESK {unit}",
+  ],
+  lapTrafSheetTiket: ["Daftar Tiket", "Ticket List"],
+  lapTrafSheetHarian: ["Per Hari", "Per Day"],
 
   // ---------- Jenis kendala (kode di lib/ticket-shared.ts → ISSUE_TYPES) ----------
   issueType: ["Jenis kendala", "Issue type"],

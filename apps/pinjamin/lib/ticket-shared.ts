@@ -296,6 +296,34 @@ export interface TrafficBulanan {
   harian: TrafficHari[];
 }
 
+/** Satu baris daftar tiket di laporan Excel traffic per unit. */
+export interface TiketLaporan {
+  number: string;
+  subject: string;
+  issueType: string | null;
+  priority: TicketPriority;
+  status: TicketStatus;
+  createdAt: string;
+  resolvedAt: string | null;
+}
+
+/**
+ * Bentuk respons GET /api/tickets/traffic/unit — bahan laporan Excel untuk
+ * SATU unit, yaitu unit admin yang mengunduhnya.
+ *
+ * Berbeda dengan TrafficBulanan, ini memuat daftar tiket (nomor, subjek,
+ * jenis, prioritas, status, tanggal) — boleh, karena hanya tiket unit admin
+ * itu sendiri. Nama, email, nomor WhatsApp, dan isi pesan tetap tidak ikut.
+ */
+export interface LaporanTrafficUnit {
+  workingOrder: WorkingOrder;
+  bulan: string;
+  hariIni: string;
+  rekap: TrafficUnit;
+  harian: { tanggal: string; jumlah: number }[];
+  tiket: TiketLaporan[];
+}
+
 /** Batas jumlah baris yang dikirim ke landing page. */
 export const RECENT_TICKETS_MAX = 30;
 

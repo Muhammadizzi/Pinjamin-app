@@ -71,7 +71,7 @@ type ModulExcel = typeof import("exceljs");
  * ExcelJS adalah paket CommonJS. Tergantung bundler, isinya muncul langsung
  * di namespace impor atau terbungkus di `default` — keduanya diterima.
  */
-async function muatExcelJS(): Promise<ModulExcel> {
+export async function muatExcelJS(): Promise<ModulExcel> {
   const m = (await import("exceljs")) as ModulExcel & { default?: ModulExcel };
   return m.Workbook ? m : (m.default as ModulExcel);
 }
@@ -94,7 +94,7 @@ const ISI: Record<"judul" | "total", Fill> = {
 };
 
 /** Satu sel (atau rentang sel yang digabung) dalam satu baris. */
-interface Sel {
+export interface Sel {
   dari: number;
   sampai?: number;
   nilai: string | number;
@@ -106,7 +106,7 @@ interface Sel {
   garis?: boolean;
 }
 
-function tulis(ws: Worksheet, baris: number, s: Sel) {
+export function tulis(ws: Worksheet, baris: number, s: Sel) {
   const akhir = s.sampai ?? s.dari;
   if (akhir > s.dari) ws.mergeCells(baris, s.dari, baris, akhir);
   // Gaya dipasang ke SETIAP sel rentang: Excel menggambar garis per sel, jadi
@@ -131,7 +131,12 @@ function tulis(ws: Worksheet, baris: number, s: Sel) {
 }
 
 /** Baris tabel: semua selnya bergaris. */
-function tabel(ws: Worksheet, baris: number, sel: Sel[], tinggi?: number) {
+export function tabel(
+  ws: Worksheet,
+  baris: number,
+  sel: Sel[],
+  tinggi?: number
+) {
   for (const s of sel) tulis(ws, baris, { ...s, garis: true });
   if (tinggi) ws.getRow(baris).height = tinggi;
 }
@@ -141,7 +146,7 @@ function tabel(ws: Worksheet, baris: number, sel: Sel[], tinggi?: number) {
  * ulang tinggi baris yang berisi sel gabungan, jadi tanpa ini teks panjang
  * terpotong saat dicetak.
  */
-function tinggi(
+export function tinggi(
   isi: [teks: string, lebar: number][],
   ukuranHuruf: 9 | 10
 ): number {
@@ -156,7 +161,11 @@ function tinggi(
   return Math.max(16, baris * (ukuranHuruf + 3) + 4);
 }
 
-function cetakA4(ws: Worksheet, arah: "portrait" | "landscape", L: LabelCetak) {
+export function cetakA4(
+  ws: Worksheet,
+  arah: "portrait" | "landscape",
+  halaman: string
+) {
   ws.pageSetup = {
     paperSize: 9, // A4
     orientation: arah,
@@ -173,7 +182,7 @@ function cetakA4(ws: Worksheet, arah: "portrait" | "landscape", L: LabelCetak) {
       footer: 0.3,
     },
   };
-  ws.headerFooter.oddFooter = `&L&8${KOP.perusahaan}&R&8${L.halaman}`;
+  ws.headerFooter.oddFooter = `&L&8${KOP.perusahaan}&R&8${halaman}`;
 }
 
 /**
@@ -472,7 +481,7 @@ function lembarRingkasan(
   r++;
   tulis(ws, r, { ...semua, nilai: L.dicetakOtomatis, miring: true, ukuran: 8 });
 
-  cetakA4(ws, "portrait", L);
+  cetakA4(ws, "portrait", L.halaman);
 }
 
 // ---------------------------------------------------------------------------
@@ -566,7 +575,7 @@ function lembarDaftar(ws: Worksheet, d: DataCetak, L: LabelCetak) {
     from: { row: BARIS_KEPALA, column: 1 },
     to: { row: BARIS_KEPALA, column: kolom.length },
   };
-  cetakA4(ws, "landscape", L);
+  cetakA4(ws, "landscape", L.halaman);
   ws.pageSetup.printTitlesRow = `${BARIS_KEPALA}:${BARIS_KEPALA}`;
 }
 
