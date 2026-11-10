@@ -34,9 +34,14 @@ import {
   RECENT_TICKETS_DAYS,
   TICKET_RETENTION_DAYS,
   RECENT_TICKETS_MAX,
+  TICKET_PRIORITIES,
+  TICKET_STATUSES,
   TICKET_TOKEN_RE,
+  WORKING_ORDERS,
   WORKING_ORDER_PREFIX,
+  awalBulanWib,
   formatTicketNumber,
+  tanggalWib,
   isTicketPriority,
   isTicketDone,
   normalizeStatus,
@@ -49,6 +54,9 @@ import {
   type TicketMessage,
   type TicketPriority,
   type TicketStatus,
+  type TrafficBulanan,
+  type TrafficHari,
+  type TrafficUnit,
   type WorkingOrder,
 } from "./ticket-shared";
 
@@ -433,6 +441,25 @@ function newMessageId() {
 const byNewest = (a: Ticket, b: Ticket) => (a.createdAt < b.createdAt ? 1 : -1);
 
 /**
+ * Tiket SELESAI yang sudah lewat TICKET_RETENTION_DAYS sejak diselesaikan.
+ *
+ * Tiket seperti ini masih ada di database — ia baru dihapus permanen saat
+ * bulannya berganti, supaya tetap terhitung di Traffic helpdesk — tetapi bagi
+ * semua tampilan ia harus berperilaku persis seperti tiket yang sudah
+ * dihapus: tidak muncul di History publik, Lacak Tiket menjawab "tidak
+ * ditemukan", dan panel admin tidak lagi menampilkannya. Karena itu setiap
+ * pembaca tiket di file ini (daftar, per id, per nomor) melewatkannya.
+ *
+ * Patokannya resolved_at; created_at hanya cadangan untuk baris lama yang
+ * resolved_at-nya tidak pernah terisi — sama dengan purgeResolvedTickets.
+ */
+function tersembunyi(t: Ticket, now: number = Date.now()): boolean {
+  if (t.status !== "RESOLVED") return false;
+  const selesai = Date.parse(t.resolvedAt || t.createdAt);
+  return selesai < now - TICKET_RETENTION_DAYS * 24 * 60 * 60 * 1000;
+}
+
+/**
  * Daftar tiket, opsional DIBATASI ke satu working order.
  *
  * Penyaringnya sengaja di sini, bukan di route: dengan `.eq()` tiket milik
@@ -457,9 +484,9 @@ export async function listTickets(
     if (workingOrder) q = q.eq("category", workingOrder);
     const { data, error } = await q;
     if (error) throw new Error(error.message);
-    return (data || []).map(rowToTicket);
+    return (data || []).map(rowToTicket).filter((t) => !tersembunyi(t));
   }
-  const semua = [...loadFile()].sort(byNewest);
+  const semua = [...loadFile()].filter((t) => !tersembunyi(t)).sort(byNewest);
   return workingOrder
     ? semua.filter((t) => t.workingOrder === workingOrder)
     : semua;
@@ -467,6 +494,7 @@ export async function listTickets(
 
 export async function getTicketById(id: string): Promise<Ticket | null> {
   const supa = getSupabaseAdmin();
+  let ticket: Ticket | null;
   if (supa) {
     const { data, error } = await supa
       .from(TABLE)
@@ -474,9 +502,11 @@ export async function getTicketById(id: string): Promise<Ticket | null> {
       .eq("id", id)
       .maybeSingle();
     if (error) throw new Error(error.message);
-    return data ? rowToTicket(data) : null;
+    ticket = data ? rowToTicket(data) : null;
+  } else {
+    ticket = loadFile().find((t) => t.id === id) || null;
   }
-  return loadFile().find((t) => t.id === id) || null;
+  return ticket && !tersembunyi(ticket) ? ticket : null;
 }
 
 /**
@@ -606,16 +636,18 @@ export async function listRecentTickets(
       .limit(RIWAYAT_KANDIDAT_MAX);
     if (error) throw new Error(error.message);
     return berinomorAntrian(
-      susunRiwayat((data || []).map(rowToTicket), now).slice(
-        0,
-        RECENT_TICKETS_MAX
-      )
+      susunRiwayat(
+        (data || []).map(rowToTicket).filter((t) => !tersembunyi(t, now)),
+        now
+      ).slice(0, RECENT_TICKETS_MAX)
     );
   }
   return berinomorAntrian(
     susunRiwayat(
       [...loadFile()].filter(
-        (t) => t.createdAt >= batas || t.status !== "RESOLVED"
+        (t) =>
+          (t.createdAt >= batas || t.status !== "RESOLVED") &&
+          !tersembunyi(t, now)
       ),
       now
     ).slice(0, RECENT_TICKETS_MAX)
@@ -704,6 +736,7 @@ export async function getTicketByNumber(
 ): Promise<Ticket | null> {
   const n = number.trim().toUpperCase();
   const supa = getSupabaseAdmin();
+  let ticket: Ticket | null;
   if (supa) {
     const { data, error } = await supa
       .from(TABLE)
@@ -711,9 +744,14 @@ export async function getTicketByNumber(
       .eq("number", n)
       .maybeSingle();
     if (error) throw new Error(error.message);
-    return data ? rowToTicket(data) : null;
+    ticket = data ? rowToTicket(data) : null;
+  } else {
+    ticket = loadFile().find((t) => t.number.toUpperCase() === n) || null;
   }
-  return loadFile().find((t) => t.number.toUpperCase() === n) || null;
+  // Lacak Tiket, tukar email, dan portal pelapor semuanya lewat sini: tiket
+  // selesai yang lewat tenggat harus dijawab "tidak ditemukan", sama seperti
+  // dulu ketika barisnya sudah dihapus.
+  return ticket && !tersembunyi(ticket) ? ticket : null;
 }
 
 /**
@@ -1006,7 +1044,18 @@ async function collectReferencedPaths(): Promise<Set<string>> {
  * yang tidak lengkap jauh lebih buruk daripada tidak menyapu sama sekali.
  */
 /**
- * Hapus permanen tiket SELESAI yang umurnya lewat TICKET_RETENTION_DAYS.
+ * Hapus permanen tiket SELESAI yang sudah tersembunyi DAN dibuat sebelum
+ * bulan kalender WIB berjalan.
+ *
+ * Dua syarat, keduanya wajib:
+ * - lewat TICKET_RETENTION_DAYS sejak selesai — sebelum itu tiketnya masih
+ *   tampil di History publik dan panel admin;
+ * - dibuat SEBELUM tanggal 1 bulan ini — tiket bulan berjalan masih dihitung
+ *   Traffic helpdesk (lihat trafficBulanIni). Begitu bulan berganti, traffic
+ *   bulan lalu memang direset, jadi barisnya boleh dibuang.
+ *
+ * Dulu (sampai 10 Nov 2026) hanya syarat pertama yang berlaku, sehingga tiket
+ * lenyap sehari setelah selesai dan tidak pernah bisa direkap per bulan.
  *
  * ⚠️ Ini menghancurkan data, bukan menyembunyikannya. Balasan admin ikut
  * terbawa lewat ON DELETE CASCADE di ticket_messages, dan lampirannya menjadi
@@ -1028,6 +1077,7 @@ export async function purgeResolvedTickets(
   const batas = new Date(
     now - TICKET_RETENTION_DAYS * 24 * 60 * 60 * 1000
   ).toISOString();
+  const awalBulan = awalBulanWib(now);
 
   // Patokannya resolved_at kalau ada — kapan tiket BERES, bukan kapan ia
   // dibuat. Tiket yang dikerjakan tiga hari lalu dan baru selesai tadi pagi
@@ -1038,6 +1088,7 @@ export async function purgeResolvedTickets(
     .delete()
     .eq("status", "RESOLVED")
     .lt("resolved_at", batas)
+    .lt("created_at", awalBulan)
     .select("number");
 
   if (error) throw new Error(error.message);
@@ -1047,12 +1098,114 @@ export async function purgeResolvedTickets(
     .delete()
     .eq("status", "RESOLVED")
     .is("resolved_at", null)
-    .lt("created_at", batas)
+    .lt("created_at", batas < awalBulan ? batas : awalBulan)
     .select("number");
 
   if (err2) throw new Error(err2.message);
 
   return { dihapus: (data?.length || 0) + (tanpaTanggal?.length || 0) };
+}
+
+/* ------------------------------------------------------------------ */
+/* Traffic helpdesk                                                    */
+/* ------------------------------------------------------------------ */
+
+type BarisTraffic = {
+  workingOrder: string;
+  status: unknown;
+  priority: unknown;
+  createdAt: string;
+};
+
+/**
+ * Rekap semua tiket yang MASUK pada bulan kalender WIB berjalan, apa pun
+ * statusnya — termasuk tiket selesai yang sudah tersembunyi dari tampilan
+ * lain (lihat tersembunyi): justru itulah alasan barisnya ditahan sampai
+ * akhir bulan.
+ *
+ * Yang dibaca dari database hanya empat kolom; nama, kontak, subjek, dan isi
+ * tiket tidak pernah diambil. Tanggal 1 bulan berikutnya hitungan mulai dari
+ * nol, dan cron gc membuang baris bulan lalu.
+ *
+ * Dipaginasi eksplisit — PostgREST memotong hasil di 1.000 baris secara
+ * diam-diam, dan traffic yang terpotong tampak wajar padahal salah.
+ */
+export async function trafficBulanIni(
+  now: number = Date.now()
+): Promise<TrafficBulanan> {
+  const awal = awalBulanWib(now);
+  const supa = getSupabaseAdmin();
+
+  const baris: BarisTraffic[] = [];
+  if (supa) {
+    for (let dari = 0; ; dari += REF_PAGE) {
+      const { data, error } = await supa
+        .from(TABLE)
+        .select("category, status, priority, created_at")
+        .gte("created_at", awal)
+        .order("created_at", { ascending: true })
+        .range(dari, dari + REF_PAGE - 1);
+      if (error) throw new Error(error.message);
+      for (const r of (data || []) as Row[]) {
+        baris.push({
+          workingOrder: str(r.category),
+          status: r.status,
+          priority: r.priority,
+          createdAt: str(r.created_at),
+        });
+      }
+      if (!data || data.length < REF_PAGE) break;
+    }
+  } else {
+    for (const t of loadFile()) {
+      if (t.createdAt >= awal) baris.push(t);
+    }
+  }
+
+  const unitKosong = (): TrafficUnit => ({
+    total: 0,
+    status: Object.fromEntries(TICKET_STATUSES.map((s) => [s, 0])) as Record<
+      TicketStatus,
+      number
+    >,
+    prioritas: Object.fromEntries(
+      TICKET_PRIORITIES.map((p) => [p, 0])
+    ) as Record<TicketPriority, number>,
+  });
+  const unit = Object.fromEntries(
+    WORKING_ORDERS.map((wo) => [wo, unitKosong()])
+  ) as Record<WorkingOrder, TrafficUnit>;
+
+  // Satu baris per tanggal, dari tanggal 1 sampai hari ini — hari tanpa
+  // tiket tetap muncul sebagai nol, supaya grafiknya tidak melompati hari.
+  const hariIni = tanggalWib(now);
+  const bulan = hariIni.slice(0, 7);
+  const jumlahHari = Number(hariIni.slice(8, 10));
+  const harian: TrafficHari[] = Array.from({ length: jumlahHari }, (_, i) => ({
+    tanggal: `${bulan}-${String(i + 1).padStart(2, "0")}`,
+    ...(Object.fromEntries(WORKING_ORDERS.map((wo) => [wo, 0])) as Record<
+      WorkingOrder,
+      number
+    >),
+  }));
+
+  let total = 0;
+  for (const b of baris) {
+    // Tiket berunit lama/tak dikenal tidak punya kolom di rekap ini.
+    if (!isWorkingOrder(b.workingOrder)) continue;
+    const u = unit[b.workingOrder];
+    u.total++;
+    u.status[normalizeStatus(b.status)]++;
+    if (isTicketPriority(b.priority)) u.prioritas[b.priority]++;
+    total++;
+
+    const hari = harian[Number(tanggalWib(b.createdAt).slice(8, 10)) - 1];
+    if (hari && hari.tanggal === tanggalWib(b.createdAt)) {
+      hari[b.workingOrder]++;
+    }
+  }
+
+  return { bulan, hariIni, total, unit, harian };
 }
 
 export async function sweepOrphanAttachments(

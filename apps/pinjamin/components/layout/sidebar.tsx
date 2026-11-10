@@ -317,7 +317,10 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
 
   const navItems =
     mode === "tickets"
-      ? [{ href: "/tickets", label: t("helpdeskTickets"), icon: LifeBuoy }]
+      ? [
+          { href: "/tickets", label: t("helpdeskTickets"), icon: LifeBuoy },
+          { href: "/tickets/traffic", label: t("trafficNav"), icon: BarChart3 },
+        ]
       : [
           { href: "/dashboard", label: t("home"), icon: LayoutDashboard },
           { href: "/assets", label: t("assets"), icon: Package },
@@ -369,9 +372,11 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
               : t("assetManagement")}
           </div>
           {navItems.map((item) => {
+            // "/tickets" juga awalan "/tickets/traffic" — tanpa pencocokan
+            // persis, kedua menu helpdesk menyala bersamaan.
             const isActive =
-              item.href === "/dashboard"
-                ? pathname === "/dashboard"
+              item.href === "/dashboard" || item.href === "/tickets"
+                ? pathname === item.href
                 : pathname.startsWith(item.href);
             return (
               <Link

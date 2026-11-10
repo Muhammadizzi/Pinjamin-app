@@ -167,6 +167,27 @@ export const messages = {
 
   // ---------- Tiket (admin helpdesk) ----------
   reload: ["Muat Ulang", "Reload"],
+
+  // ---------- Traffic helpdesk ----------
+  trafficNav: ["Traffic", "Traffic"],
+  trafficTitle: ["Traffic Helpdesk", "Helpdesk Traffic"],
+  trafficAllUnits: ["Semua unit", "All units"],
+  trafficResolvedOf: ["{n} selesai", "{n} resolved"],
+  trafficDaily: ["Tiket masuk per hari", "Tickets received per day"],
+  trafficByStatus: ["Per status", "By status"],
+  trafficByPriority: ["Per prioritas", "By priority"],
+  trafficUnit: ["Unit", "Unit"],
+  trafficColTotal: ["Total", "Total"],
+  trafficTickets: ["{n} tiket", "{n} tickets"],
+  trafficEmpty: [
+    "Belum ada tiket masuk bulan ini.",
+    "No tickets received this month yet.",
+  ],
+  trafficLoadFailed: [
+    "Traffic gagal dimuat. Coba lagi.",
+    "Traffic could not be loaded. Please try again.",
+  ],
+  trafficLoading: ["Memuat traffic…", "Loading traffic…"],
   loadDemoData: ["Muat data demo", "Load demo data"],
   confirmLoadDemoTickets: ["Muat tiket contoh?", "Load sample tickets?"],
   confirmLoadDemoTicketsBody: [

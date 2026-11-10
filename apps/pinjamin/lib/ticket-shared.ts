@@ -181,17 +181,79 @@ export function slaDeadlines(createdAt: string, priority: TicketPriority) {
 export const RECENT_TICKETS_DAYS = 1;
 
 /**
- * Umur tiket SELESAI sebelum dihapus permanen, dalam hari.
+ * Umur tiket SELESAI sebelum menghilang dari semua tampilan, dalam hari.
  *
  * Hanya RESOLVED yang kena. OPEN, ON_HOLD, dan IN_PROGRESS tidak pernah
- * dihapus otomatis — menghapus tiket yang masih dikerjakan berarti pekerjaan
- * berjalan lenyap dari panel admin di tengah jalan.
+ * disembunyikan maupun dihapus otomatis — pekerjaan yang masih berjalan tidak
+ * boleh lenyap dari panel admin di tengah jalan.
  *
- * ⚠️ Penghapusannya PERMANEN dan mencakup seluruh balasan admin. Pelapor yang
- * membuka Lacak Tiket setelah tenggat ini akan mendapat "tiket tidak
- * ditemukan". Ini keputusan pemilik produk, 2 September 2026.
+ * Lewat tenggat ini tiket TIDAK langsung dihapus (sejak 10 Nov 2026, koreksi
+ * dosen pembimbing): ia hilang dari History publik, Lacak Tiket, dan panel
+ * admin — persis seperti dulu ketika ia dihapus — tetapi barisnya disimpan
+ * sampai bulannya berakhir supaya tetap terhitung di Traffic helpdesk. Hapus
+ * permanennya menunggu bulan berganti (lihat purgeResolvedTickets).
+ *
+ * Pelapor yang membuka Lacak Tiket setelah tenggat ini tetap mendapat "tiket
+ * tidak ditemukan". Angka 1 hari keputusan pemilik produk, 2 September 2026.
  */
 export const TICKET_RETENTION_DAYS = 1;
+
+/* ------------------------------------------------------------------ */
+/* Traffic helpdesk (bulan kalender WIB)                               */
+/* ------------------------------------------------------------------ */
+
+const FORMAT_TANGGAL_WIB = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "Asia/Jakarta",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
+/** Tanggal kalender WIB, "YYYY-MM-DD". */
+export function tanggalWib(waktu: string | number | Date): string {
+  return FORMAT_TANGGAL_WIB.format(new Date(waktu));
+}
+
+/**
+ * Awal bulan kalender WIB yang memuat `now`, sebagai ISO UTC.
+ *
+ * Batas bulan di Garudafood, bukan di server: Vercel berjalan dalam UTC, dan
+ * tanpa ini tiket yang masuk 1 Desember pukul 05.00 WIB (30 November 22.00
+ * UTC) akan terhitung ke traffic November. Jakarta tidak mengenal DST, jadi
+ * offset +07:00 selalu tepat.
+ */
+export function awalBulanWib(now: number = Date.now()): string {
+  const bulan = tanggalWib(now).slice(0, 7);
+  return new Date(`${bulan}-01T00:00:00+07:00`).toISOString();
+}
+
+/** Rekap satu unit dalam Traffic helpdesk. */
+export interface TrafficUnit {
+  total: number;
+  status: Record<TicketStatus, number>;
+  prioritas: Record<TicketPriority, number>;
+}
+
+/** Jumlah tiket masuk per unit pada satu tanggal WIB. */
+export type TrafficHari = { tanggal: string } & Record<WorkingOrder, number>;
+
+/**
+ * Bentuk respons GET /api/tickets/traffic.
+ *
+ * HANYA angka. Nama, email, nomor WhatsApp, subjek, dan isi tiket tidak
+ * pernah ikut — itulah yang membuat ketiga meja boleh saling melihat traffic
+ * meski isi tiketnya tetap terkunci per meja.
+ */
+export interface TrafficBulanan {
+  /** Bulan berjalan, "YYYY-MM" (WIB). */
+  bulan: string;
+  /** Hari ini, "YYYY-MM-DD" (WIB). */
+  hariIni: string;
+  total: number;
+  unit: Record<WorkingOrder, TrafficUnit>;
+  /** Tanggal 1 sampai hari ini, berurutan. */
+  harian: TrafficHari[];
+}
 
 /** Batas jumlah baris yang dikirim ke landing page. */
 export const RECENT_TICKETS_MAX = 30;
