@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { gateHelpdeskAdmin } from "@/lib/auth";
 import { deleteTicket, getTicketForDesk, updateTicket } from "@/lib/tickets";
 import {
+  isIssueTypeFor,
   isTicketPriority,
   isTicketStatus,
   type TicketPriority,
@@ -14,7 +15,11 @@ export const dynamic = "force-dynamic";
 type Ctx = { params: Promise<{ id: string }> };
 
 /**
- * PATCH /api/tickets/:id — ubah status atau prioritas tiket (admin).
+ * PATCH /api/tickets/:id — ubah status, prioritas, atau jenis kendala
+ * tiket (admin).
+ *
+ * Jenis kendala hanya boleh kode dari daftar unit admin itu sendiri
+ * (ISSUE_TYPES), atau null untuk mengosongkannya.
  *
  * Email pelapor TIDAK lagi bisa diubah dari sini. Dulu itu jalan keluar
  * untuk pelapor yang salah ketik emailnya sendiri dan jadi terkunci dari
@@ -48,6 +53,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   const patch: {
     status?: TicketStatus;
     priority?: TicketPriority;
+    issueType?: string | null;
   } = {};
 
   if (body.status !== undefined) {
@@ -68,6 +74,19 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
       );
     }
     patch.priority = body.priority;
+  }
+
+  if (body.issueType !== undefined) {
+    if (
+      body.issueType !== null &&
+      !isIssueTypeFor(gate.admin.workingOrder, body.issueType)
+    ) {
+      return NextResponse.json(
+        { error: "Jenis kendala tidak dikenal." },
+        { status: 400 }
+      );
+    }
+    patch.issueType = body.issueType;
   }
 
   if (Object.keys(patch).length === 0) {

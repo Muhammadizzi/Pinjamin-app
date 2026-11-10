@@ -115,6 +115,42 @@ export const WORKING_ORDER_PREFIX: Record<WorkingOrder, string> = {
 };
 
 /* ------------------------------------------------------------------ */
+/* Jenis kendala                                                       */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Jenis kendala per unit, ditentukan ADMIN di detail tiket — pelapor tidak
+ * memilihnya (keputusan pemilik produk, 10 Nov 2026: pelapor cukup menulis
+ * kendala dan melampirkan foto). Dipakai Traffic helpdesk untuk menghitung
+ * kendala yang paling sering dilaporkan.
+ *
+ * Yang tersimpan di kolom `issue_type` adalah KODE, bukan label; labelnya di
+ * lib/messages.ts (kunci `issue_<KODE>`). Label boleh diubah kapan saja.
+ * Kode yang dihapus dari daftar ini tidak merusak apa pun — tiketnya hanya
+ * terhitung "Belum ditentukan" sampai admin memilih ulang.
+ *
+ * Usulan awal disusun dari subjek 20 tiket pertama (Agustus–November 2026).
+ */
+export const ISSUE_TYPES = {
+  GA: ["CLEANING", "FACILITY", "FURNITURE", "SAFETY", "OTHER"],
+  Utility: ["ELECTRICITY", "AC", "WATER", "OTHER"],
+  IT: ["PRINTER", "NETWORK", "COMPUTER", "ACCOUNT", "CCTV", "OTHER"],
+} as const satisfies Record<WorkingOrder, readonly string[]>;
+
+export type IssueType = (typeof ISSUE_TYPES)[WorkingOrder][number];
+
+/** Kode untuk tiket yang jenis kendalanya belum dipilih admin. */
+export const ISSUE_UNSET = "UNSET";
+
+export function isIssueTypeFor(wo: string, v: unknown): v is IssueType {
+  return (
+    isWorkingOrder(wo) &&
+    typeof v === "string" &&
+    (ISSUE_TYPES[wo] as readonly string[]).includes(v)
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /* SLA                                                                 */
 /* ------------------------------------------------------------------ */
 
@@ -232,6 +268,11 @@ export interface TrafficUnit {
   total: number;
   status: Record<TicketStatus, number>;
   prioritas: Record<TicketPriority, number>;
+  /**
+   * Jumlah per jenis kendala (kode ISSUE_TYPES unit ini + ISSUE_UNSET).
+   * Kode lama yang sudah tidak ada di daftar ikut terhitung ISSUE_UNSET.
+   */
+  jenis: Record<string, number>;
 }
 
 /** Jumlah tiket masuk per unit pada satu tanggal WIB. */

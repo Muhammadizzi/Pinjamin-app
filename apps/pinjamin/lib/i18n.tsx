@@ -49,6 +49,8 @@ type I18nValue = {
   ticketStatus: (status: string) => string;
   /** Label prioritas tiket (LOW, MEDIUM, HIGH, URGENT). */
   ticketPriority: (priority: string) => string;
+  /** Label jenis kendala tiket (kode ISSUE_TYPES); null/tak dikenal → "Belum ditentukan". */
+  issueType: (code: string | null | undefined) => string;
   /**
    * Terjemahkan bodi error dari API. Route mengirim `code` yang stabil
    * (lihat app/api/auth/**) plus `error` berbahasa Indonesia sebagai
@@ -184,6 +186,10 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
       assetStatus: byKey(ASSET_STATUS_KEY),
       ticketStatus: byKey(TICKET_STATUS_KEY),
       ticketPriority: byKey(TICKET_PRIORITY_KEY),
+      issueType: (code) => {
+        const key = `issue_${code ?? "UNSET"}`;
+        return key in messages ? t(key as MessageKey) : t("issue_UNSET");
+      },
     };
   }, [lang, setLang]);
 

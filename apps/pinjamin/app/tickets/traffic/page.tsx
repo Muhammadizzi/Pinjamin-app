@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useT } from "@/lib/i18n";
 import {
+  ISSUE_UNSET,
   TICKET_STATUSES,
   WORKING_ORDERS,
   type TicketPriority,
@@ -48,7 +49,7 @@ const totalHari = (h: TrafficHari) =>
   WORKING_ORDERS.reduce((n, wo) => n + h[wo], 0);
 
 export default function TrafficPage() {
-  const { t, lang, ticketStatus, ticketPriority } = useT();
+  const { t, lang, ticketStatus, ticketPriority, issueType } = useT();
   const [data, setData] = useState<TrafficBulanan | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -196,6 +197,24 @@ export default function TrafficPage() {
                   </CardContent>
                 </Card>
               ))}
+            </div>
+
+            {/* Kendala yang paling sering dilaporkan, per unit */}
+            <div className="space-y-2">
+              <h2 className="text-base font-semibold text-white">
+                {t("trafficByIssue")}
+              </h2>
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                {WORKING_ORDERS.map((wo) => (
+                  <JenisKendalaUnit
+                    key={wo}
+                    wo={wo}
+                    jenis={data.unit[wo].jenis}
+                    label={issueType}
+                    kosong={t("trafficEmpty")}
+                  />
+                ))}
+              </div>
             </div>
 
             {/* Grafik tiket masuk per hari, ditumpuk per unit */}
@@ -394,6 +413,107 @@ export default function TrafficPage() {
         )}
       </div>
     </AppShell>
+  );
+}
+
+/** Satu baris: nama jenis, batang sepanjang jumlahnya, lalu angkanya. */
+function BarisJenis({
+  teks,
+  n,
+  maks,
+  warna,
+}: {
+  teks: string;
+  n: number;
+  maks: number;
+  warna: string;
+}) {
+  return (
+    <div className="grid grid-cols-[minmax(0,9rem)_1fr] items-center gap-3 text-xs">
+      <span className="truncate text-slate-300" title={teks}>
+        {teks}
+      </span>
+      <span className="flex items-center gap-2">
+        {n > 0 && (
+          <span
+            aria-hidden="true"
+            className="h-2.5 rounded-r-[4px]"
+            style={{ width: `${(n / maks) * 85}%`, background: warna }}
+          />
+        )}
+        <span className="tabular-nums text-white">{n}</span>
+      </span>
+    </div>
+  );
+}
+
+/**
+ * Batang horizontal berperingkat untuk satu unit: jenis terbanyak di atas,
+ * satu warna (warna unitnya). "Belum ditentukan" selalu paling bawah dan
+ * abu-abu — ia bukan jenis kendala, melainkan tiket yang belum dipilahkan
+ * admin, jadi tidak boleh tampil bersaing dengan jenis yang sebenarnya.
+ */
+function JenisKendalaUnit({
+  wo,
+  jenis,
+  label,
+  kosong,
+}: {
+  wo: WorkingOrder;
+  jenis: Record<string, number>;
+  label: (kode: string) => string;
+  kosong: string;
+}) {
+  const baris = Object.entries(jenis)
+    .filter(([k]) => k !== ISSUE_UNSET)
+    .map(([k, n], urutan) => ({ k, n, urutan }))
+    .sort((a, b) => b.n - a.n || a.urutan - b.urutan);
+  const belum = jenis[ISSUE_UNSET] ?? 0;
+  const maks = Math.max(1, belum, ...baris.map((b) => b.n));
+  const total = baris.reduce((n, b) => n + b.n, 0) + belum;
+
+  return (
+    <Card>
+      <CardHeader className="pb-2 sm:pb-3">
+        <CardTitle className="flex items-center gap-1.5 text-base text-white">
+          <span
+            aria-hidden="true"
+            className="h-2.5 w-2.5 rounded-full"
+            style={{ background: WARNA_UNIT[wo] }}
+          />
+          {wo}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        {total === 0 ? (
+          <div className="py-4 text-center text-xs text-slate-400">
+            {kosong}
+          </div>
+        ) : (
+          <>
+            {baris.map((b) => (
+              <BarisJenis
+                key={b.k}
+                teks={label(b.k)}
+                n={b.n}
+                maks={maks}
+                warna={WARNA_UNIT[wo]}
+              />
+            ))}
+            {belum > 0 && (
+              <div className="border-t border-[#243a5e] pt-2">
+                <BarisJenis
+                  teks={label(ISSUE_UNSET)}
+                  n={belum}
+                  maks={maks}
+                  warna="#64748b"
+                />
+              </div>
+            )}
+          </>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 

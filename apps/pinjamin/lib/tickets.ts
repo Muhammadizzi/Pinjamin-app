@@ -33,6 +33,8 @@ import {
   MESSAGE_MAX,
   RECENT_TICKETS_DAYS,
   TICKET_RETENTION_DAYS,
+  ISSUE_TYPES,
+  ISSUE_UNSET,
   RECENT_TICKETS_MAX,
   TICKET_PRIORITIES,
   TICKET_STATUSES,
@@ -46,6 +48,7 @@ import {
   isTicketDone,
   normalizeStatus,
   isWorkingOrder,
+  isIssueTypeFor,
   slaDeadlines,
   ticketSeq,
   type MessageAuthor,
@@ -98,6 +101,11 @@ export interface Ticket {
   message: string;
   status: TicketStatus;
   priority: TicketPriority;
+  /**
+   * Jenis kendala (kode ISSUE_TYPES), ditentukan admin. null = belum.
+   * Kolom `issue_type`, lihat supabase/19-tickets-jenis-kendala.sql.
+   */
+  issueType: string | null;
   /**
    * Kunci portal pelapor (64 hex). RAHASIA — hanya boleh keluar ke pelapor
    * yang baru membuat tiket dan ke admin. Jangan pernah masukkan ke payload
@@ -153,6 +161,8 @@ const PRIORITAS_AWAL: TicketPriority = "MEDIUM";
 type TicketPatch = {
   status?: TicketStatus;
   priority?: TicketPriority;
+  /** null = kosongkan pilihan. Validasi per unit di route PATCH. */
+  issueType?: string | null;
 };
 
 /* ------------------------------------------------------------------ */
@@ -199,6 +209,10 @@ function rowToTicket(row: Row): Ticket {
     message: str(row.message),
     status: normalizeStatus(row.status),
     priority: isTicketPriority(row.priority) ? row.priority : "MEDIUM",
+    issueType:
+      typeof row.issue_type === "string" && row.issue_type
+        ? row.issue_type
+        : null,
     accessToken: str(row.access_token),
     attachments: parseAttachments(row.attachments),
     adminNote: str(row.admin_note),
@@ -213,6 +227,11 @@ function rowToTicket(row: Row): Ticket {
   };
 }
 
+/**
+ * Baris untuk INSERT tiket baru. `issue_type` sengaja tidak ikut: tiket baru
+ * selalu belum punya jenis kendala (default kolomnya NULL), dan membuat tiket
+ * — jalur paling penting bagi pelapor — tidak boleh bergantung pada kolom itu.
+ */
 function ticketToRow(t: Ticket): Row {
   return {
     id: t.id,
@@ -326,6 +345,7 @@ function normalizeTicket(raw: Partial<Ticket> & { id: string }): Ticket {
     message: raw.message || "",
     status,
     priority,
+    issueType: raw.issueType ?? null,
     accessToken: raw.accessToken || newToken(),
     attachments: parseAttachments(raw.attachments),
     adminNote: raw.adminNote || "",
@@ -804,6 +824,7 @@ export async function createTicket(data: NewTicketInput): Promise<Ticket> {
       ...data,
       status: "OPEN",
       priority: PRIORITAS_AWAL,
+      issueType: null,
       accessToken: newToken(),
       adminNote: "",
       responseDueAt: due.responseDueAt,
@@ -867,6 +888,7 @@ function applyPatch(current: Ticket, patch: TicketPatch, now: string): Ticket {
       next.resolvedAt = null;
     }
   }
+  if (patch.issueType !== undefined) next.issueType = patch.issueType;
 
   return next;
 }
@@ -893,6 +915,11 @@ export async function updateTicket(
         resolved_at: next.resolvedAt,
         sla_paused_at: next.slaPausedAt,
         sla_paused_ms: next.slaPausedMs,
+        // Hanya dikirim bila memang diubah: perubahan status/prioritas tidak
+        // boleh bergantung pada keberadaan kolom yang lebih baru.
+        ...(patch.issueType !== undefined
+          ? { issue_type: next.issueType }
+          : {}),
         updated_at: now,
       })
       .eq("id", id)
@@ -1114,6 +1141,7 @@ type BarisTraffic = {
   workingOrder: string;
   status: unknown;
   priority: unknown;
+  issueType: string | null;
   createdAt: string;
 };
 
@@ -1123,7 +1151,7 @@ type BarisTraffic = {
  * lain (lihat tersembunyi): justru itulah alasan barisnya ditahan sampai
  * akhir bulan.
  *
- * Yang dibaca dari database hanya empat kolom; nama, kontak, subjek, dan isi
+ * Yang dibaca dari database hanya lima kolom; nama, kontak, subjek, dan isi
  * tiket tidak pernah diambil. Tanggal 1 bulan berikutnya hitungan mulai dari
  * nol, dan cron gc membuang baris bulan lalu.
  *
@@ -1141,7 +1169,7 @@ export async function trafficBulanIni(
     for (let dari = 0; ; dari += REF_PAGE) {
       const { data, error } = await supa
         .from(TABLE)
-        .select("category, status, priority, created_at")
+        .select("category, status, priority, issue_type, created_at")
         .gte("created_at", awal)
         .order("created_at", { ascending: true })
         .range(dari, dari + REF_PAGE - 1);
@@ -1151,6 +1179,7 @@ export async function trafficBulanIni(
           workingOrder: str(r.category),
           status: r.status,
           priority: r.priority,
+          issueType: typeof r.issue_type === "string" ? r.issue_type : null,
           createdAt: str(r.created_at),
         });
       }
@@ -1162,7 +1191,7 @@ export async function trafficBulanIni(
     }
   }
 
-  const unitKosong = (): TrafficUnit => ({
+  const unitKosong = (wo: WorkingOrder): TrafficUnit => ({
     total: 0,
     status: Object.fromEntries(TICKET_STATUSES.map((s) => [s, 0])) as Record<
       TicketStatus,
@@ -1171,9 +1200,12 @@ export async function trafficBulanIni(
     prioritas: Object.fromEntries(
       TICKET_PRIORITIES.map((p) => [p, 0])
     ) as Record<TicketPriority, number>,
+    jenis: Object.fromEntries(
+      [...ISSUE_TYPES[wo], ISSUE_UNSET].map((k) => [k, 0])
+    ),
   });
   const unit = Object.fromEntries(
-    WORKING_ORDERS.map((wo) => [wo, unitKosong()])
+    WORKING_ORDERS.map((wo) => [wo, unitKosong(wo)])
   ) as Record<WorkingOrder, TrafficUnit>;
 
   // Satu baris per tanggal, dari tanggal 1 sampai hari ini — hari tanpa
@@ -1197,6 +1229,9 @@ export async function trafficBulanIni(
     u.total++;
     u.status[normalizeStatus(b.status)]++;
     if (isTicketPriority(b.priority)) u.prioritas[b.priority]++;
+    u.jenis[
+      isIssueTypeFor(b.workingOrder, b.issueType) ? b.issueType : ISSUE_UNSET
+    ]++;
     total++;
 
     const hari = harian[Number(tanggalWib(b.createdAt).slice(8, 10)) - 1];

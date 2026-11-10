@@ -476,6 +476,7 @@ function lengkapi(seed: Seed): Ticket {
     message: seed.message,
     status: seed.status,
     priority,
+    issueType: null,
     accessToken: crypto.randomBytes(32).toString("hex"),
     attachments: [],
     adminNote: seed.adminNote,

@@ -188,6 +188,28 @@ export const messages = {
     "Traffic could not be loaded. Please try again.",
   ],
   trafficLoading: ["Memuat traffic…", "Loading traffic…"],
+  trafficByIssue: ["Jenis kendala", "Issue types"],
+
+  // ---------- Jenis kendala (kode di lib/ticket-shared.ts → ISSUE_TYPES) ----------
+  issueType: ["Jenis kendala", "Issue type"],
+  issueTypeChanged: [
+    "Jenis kendala {number}: {jenis}",
+    "Issue type for {number}: {jenis}",
+  ],
+  issue_UNSET: ["Belum ditentukan", "Not set"],
+  issue_OTHER: ["Lainnya", "Other"],
+  issue_CLEANING: ["Kebersihan & sanitasi", "Cleaning & sanitation"],
+  issue_FACILITY: ["Fasilitas & bangunan", "Facilities & building"],
+  issue_FURNITURE: ["Furnitur", "Furniture"],
+  issue_SAFETY: ["Keselamatan (APAR, dll.)", "Safety (extinguishers, etc.)"],
+  issue_ELECTRICITY: ["Listrik", "Electricity"],
+  issue_AC: ["AC & pendingin", "AC & cooling"],
+  issue_WATER: ["Air & pompa", "Water & pumps"],
+  issue_PRINTER: ["Printer & tinta", "Printer & ink"],
+  issue_NETWORK: ["Jaringan & internet", "Network & internet"],
+  issue_COMPUTER: ["Komputer & laptop", "Computer & laptop"],
+  issue_ACCOUNT: ["Akun, email & OneDrive", "Account, email & OneDrive"],
+  issue_CCTV: ["CCTV", "CCTV"],
   loadDemoData: ["Muat data demo", "Load demo data"],
   confirmLoadDemoTickets: ["Muat tiket contoh?", "Load sample tickets?"],
   confirmLoadDemoTicketsBody: [

@@ -17,6 +17,7 @@ import {
 import { useAttachments } from "@/components/tickets/use-attachments";
 import {
   ATTACHMENTS_MAX,
+  ISSUE_TYPES,
   TICKET_PRIORITIES,
   TICKET_STATUSES,
   type TicketAttachment,
@@ -59,6 +60,8 @@ interface Ticket {
   message: string;
   status: TicketStatus;
   priority: TicketPriority;
+  /** Kode jenis kendala (ISSUE_TYPES), dipilih admin. null = belum. */
+  issueType: string | null;
   accessToken: string;
   attachments: TicketAttachment[];
   createdAt: string;
@@ -145,7 +148,7 @@ function StatusBadge({
 
 export default function TicketsPage() {
   const { ask, confirmDialog } = useConfirmDialog();
-  const { t, ticketStatus, ticketPriority, formatDateTime } = useT();
+  const { t, ticketStatus, ticketPriority, issueType, formatDateTime } = useT();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   /**
    * Working order milik admin ini, dari respons server — BUKAN dari sesi di
@@ -352,6 +355,7 @@ export default function TicketsPage() {
     patch: {
       status?: TicketStatus;
       priority?: TicketPriority;
+      issueType?: string | null;
     }
   ) => {
     setSaving(true);
@@ -390,6 +394,14 @@ export default function TicketsPage() {
           t("priorityChangedTo", {
             number: updated.number,
             priority: ticketPriority(updated.priority),
+          })
+        );
+      if (patch.issueType !== undefined)
+        showNotice(
+          "ok",
+          t("issueTypeChanged", {
+            number: updated.number,
+            jenis: issueType(updated.issueType),
           })
         );
     } finally {
@@ -675,6 +687,7 @@ export default function TicketsPage() {
                   <span className="font-semibold text-white">{tk.subject}</span>
                   <span className="text-xs text-slate-400">
                     {tk.name} • {tk.workingOrder}
+                    {tk.issueType ? ` • ${issueType(tk.issueType)}` : ""}
                   </span>
                 </div>
                 <p className="mt-1 text-sm text-slate-400 line-clamp-1">
@@ -885,6 +898,38 @@ export default function TicketsPage() {
                   </div>
                 </div>
               </div>
+
+              {/* Jenis kendala — dipilih admin, dihitung di Traffic */}
+              {selected.workingOrder in ISSUE_TYPES && (
+                <div className="space-y-2">
+                  <div className="text-sm font-semibold text-white">
+                    {t("issueType")}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {ISSUE_TYPES[
+                      selected.workingOrder as keyof typeof ISSUE_TYPES
+                    ].map((k) => (
+                      <button
+                        key={k}
+                        disabled={saving}
+                        onClick={() =>
+                          patchTicket(selected.id, {
+                            issueType: selected.issueType === k ? null : k,
+                          })
+                        }
+                        aria-pressed={selected.issueType === k}
+                        className={`rounded-full px-3.5 py-1.5 text-xs font-semibold border transition-all disabled:opacity-60 ${
+                          selected.issueType === k
+                            ? "bg-[#CBA12C] text-[#1a365d] border-[#CBA12C]"
+                            : "text-slate-300 border-[#243a5e] hover:border-slate-500"
+                        }`}
+                      >
+                        {issueType(k)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Prioritas */}
               <div className="space-y-2">
