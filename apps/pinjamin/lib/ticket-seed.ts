@@ -485,8 +485,6 @@ function lengkapi(seed: Seed): Ticket {
     firstResponseAt: firstAdminReply(seed.id),
     resolvedAt: isTicketDone(seed.status) ? seed.updatedAt : null,
     // Jeda SLA sudah tidak dikelola lagi — lihat lib/tickets.ts.
-    slaPausedAt: null,
-    slaPausedMs: 0,
     createdAt: seed.createdAt,
     updatedAt: seed.updatedAt,
   };

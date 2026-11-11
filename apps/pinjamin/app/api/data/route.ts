@@ -17,10 +17,12 @@ export async function GET(req: NextRequest) {
   // Model aset diambil sebagai kueri TERPISAH, bukan embed di kueri aset:
   // embed yang relasinya tidak dikenali PostgREST menggagalkan seluruh
   // /api/data, dan panel jatuh ke data contoh (insiden asset_notes, 5 Nov).
+  // Embed asset_notes sendiri sudah dibuang 12 Nov 2026: tabelnya kosong,
+  // tidak pernah ditulis, lalu dipindah ke skema arsip_lama.
   const [categories, locations, assetsRes, models] = await Promise.all([
     supa.from("categories").select("*").limit(500),
     supa.from("locations").select("*").limit(500),
-    supa.from("assets").select("*, asset_notes(*)").limit(1000),
+    supa.from("assets").select("*").limit(1000),
     supa.from("asset_models").select("*").order("name").limit(1000),
   ]);
 
@@ -37,7 +39,8 @@ export async function GET(req: NextRequest) {
 
   const assets = (assetsRes.data || []).map((row: Row) => ({
     ...fromDbRow(row),
-    notes: (row.asset_notes || []).map(fromDbRow),
+    // Tipe Asset masih punya `notes` (dipakai data contoh); dari DB selalu kosong.
+    notes: [],
   }));
 
   return NextResponse.json({

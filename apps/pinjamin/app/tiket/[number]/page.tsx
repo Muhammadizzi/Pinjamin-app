@@ -50,8 +50,6 @@ interface PortalTicket {
   resolutionDueAt: string | null;
   firstResponseAt: string | null;
   resolvedAt: string | null;
-  slaPausedAt: string | null;
-  slaPausedMs: number;
   createdAt: string;
   updatedAt: string;
 }

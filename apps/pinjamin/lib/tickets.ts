@@ -124,12 +124,6 @@ export interface Ticket {
   /** Kapan admin PERTAMA kali membalas pelapor. null = belum pernah. */
   firstResponseAt: string | null;
   resolvedAt: string | null;
-  /**
-   * @deprecated Sisa mekanisme jeda SLA. Nilainya tidak lagi berubah dan
-   * tidak dibaca siapa pun; kolomnya dibiarkan ada di database.
-   */
-  slaPausedAt: string | null;
-  slaPausedMs: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -222,8 +216,6 @@ function rowToTicket(row: Row): Ticket {
     resolutionDueAt: nullableIso(row.resolution_due_at),
     firstResponseAt: nullableIso(row.first_response_at),
     resolvedAt: nullableIso(row.resolved_at),
-    slaPausedAt: nullableIso(row.sla_paused_at),
-    slaPausedMs: Number(row.sla_paused_ms ?? 0) || 0,
     createdAt: str(row.created_at, new Date().toISOString()),
     updatedAt: str(row.updated_at, new Date().toISOString()),
   };
@@ -253,8 +245,6 @@ function ticketToRow(t: Ticket): Row {
     resolution_due_at: t.resolutionDueAt,
     first_response_at: t.firstResponseAt,
     resolved_at: t.resolvedAt,
-    sla_paused_at: t.slaPausedAt,
-    sla_paused_ms: t.slaPausedMs,
     created_at: t.createdAt,
     updated_at: t.updatedAt,
   };
@@ -356,8 +346,6 @@ function normalizeTicket(raw: Partial<Ticket> & { id: string }): Ticket {
     firstResponseAt: raw.firstResponseAt ?? null,
     resolvedAt:
       raw.resolvedAt ?? (isTicketDone(status) ? raw.updatedAt || null : null),
-    slaPausedAt: raw.slaPausedAt ?? null,
-    slaPausedMs: raw.slaPausedMs ?? 0,
     createdAt,
     updatedAt: raw.updatedAt || createdAt,
   };
@@ -833,8 +821,6 @@ export async function createTicket(data: NewTicketInput): Promise<Ticket> {
       resolutionDueAt: due.resolutionDueAt,
       firstResponseAt: null,
       resolvedAt: null,
-      slaPausedAt: null,
-      slaPausedMs: 0,
       createdAt: now,
       updatedAt: now,
     };
@@ -867,10 +853,8 @@ export async function createTicket(data: NewTicketInput): Promise<Ticket> {
  * "menunggu balasan pelapor". Status itu dihapus, dan pelapor pun tidak bisa
  * membalas, jadi tidak ada lagi keadaan yang layak menjeda apa pun.
  *
- * Kolom sla_paused_at / sla_paused_ms SENGAJA dibiarkan di database dan di
- * tipe Ticket: nilainya berhenti berubah, tidak ada yang membacanya, dan
- * membuang kolom bukan hal yang perlu diburu-buru di database yang sedang
- * berjalan.
+ * Kolom sla_paused_at / sla_paused_ms dibuang dari database pada 12 Nov 2026
+ * (supabase/21-bersihkan-kolom-lama.sql) setelah dipastikan seluruhnya kosong.
  */
 
 function applyPatch(current: Ticket, patch: TicketPatch, now: string): Ticket {
@@ -915,8 +899,6 @@ export async function updateTicket(
         response_due_at: next.responseDueAt,
         resolution_due_at: next.resolutionDueAt,
         resolved_at: next.resolvedAt,
-        sla_paused_at: next.slaPausedAt,
-        sla_paused_ms: next.slaPausedMs,
         // Hanya dikirim bila memang diubah: perubahan status/prioritas tidak
         // boleh bergantung pada keberadaan kolom yang lebih baru.
         ...(patch.issueType !== undefined
@@ -1539,8 +1521,6 @@ async function applyMessageSideEffects(
         status: merged.status,
         first_response_at: merged.firstResponseAt,
         resolved_at: merged.resolvedAt,
-        sla_paused_at: merged.slaPausedAt,
-        sla_paused_ms: merged.slaPausedMs,
         updated_at: now,
       })
       .eq("id", ticket.id)
@@ -1594,10 +1574,6 @@ export function publicTicketView(
     resolutionDueAt: t.resolutionDueAt,
     firstResponseAt: t.firstResponseAt,
     resolvedAt: t.resolvedAt,
-    // Ikut dikirim supaya pelapor melihat sisa waktu yang sama persis dengan
-    // yang dilihat admin — termasuk saat jam sedang berhenti.
-    slaPausedAt: t.slaPausedAt,
-    slaPausedMs: t.slaPausedMs,
     createdAt: t.createdAt,
     updatedAt: t.updatedAt,
   };
