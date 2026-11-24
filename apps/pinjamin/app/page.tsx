@@ -30,7 +30,12 @@ import {
   type TicketPriority,
   type WorkingOrder,
 } from "@/lib/ticket-shared";
-import { PRIORITY_LABEL_ID, statusMeta } from "@/lib/ticket-labels-id";
+import {
+  PRIORITY_CONTOH_ALASAN_ID,
+  PRIORITY_DESC_ID,
+  PRIORITY_LABEL_ID,
+  statusMeta,
+} from "@/lib/ticket-labels-id";
 
 import {
   LifeBuoy,
@@ -49,6 +54,7 @@ import {
   Paperclip,
   ShieldCheck,
   History,
+  ArrowLeft,
 } from "lucide-react";
 
 /**
@@ -811,21 +817,43 @@ export default function LandingPage() {
                         <ul className="space-y-1.5">
                           {lupaHasil.map((t) => {
                             const meta = statusMeta(t.status);
+                            const dilihat = trackResult?.number === t.number;
                             return (
                               <li key={t.number}>
+                                {/* Memilih tiket menutup daftar supaya detailnya
+                                    tampil sendiri (rapi di HP). Hasil pencarian
+                                    TETAP disimpan: tombol "Kembali ke daftar
+                                    tiket saya" di atas detail membukanya lagi
+                                    tanpa mencari ulang. */}
                                 <button
                                   type="button"
-                                  onClick={() => {
+                                  aria-current={dilihat ? "true" : undefined}
+                                  onClick={async () => {
                                     setTrackNumber(t.number);
+                                    await runTrack(t.number);
                                     setLupaBuka(false);
-                                    void runTrack(t.number);
+                                    document
+                                      .getElementById("hasil-lacak")
+                                      ?.scrollIntoView({
+                                        behavior: "smooth",
+                                        block: "start",
+                                      });
                                   }}
-                                  className="w-full rounded-lg border border-[#243a5e] px-3 py-2 text-left transition-colors hover:border-amber-300/60"
+                                  className={`w-full rounded-lg border px-3 py-2 text-left transition-colors ${
+                                    dilihat
+                                      ? "border-amber-300/70 bg-amber-300/10"
+                                      : "border-[#243a5e] hover:border-amber-300/60"
+                                  }`}
                                 >
                                   <div className="flex flex-wrap items-center gap-1.5">
                                     <span className="font-mono text-xs font-bold text-amber-300">
                                       {t.number}
                                     </span>
+                                    {dilihat && (
+                                      <span className="rounded-full bg-amber-300 px-2 py-0.5 text-[10px] font-bold text-[#0f1d33]">
+                                        Sedang dilihat
+                                      </span>
+                                    )}
                                     <span
                                       className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${meta.cls}`}
                                     >
@@ -857,7 +885,32 @@ export default function LandingPage() {
                   </div>
                 )}
                 {trackResult && (
-                  <div className="space-y-3 rounded-2xl border border-[#243a5e] bg-[#0f1d33] p-3.5 sm:p-4">
+                  <div
+                    id="hasil-lacak"
+                    className="scroll-mt-24 space-y-3 rounded-2xl border border-[#243a5e] bg-[#0f1d33] p-3.5 sm:p-4"
+                  >
+                    {/* Kembali ke hasil "Lupa nomor tiket?" — hanya bila tiket
+                        ini dibuka dari daftar itu dan daftarnya sedang
+                        tertutup. */}
+                    {!lupaBuka &&
+                      lupaHasil?.some(
+                        (t) => t.number === trackResult.number
+                      ) && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setLupaBuka(true);
+                            document.getElementById("lacak")?.scrollIntoView({
+                              behavior: "smooth",
+                              block: "start",
+                            });
+                          }}
+                          className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-300 hover:text-amber-200"
+                        >
+                          <ArrowLeft className="h-3.5 w-3.5" />
+                          Kembali ke daftar tiket saya ({lupaHasil.length})
+                        </button>
+                      )}
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-mono font-bold text-amber-300">
                         {trackResult.number}
@@ -1321,6 +1374,7 @@ export default function LandingPage() {
                             role="radio"
                             aria-checked={aktif}
                             onClick={() => setForm({ ...form, priority: p })}
+                            title={PRIORITY_DESC_ID[p]}
                             className={`h-10 rounded-xl border text-sm font-semibold transition-colors ${
                               aktif
                                 ? "border-[#CBA12C] bg-[#CBA12C] text-[#0a2240]"
@@ -1332,7 +1386,25 @@ export default function LandingPage() {
                         );
                       })}
                     </div>
+                    {/* Penjelasan kapan prioritas itu dipakai, supaya pelapor
+                        tahu harus memilih yang mana dan apa yang ditulis di
+                        alasannya. */}
+                    <p className="text-[11px] leading-relaxed text-slate-400">
+                      {form.priority ? (
+                        <>
+                          <span className="font-semibold text-slate-200">
+                            {PRIORITY_LABEL_ID[form.priority]}:
+                          </span>{" "}
+                          {PRIORITY_DESC_ID[form.priority]}
+                        </>
+                      ) : (
+                        "Pilih sesuai dampak kendala terhadap pekerjaan Anda."
+                      )}
+                    </p>
                   </div>
+                  {/* Alasan WAJIB untuk semua prioritas (revisi penguji).
+                      Supaya pelapor tidak bingung, contoh alasannya berganti
+                      mengikuti prioritas yang dipilih. */}
                   <div className="space-y-1.5">
                     <Label htmlFor="alasan-prioritas">Alasan prioritas</Label>
                     <Textarea
@@ -1341,15 +1413,20 @@ export default function LandingPage() {
                       onChange={(e) =>
                         setForm({ ...form, priorityReason: e.target.value })
                       }
-                      placeholder="Mengapa kendala ini perlu prioritas tersebut?"
+                      placeholder={
+                        form.priority
+                          ? PRIORITY_CONTOH_ALASAN_ID[form.priority]
+                          : "Pilih prioritas dulu, lalu jelaskan kondisinya."
+                      }
                       rows={2}
                       maxLength={PRIORITY_REASON_MAX}
                       className="rounded-xl min-h-[64px]"
                       required
                     />
                     <p className="text-[11px] text-slate-500">
-                      Prioritas akhir ditentukan tim. Bila diubah, alasannya
-                      dapat Anda lihat di Lacak Tiket.
+                      Cukup jelaskan dampak kendalanya. Prioritas akhir
+                      ditentukan tim. Bila diubah, alasannya dapat Anda lihat di
+                      Lacak Tiket.
                     </p>
                   </div>
 

@@ -17,6 +17,12 @@
 -- Aman bagi deployment lama: tabel baru, tidak ada kolom lama yang diubah.
 -- Sudah dijalankan di production lewat migration `ticket_priority_logs`
 -- (24 Nov 2026).
+--
+-- Catatan riwayat production: pada 24 Nov 2026 aturan `reason` sempat
+-- dilonggarkan (migration `alasan_prioritas_opsional`, alasan boleh kosong
+-- untuk pelapor Rendah/Sedang), lalu dikembalikan persis seperti di berkas
+-- ini (migration `alasan_prioritas_wajib_kembali`) sebelum ada data yang
+-- memakainya. Keadaan akhirnya: alasan WAJIB untuk semua prioritas.
 -- ============================================================
 
 BEGIN;

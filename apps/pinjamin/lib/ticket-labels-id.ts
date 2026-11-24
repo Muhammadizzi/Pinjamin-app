@@ -52,13 +52,39 @@ export const PRIORITY_LABEL_ID: Record<TicketPriority, string> = {
 };
 
 /**
+ * Kapan tiap prioritas dipakai, ditampilkan di form tiket publik.
+ *
+ * Revisi penguji seminar (24 Nov 2026): pelapor memilih prioritas dan wajib
+ * memberi alasan. Ukurannya DAMPAK ke pekerjaan, bukan seberapa kesal
+ * pelapornya, supaya pilihan antar pelapor bisa dibandingkan.
+ */
+export const PRIORITY_DESC_ID: Record<TicketPriority, string> = {
+  LOW: "tidak mengganggu pekerjaan, bisa ditangani kapan saja.",
+  MEDIUM: "pekerjaan terganggu, tetapi masih bisa berjalan.",
+  HIGH: "pekerjaan satu orang atau satu bagian terhenti.",
+  URGENT: "produksi atau banyak orang terhenti, atau menyangkut keselamatan.",
+};
+
+/**
+ * Contoh alasan (placeholder) per prioritas, supaya pelapor yang memilih
+ * Rendah atau Sedang tidak bingung harus menulis apa: cukup jelaskan
+ * dampaknya.
+ */
+export const PRIORITY_CONTOH_ALASAN_ID: Record<TicketPriority, string> = {
+  LOW: "Contoh: mouse kadang tidak responsif, tetapi masih bisa dipakai.",
+  MEDIUM:
+    "Contoh: printer macet, sementara bisa memakai printer di ruangan lain.",
+  HIGH: "Contoh: laptop tidak mau menyala, saya tidak bisa bekerja sama sekali.",
+  URGENT:
+    "Contoh: jaringan satu gedung mati, semua staf tidak bisa mengakses sistem.",
+};
+
+/**
  * Penjelasan singkat tiap working order di form tiket publik.
  *
- * Menggantikan penjelasan prioritas yang dulu ada di sini: pelapor tidak lagi
- * memilih prioritas, dan satu-satunya pilihan yang kini benar-benar
- * menentukan nasib tiket adalah MEJA MANA yang menerimanya. Salah memilih di
- * sini berarti tiket menunggu di antrean yang salah, jadi keterangannya
- * memakai contoh barang, bukan definisi.
+ * Salah memilih working order berarti tiket menunggu di antrean yang salah,
+ * jadi keterangannya memakai contoh barang, bukan definisi. (Penjelasan
+ * prioritas ada di PRIORITY_DESC_ID di atas.)
  */
 export const WORKING_ORDER_HINT_ID: Record<WorkingOrder, string> = {
   GA: "ATK, kendaraan dinas, kebersihan, perizinan",
