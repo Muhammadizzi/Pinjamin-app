@@ -330,6 +330,37 @@ export default function LandingPage() {
   /** null = belum mencari; [] = sudah mencari, tidak ada yang cocok. */
   const [lupaHasil, setLupaHasil] = useState<TiketDitemukan[] | null>(null);
 
+  /**
+   * Hasil pencarian milik email + WhatsApp yang DICARI. Begitu salah satunya
+   * diubah atau dihapus, hasil lama dibuang: daftar itu bukan lagi milik isi
+   * kolom yang terlihat, dan di perangkat bersama ia tidak boleh tertinggal
+   * untuk diklik orang berikutnya.
+   */
+  const ubahKontakLupa = (kolom: "email" | "phone", nilai: string) => {
+    if (kolom === "email") setLupaEmail(nilai);
+    else setLupaPhone(nilai);
+    setLupaHasil(null);
+    setLupaError("");
+  };
+
+  /**
+   * Elemen yang perlu digulir ke layar SETELAH render berikutnya selesai.
+   *
+   * Menggulir langsung di handler klik meleset: daftar "Lupa nomor tiket?"
+   * baru menutup pada render sesudahnya, sehingga semua yang di bawahnya naik
+   * setinggi daftar itu dan detail tiket berakhir terpotong di atas layar.
+   * Efek di bawah berjalan setelah tata letak baru terpasang.
+   */
+  const gulirKeRef = useRef<string | null>(null);
+  useEffect(() => {
+    const id = gulirKeRef.current;
+    if (!id) return;
+    gulirKeRef.current = null;
+    document
+      .getElementById(id)
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [lupaBuka, trackResult]);
+
   const cariTiketSaya = async (e: React.FormEvent) => {
     e.preventDefault();
     if (lupaMencari) return;
@@ -771,7 +802,9 @@ export default function LandingPage() {
                         <Input
                           type="email"
                           value={lupaEmail}
-                          onChange={(e) => setLupaEmail(e.target.value)}
+                          onChange={(e) =>
+                            ubahKontakLupa("email", e.target.value)
+                          }
                           placeholder="nama@garudafood.co.id"
                           aria-label="Email"
                           className="h-10 rounded-xl"
@@ -782,7 +815,9 @@ export default function LandingPage() {
                           type="tel"
                           inputMode="numeric"
                           value={lupaPhone}
-                          onChange={(e) => setLupaPhone(e.target.value)}
+                          onChange={(e) =>
+                            ubahKontakLupa("phone", e.target.value)
+                          }
                           placeholder="08xxxxxxxxxx"
                           aria-label="Nomor WhatsApp"
                           className="h-10 rounded-xl"
@@ -831,13 +866,10 @@ export default function LandingPage() {
                                   onClick={async () => {
                                     setTrackNumber(t.number);
                                     await runTrack(t.number);
+                                    // Digulir oleh efek setelah daftar
+                                    // tertutup — lihat gulirKeRef.
+                                    gulirKeRef.current = "hasil-lacak";
                                     setLupaBuka(false);
-                                    document
-                                      .getElementById("hasil-lacak")
-                                      ?.scrollIntoView({
-                                        behavior: "smooth",
-                                        block: "start",
-                                      });
                                   }}
                                   className={`w-full rounded-lg border px-3 py-2 text-left transition-colors ${
                                     dilihat
@@ -899,11 +931,8 @@ export default function LandingPage() {
                         <button
                           type="button"
                           onClick={() => {
+                            gulirKeRef.current = "lacak";
                             setLupaBuka(true);
-                            document.getElementById("lacak")?.scrollIntoView({
-                              behavior: "smooth",
-                              block: "start",
-                            });
                           }}
                           className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-300 hover:text-amber-200"
                         >
