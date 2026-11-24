@@ -66,20 +66,6 @@ export const PRIORITY_DESC_ID: Record<TicketPriority, string> = {
 };
 
 /**
- * Contoh alasan (placeholder) per prioritas, supaya pelapor yang memilih
- * Rendah atau Sedang tidak bingung harus menulis apa: cukup jelaskan
- * dampaknya.
- */
-export const PRIORITY_CONTOH_ALASAN_ID: Record<TicketPriority, string> = {
-  LOW: "Contoh: mouse kadang tidak responsif, tetapi masih bisa dipakai.",
-  MEDIUM:
-    "Contoh: printer macet, sementara bisa memakai printer di ruangan lain.",
-  HIGH: "Contoh: laptop tidak mau menyala, saya tidak bisa bekerja sama sekali.",
-  URGENT:
-    "Contoh: jaringan satu gedung mati, semua staf tidak bisa mengakses sistem.",
-};
-
-/**
  * Penjelasan singkat tiap working order di form tiket publik.
  *
  * Salah memilih working order berarti tiket menunggu di antrean yang salah,

@@ -31,7 +31,6 @@ import {
   type WorkingOrder,
 } from "@/lib/ticket-shared";
 import {
-  PRIORITY_CONTOH_ALASAN_ID,
   PRIORITY_DESC_ID,
   PRIORITY_LABEL_ID,
   statusMeta,
@@ -335,10 +334,25 @@ export default function LandingPage() {
    * diubah atau dihapus, hasil lama dibuang: daftar itu bukan lagi milik isi
    * kolom yang terlihat, dan di perangkat bersama ia tidak boleh tertinggal
    * untuk diklik orang berikutnya.
+   *
+   * Detail tiket yang DIBUKA dari daftar itu ikut ditutup (beserta nomornya
+   * di kolom Lacak), karena alasannya sama. Tiket yang dilacak dengan
+   * mengetik nomornya sendiri tidak disentuh: ia tidak berasal dari email dan
+   * WhatsApp ini.
    */
   const ubahKontakLupa = (kolom: "email" | "phone", nilai: string) => {
     if (kolom === "email") setLupaEmail(nilai);
     else setLupaPhone(nilai);
+    const dariDaftar =
+      !!trackResult &&
+      !!lupaHasil?.some((t) => t.number === trackResult.number);
+    if (dariDaftar) {
+      setTrackResult(null);
+      setTrackMessages([]);
+      setTrackPriorityLogs([]);
+      setTrackNumber("");
+      setTrackError("");
+    }
     setLupaHasil(null);
     setLupaError("");
   };
@@ -1432,8 +1446,9 @@ export default function LandingPage() {
                     </p>
                   </div>
                   {/* Alasan WAJIB untuk semua prioritas (revisi penguji).
-                      Supaya pelapor tidak bingung, contoh alasannya berganti
-                      mengikuti prioritas yang dipilih. */}
+                      Tanpa teks contoh di dalam kolom (permintaan pemilik
+                      produk): panduannya sudah tampil sebagai penjelasan
+                      prioritas yang dipilih, tepat di atas kolom ini. */}
                   <div className="space-y-1.5">
                     <Label htmlFor="alasan-prioritas">Alasan prioritas</Label>
                     <Textarea
@@ -1441,11 +1456,6 @@ export default function LandingPage() {
                       value={form.priorityReason}
                       onChange={(e) =>
                         setForm({ ...form, priorityReason: e.target.value })
-                      }
-                      placeholder={
-                        form.priority
-                          ? PRIORITY_CONTOH_ALASAN_ID[form.priority]
-                          : "Pilih prioritas dulu, lalu jelaskan kondisinya."
                       }
                       rows={2}
                       maxLength={PRIORITY_REASON_MAX}
@@ -1466,7 +1476,6 @@ export default function LandingPage() {
                       onChange={(e) =>
                         setForm({ ...form, message: e.target.value })
                       }
-                      placeholder="Jelaskan kendala atau permintaan bantuan Anda..."
                       rows={4}
                       className="rounded-xl min-h-[92px] sm:min-h-[112px]"
                       required
