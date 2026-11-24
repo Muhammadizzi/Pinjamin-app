@@ -508,9 +508,12 @@ export const messages = {
   assetNotFound: ["Aset tidak ditemukan.", "Asset not found."],
   backToAssets: ["Kembali ke Aset", "Back to Assets"],
   noDescription: ["Tanpa deskripsi", "No description"],
-  createdLabel: ["Dibuat", "Created"],
+  // Revisi penguji (24 Nov 2026): "Dibuat" disangka tanggal produksi barang.
+  // Isinya tanggal unit didaftarkan ke SIGAP, sama dengan halaman pindai QR
+  // dan laporan Excel yang sudah memakai "Terdaftar".
+  createdLabel: ["Terdaftar", "Registered"],
   serialLabel: ["Serial", "Serial"],
-  lastUpdate: ["Update terakhir: {date}", "Last updated: {date}"],
+  lastUpdate: ["Terakhir diubah: {date}", "Last modified: {date}"],
   scanForQuickAction: [
     "Tempel di aset — pindai untuk melihat datanya",
     "Stick it on the asset — scan to see its data",
@@ -586,6 +589,12 @@ export const messages = {
   ],
   otherUnits: ["Unit dari Model Ini", "Units of This Model"],
   thisUnit: ["Unit ini", "This unit"],
+  // Judul kolom & nomor unit (revisi penguji, 24 Nov 2026).
+  unitColUnit: ["Unit", "Unit"],
+  unitColSerial: ["Nomor Seri", "Serial No."],
+  unitColCondition: ["Kondisi", "Condition"],
+  unitColLocation: ["Lokasi", "Location"],
+  unitNumber: ["Unit {n}", "Unit {n}"],
   allModels: ["Semua Model", "All Models"],
   modelRequired: ["Pilih model aset dulu.", "Pick an asset model first."],
 

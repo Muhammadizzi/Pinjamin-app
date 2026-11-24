@@ -17,6 +17,9 @@ interface AsetPublik {
   category?: string | null;
   categoryColor?: string | null;
   location?: string | null;
+  /** Unit ke berapa dalam modelnya; null bila unit tidak punya model. */
+  unitNumber?: number | null;
+  unitTotal?: number | null;
 }
 
 interface Pemakai {
@@ -137,6 +140,14 @@ export default function HalamanAsetPublik({
                   <h1 className="text-xl font-extrabold tracking-tight">
                     {aset.name}
                   </h1>
+                  {/* Revisi penguji (24 Nov 2026): pemindai harus tahu ini
+                      unit ke berapa dari modelnya. Urutannya sama dengan
+                      kartu "Unit dari Model Ini" di panel admin. */}
+                  {aset.unitNumber && aset.unitTotal ? (
+                    <div className="inline-flex items-center rounded-full border border-amber-300/40 bg-amber-300/10 px-3 py-1 text-sm font-semibold text-amber-200">
+                      Unit {aset.unitNumber} dari {aset.unitTotal}
+                    </div>
+                  ) : null}
                   <p className="text-sm text-slate-400">
                     {aset.description || "Tanpa deskripsi"}
                   </p>

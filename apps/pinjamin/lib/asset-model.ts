@@ -26,6 +26,34 @@ export function normalSerial(s: string | null | undefined): string {
   return (s ?? "").trim().toLowerCase();
 }
 
+/**
+ * Urutan unit dalam satu model: nomor seri naik (angka dibandingkan sebagai
+ * angka, jadi "9" sebelum "10"), lalu tanggal terdaftar, lalu id.
+ *
+ * Revisi penguji (24 Nov 2026): posisi di urutan ini adalah "Unit ke-n" yang
+ * tampil di kartu "Unit dari Model Ini" DAN di halaman pindai QR. Keduanya
+ * WAJIB memakai fungsi ini supaya "Unit 2" di panel admin sama dengan
+ * "Unit 2" di halaman QR.
+ *
+ * Nomor unit menunjukkan posisi, bukan identitas tetap: bila satu unit
+ * dihapus, nomor unit sesudahnya bergeser. Identitas tetap tiap unit adalah
+ * kode QR-nya.
+ */
+export function urutkanUnit<
+  T extends { id: string; serialNumber?: string | null; createdAt?: string },
+>(units: T[]): T[] {
+  return [...units].sort(
+    (a, b) =>
+      normalSerial(a.serialNumber).localeCompare(
+        normalSerial(b.serialNumber),
+        undefined,
+        { numeric: true }
+      ) ||
+      (a.createdAt ?? "").localeCompare(b.createdAt ?? "") ||
+      a.id.localeCompare(b.id)
+  );
+}
+
 /** Apakah serial ini sudah dipakai unit LAIN (selain `kecualiId`)? */
 export function serialDipakai(
   assets: Pick<Asset, "id" | "serialNumber">[],
