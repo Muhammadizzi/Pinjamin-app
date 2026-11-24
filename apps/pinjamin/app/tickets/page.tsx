@@ -20,6 +20,9 @@ import {
   ISSUE_TYPES,
   TICKET_PRIORITIES,
   TICKET_STATUSES,
+  PRIORITY_REASON_MAX,
+  cekAlasanPrioritas,
+  type PriorityLog,
   type TicketAttachment,
   type TicketPriority,
   type TicketStatus,
@@ -170,6 +173,15 @@ export default function TicketsPage() {
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
 
+  // --- Prioritas (revisi penguji, 24 Nov 2026) ---
+  // Klik prioritas lain TIDAK langsung menyimpan: admin wajib menulis
+  // alasan dulu, lalu menekan Simpan.
+  const [priorityLogs, setPriorityLogs] = useState<PriorityLog[]>([]);
+  const [usulanPrioritas, setUsulanPrioritas] = useState<TicketPriority | null>(
+    null
+  );
+  const [alasanPrioritas, setAlasanPrioritas] = useState("");
+
   const [copied, setCopied] = useState(false);
   const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -310,6 +322,7 @@ export default function TicketsPage() {
           const j = await res.json();
           const list: ThreadMessage[] = j.messages || [];
           setMessages(list);
+          setPriorityLogs(j.priorityLogs || []);
           // Yang tampil di thread yang terbuka dianggap sudah dilihat.
           const terakhirPelapor = [...list]
             .reverse()
@@ -335,6 +348,9 @@ export default function TicketsPage() {
     setDraft("");
     attach.reset();
     setMessages([]);
+    setPriorityLogs([]);
+    setUsulanPrioritas(null);
+    setAlasanPrioritas("");
     tandaiDilihat(ticket.id, ticket.lastUserReplyAt);
     void loadMessages(ticket.id);
   };
@@ -355,6 +371,8 @@ export default function TicketsPage() {
     patch: {
       status?: TicketStatus;
       priority?: TicketPriority;
+      /** Wajib bila `priority` berubah — lihat PATCH /api/tickets/:id. */
+      priorityReason?: string;
       issueType?: string | null;
     }
   ) => {
@@ -388,7 +406,7 @@ export default function TicketsPage() {
             status: ticketStatus(updated.status),
           })
         );
-      if (patch.priority)
+      if (patch.priority) {
         showNotice(
           "ok",
           t("priorityChangedTo", {
@@ -396,6 +414,11 @@ export default function TicketsPage() {
             priority: ticketPriority(updated.priority),
           })
         );
+        setUsulanPrioritas(null);
+        setAlasanPrioritas("");
+        // Muat ulang supaya baris riwayat yang baru langsung tampil.
+        void loadMessages(id, true);
+      }
       if (patch.issueType !== undefined)
         showNotice(
           "ok",
@@ -941,10 +964,17 @@ export default function TicketsPage() {
                     <button
                       key={p}
                       disabled={saving || selected.priority === p}
-                      onClick={() => patchTicket(selected.id, { priority: p })}
+                      // Hanya memilih usulan; tersimpan setelah alasan diisi.
+                      onClick={() => {
+                        setUsulanPrioritas(p);
+                        setAlasanPrioritas("");
+                      }}
+                      aria-pressed={usulanPrioritas === p}
                       className={`rounded-full px-3.5 py-1.5 text-xs font-semibold border transition-all disabled:opacity-60 ${
                         selected.priority === p
                           ? "bg-[#CBA12C] text-[#1a365d] border-[#CBA12C]"
+                          : usulanPrioritas === p
+                          ? "border-amber-300 text-amber-200 bg-amber-300/10"
                           : "text-slate-300 border-[#243a5e] hover:border-slate-500"
                       }`}
                     >
@@ -952,9 +982,109 @@ export default function TicketsPage() {
                     </button>
                   ))}
                 </div>
+
+                {/* Alasan wajib sebelum prioritas baru disimpan. */}
+                {usulanPrioritas && usulanPrioritas !== selected.priority && (
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      const galat = cekAlasanPrioritas(alasanPrioritas);
+                      if (galat) {
+                        showNotice("err", galat);
+                        return;
+                      }
+                      void patchTicket(selected.id, {
+                        priority: usulanPrioritas,
+                        priorityReason: alasanPrioritas.trim(),
+                      });
+                    }}
+                    className="space-y-2 rounded-xl border border-amber-300/30 bg-amber-300/5 p-3"
+                  >
+                    <label
+                      htmlFor="alasan-ubah-prioritas"
+                      className="text-xs font-semibold text-amber-200"
+                    >
+                      {t("priorityChangeTo", {
+                        priority: ticketPriority(usulanPrioritas),
+                      })}
+                    </label>
+                    <Textarea
+                      id="alasan-ubah-prioritas"
+                      value={alasanPrioritas}
+                      onChange={(e) => setAlasanPrioritas(e.target.value)}
+                      placeholder={t("priorityReasonPlaceholder")}
+                      aria-label={t("priorityReasonLabel")}
+                      rows={2}
+                      maxLength={PRIORITY_REASON_MAX}
+                      className="rounded-xl text-sm"
+                      autoFocus
+                      required
+                    />
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setUsulanPrioritas(null);
+                          setAlasanPrioritas("");
+                        }}
+                      >
+                        {t("cancel")}
+                      </Button>
+                      <Button
+                        type="submit"
+                        size="sm"
+                        disabled={saving}
+                        className="bg-[#CBA12C] font-semibold text-[#1a365d] hover:bg-amber-400"
+                      >
+                        {t("savePriority")}
+                      </Button>
+                    </div>
+                  </form>
+                )}
+
                 <p className="text-[11px] text-slate-500">
                   {t("priorityHint")}
                 </p>
+
+                {/* Riwayat prioritas: pilihan pelapor + perubahan admin. */}
+                <div className="space-y-1.5 rounded-xl border border-[#243a5e] bg-[#0f1d33] p-3">
+                  <div className="text-xs font-semibold text-slate-300">
+                    {t("priorityHistory")}
+                  </div>
+                  {priorityLogs.length === 0 ? (
+                    <p className="text-[11px] text-slate-500">
+                      {t("priorityHistoryEmpty")}
+                    </p>
+                  ) : (
+                    <ul className="space-y-2">
+                      {priorityLogs.map((l) => (
+                        <li key={l.id} className="text-xs leading-relaxed">
+                          <div className="text-slate-400">
+                            <span className="font-semibold text-slate-200">
+                              {l.from
+                                ? t("priorityLogChanged", {
+                                    name: l.author,
+                                    from: ticketPriority(l.from),
+                                    to: ticketPriority(l.to),
+                                  })
+                                : t("priorityLogChosen", {
+                                    name: l.author,
+                                    to: ticketPriority(l.to),
+                                  })}
+                            </span>
+                            <span className="text-slate-500">
+                              {" "}
+                              • {formatDateTime(l.createdAt)}
+                            </span>
+                          </div>
+                          <div className="text-slate-300">“{l.reason}”</div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
               </div>
 
               {/* Status */}

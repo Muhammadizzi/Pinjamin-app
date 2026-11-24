@@ -3,7 +3,9 @@ import { clientIp, trackLimiter } from "@/lib/auth";
 import {
   getTicketByNumber,
   listMessages,
+  listPriorityLogs,
   publicMessageView,
+  publicPriorityLogView,
   publicTicketView,
 } from "@/lib/tickets";
 import { TICKET_NUMBER_RE } from "@/lib/ticket-shared";
@@ -75,10 +77,16 @@ export async function GET(req: NextRequest) {
         { status: 404 }
       );
     }
-    const messages = await listMessages(ticket.id);
+    // Riwayat prioritas (revisi penguji, 24 Nov 2026): pelapor bisa melihat
+    // alasan pilihannya sendiri dan alasan admin bila prioritasnya diubah.
+    const [messages, priorityLogs] = await Promise.all([
+      listMessages(ticket.id),
+      listPriorityLogs(ticket.id),
+    ]);
     return NextResponse.json({
       ticket: publicTicketView(ticket, { withReporterName: true }),
       messages: messages.map(publicMessageView),
+      priorityLogs: priorityLogs.map(publicPriorityLogView),
     });
   } catch (e) {
     console.error("[tickets track]", e);

@@ -51,6 +51,9 @@ import {
   isIssueTypeFor,
   slaDeadlines,
   ticketSeq,
+  cekAlasanPrioritas,
+  type PriorityAuthorRole,
+  type PriorityLog,
   type MessageAuthor,
   type MessageKind,
   type TicketAttachment,
@@ -78,6 +81,8 @@ export type {
   TicketAttachment,
   MessageAuthor,
   MessageKind,
+  PriorityLog,
+  PriorityAuthorRole,
 } from "./ticket-shared";
 
 export interface Ticket {
@@ -130,29 +135,35 @@ export interface Ticket {
 
 const TABLE = "tickets";
 const MSG_TABLE = "ticket_messages";
+/** Riwayat prioritas, lihat supabase/22-ticket-priority-logs.sql. */
+const PRIORITY_LOG_TABLE = "ticket_priority_logs";
 
 const DATA_DIR =
   process.env.PINJAMIN_DATA_DIR || path.join(process.cwd(), "data");
 const TICKETS_FILE = path.join(DATA_DIR, "tickets.json");
 const MESSAGES_FILE = path.join(DATA_DIR, "ticket-messages.json");
+const PRIORITY_LOGS_FILE = path.join(DATA_DIR, "ticket-priority-logs.json");
 
+/**
+ * Isi formulir tiket baru.
+ *
+ * Revisi penguji seminar (24 Nov 2026): pelapor kembali memilih prioritas,
+ * tetapi WAJIB menyertakan alasannya. Alasan itu tidak disimpan di `tickets`
+ * melainkan sebagai baris pertama ticket_priority_logs, supaya pilihan
+ * pelapor dan setiap perubahan admin sesudahnya tercatat di satu tempat.
+ * Admin tetap bisa mengubah prioritasnya, juga dengan alasan.
+ */
 export type NewTicketInput = {
   name: string;
   email: string;
   phone: string;
   workingOrder: WorkingOrder;
   subject: string;
+  priority: TicketPriority;
+  priorityReason: string;
   message: string;
   attachments: TicketAttachment[];
 };
-
-/**
- * Prioritas tiket baru. Pelapor TIDAK lagi mengusulkannya — triase adalah
- * pekerjaan admin ticketing, dan selama form publik menyediakan pilihannya
- * "Mendesak" pelan-pelan jadi nilai default semua orang. Setiap tiket masuk
- * di tengah, lalu digeser admin dari panel.
- */
-const PRIORITAS_AWAL: TicketPriority = "MEDIUM";
 
 type TicketPatch = {
   status?: TicketStatus;
@@ -271,6 +282,19 @@ function messageToRow(m: TicketMessage): Row {
     body: m.body,
     attachments: m.attachments,
     created_at: m.createdAt,
+  };
+}
+
+function rowToPriorityLog(row: Row): PriorityLog {
+  return {
+    id: str(row.id),
+    ticketId: str(row.ticket_id),
+    from: isTicketPriority(row.from_priority) ? row.from_priority : null,
+    to: isTicketPriority(row.to_priority) ? row.to_priority : "MEDIUM",
+    reason: str(row.reason),
+    author: str(row.author),
+    authorRole: row.author_role === "ADMIN" ? "ADMIN" : "PELAPOR",
+    createdAt: str(row.created_at, new Date().toISOString()),
   };
 }
 
@@ -860,19 +884,22 @@ const MAX_PERCOBAAN_NOMOR = 5;
 
 export async function createTicket(data: NewTicketInput): Promise<Ticket> {
   const supa = getSupabaseAdmin();
+  // Alasan prioritas bukan kolom `tickets`; ia dicatat ke riwayat prioritas
+  // setelah tiketnya tersimpan.
+  const { priorityReason, ...isi } = data;
 
   for (let percobaan = 0; ; percobaan++) {
     const now = new Date().toISOString();
-    const due = slaDeadlines(now, PRIORITAS_AWAL);
+    const due = slaDeadlines(now, isi.priority);
     const ticket: Ticket = {
       id: newTicketId(),
       number: formatTicketNumber(
-        data.workingOrder,
-        await nextSeq(data.workingOrder)
+        isi.workingOrder,
+        await nextSeq(isi.workingOrder)
       ),
-      ...data,
+      ...isi,
       status: "OPEN",
-      priority: PRIORITAS_AWAL,
+      priority: isi.priority,
       issueType: null,
       accessToken: newToken(),
       adminNote: "",
@@ -884,10 +911,20 @@ export async function createTicket(data: NewTicketInput): Promise<Ticket> {
       updatedAt: now,
     };
 
+    const logPelapor = {
+      ticketId: ticket.id,
+      from: null,
+      to: ticket.priority,
+      reason: priorityReason,
+      author: ticket.name,
+      authorRole: "PELAPOR" as const,
+    };
+
     // Backend file hanya hidup di satu proses dev — tidak ada balapan yang
     // perlu diulang di sana.
     if (!supa) {
       persistFile([...loadFile(), ticket]);
+      await catatRiwayatPrioritas(logPelapor);
       return ticket;
     }
 
@@ -896,13 +933,116 @@ export async function createTicket(data: NewTicketInput): Promise<Ticket> {
       .insert(ticketToRow(ticket))
       .select()
       .single();
-    if (!error) return rowToTicket(row);
+    if (!error) {
+      await catatRiwayatPrioritas(logPelapor);
+      return rowToTicket(row);
+    }
 
     const bentrokNomor = error.code === PG_UNIQUE_VIOLATION;
     if (!bentrokNomor || percobaan >= MAX_PERCOBAAN_NOMOR - 1) {
       throw new Error(error.message);
     }
   }
+}
+
+/* ------------------------------------------------------------------ */
+/* Riwayat prioritas (ticket_priority_logs)                            */
+/* ------------------------------------------------------------------ */
+
+let logCache: PriorityLog[] | null = null;
+
+function loadLogsFile(): PriorityLog[] {
+  if (!logCache) logCache = readJsonFile<PriorityLog>(PRIORITY_LOGS_FILE) ?? [];
+  return logCache;
+}
+
+/**
+ * Catat satu pilihan atau perubahan prioritas.
+ *
+ * Kegagalan mencatat TIDAK menggagalkan pemanggilnya. Untuk tiket baru,
+ * tiketnya sudah tersimpan dan pelapor harus tetap menerima nomornya; untuk
+ * perubahan admin, prioritasnya sudah berubah. Kegagalan ditulis ke log
+ * server supaya bisa ditelusuri.
+ */
+async function catatRiwayatPrioritas(log: {
+  ticketId: string;
+  from: TicketPriority | null;
+  to: TicketPriority;
+  reason: string;
+  author: string;
+  authorRole: PriorityAuthorRole;
+}): Promise<void> {
+  const baris: PriorityLog = {
+    id: crypto.randomUUID(),
+    ...log,
+    reason: log.reason.trim(),
+    author: log.author.trim().slice(0, 80) || "-",
+    createdAt: new Date().toISOString(),
+  };
+  const supa = getSupabaseAdmin();
+  if (!supa) {
+    logCache = [...loadLogsFile(), baris];
+    writeJsonFile(PRIORITY_LOGS_FILE, logCache);
+    return;
+  }
+  const { error } = await supa.from(PRIORITY_LOG_TABLE).insert({
+    id: baris.id,
+    ticket_id: baris.ticketId,
+    from_priority: baris.from,
+    to_priority: baris.to,
+    reason: baris.reason,
+    author: baris.author,
+    author_role: baris.authorRole,
+    created_at: baris.createdAt,
+  });
+  if (error) {
+    console.error("[ticket_priority_logs] gagal mencatat:", error.message);
+  }
+}
+
+/**
+ * Riwayat prioritas satu tiket, terlama dulu.
+ *
+ * Kalau tabelnya bermasalah, hasilnya daftar kosong, bukan galat: riwayat ini
+ * pelengkap, dan detail tiket serta Lacak Tiket tidak boleh ikut gagal.
+ */
+export async function listPriorityLogs(
+  ticketId: string
+): Promise<PriorityLog[]> {
+  const supa = getSupabaseAdmin();
+  if (!supa) {
+    return loadLogsFile()
+      .filter((l) => l.ticketId === ticketId)
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  }
+  const { data, error } = await supa
+    .from(PRIORITY_LOG_TABLE)
+    .select("*")
+    .eq("ticket_id", ticketId)
+    .order("created_at", { ascending: true });
+  if (error) {
+    console.error("[ticket_priority_logs] gagal memuat:", error.message);
+    return [];
+  }
+  return (data || []).map(rowToPriorityLog);
+}
+
+/**
+ * Bentuk riwayat prioritas untuk Lacak Tiket (publik, cukup dengan nomor).
+ *
+ * Nama admin TIDAK ikut. Di Lacak Tiket, balasan admin pun hanya berlabel
+ * "Admin SIGAP"; nama pribadi admin bukan urusan pengunjung halaman publik.
+ * Nama pelapor tetap ikut karena Lacak Tiket memang sudah menampilkannya.
+ */
+export function publicPriorityLogView(l: PriorityLog) {
+  return {
+    from: l.from,
+    to: l.to,
+    reason: l.reason,
+    author: l.authorRole === "ADMIN" ? "Admin SIGAP" : l.author,
+    authorRole: l.authorRole,
+    createdAt: l.createdAt,
+  };
 }
 
 /*
@@ -938,14 +1078,40 @@ function applyPatch(current: Ticket, patch: TicketPatch, now: string): Ticket {
   return next;
 }
 
+/**
+ * Ubah tiket dari panel admin.
+ *
+ * Mengubah prioritas WAJIB disertai alasan (revisi penguji seminar). Alasan
+ * itu dan nama admin dicatat ke riwayat prioritas setelah tiketnya tersimpan.
+ * Route PATCH sudah menolak lebih dulu dengan pesan yang jelas; pemeriksaan di
+ * sini menjaga pemanggil lain supaya tidak bisa melewatinya.
+ */
 export async function updateTicket(
   id: string,
-  patch: TicketPatch
+  patch: TicketPatch,
+  ubahPrioritas?: { reason: string; author: string }
 ): Promise<Ticket | null> {
   const now = new Date().toISOString();
   const current = await getTicketById(id);
   if (!current) return null;
+  const prioritasBerubah =
+    !!patch.priority && patch.priority !== current.priority;
+  if (prioritasBerubah) {
+    const galat = cekAlasanPrioritas(ubahPrioritas?.reason ?? "");
+    if (galat) throw new Error(galat);
+  }
   const next = applyPatch(current, patch, now);
+  const catat = async () => {
+    if (!prioritasBerubah || !ubahPrioritas) return;
+    await catatRiwayatPrioritas({
+      ticketId: id,
+      from: current.priority,
+      to: next.priority,
+      reason: ubahPrioritas.reason,
+      author: ubahPrioritas.author,
+      authorRole: "ADMIN",
+    });
+  };
 
   const supa = getSupabaseAdmin();
   if (supa) {
@@ -969,7 +1135,9 @@ export async function updateTicket(
       .select()
       .maybeSingle();
     if (error) throw new Error(error.message);
-    return data ? rowToTicket(data) : null;
+    if (!data) return null;
+    await catat();
+    return rowToTicket(data);
   }
 
   const all = loadFile();
@@ -978,6 +1146,7 @@ export async function updateTicket(
   const copy = [...all];
   copy[idx] = next;
   persistFile(copy);
+  await catat();
   return next;
 }
 
@@ -1689,6 +1858,8 @@ export function validateNewTicket(
     .replace(/[\s-]/g, "");
   const workingOrder = String(b.workingOrder ?? "").trim();
   const subject = String(b.subject ?? "").trim();
+  const priority = String(b.priority ?? "").trim();
+  const priorityReason = String(b.priorityReason ?? "").trim();
   const message = String(b.message ?? "").trim();
 
   if (name.length < 2 || name.length > 60)
@@ -1706,14 +1877,16 @@ export function validateNewTicket(
     return { error: "Working order tidak dikenal." };
   if (subject.length < 4 || subject.length > 120)
     return { error: "Subjek wajib diisi (4–120 karakter)." };
+  // Revisi penguji seminar (24 Nov 2026): pelapor memilih prioritas dan
+  // WAJIB menyertakan alasannya. Pilihan itu usulan, bukan keputusan akhir:
+  // admin tetap bisa mengubahnya, juga dengan alasan, dan keduanya tercatat
+  // di riwayat prioritas yang bisa dibaca pelapor di Lacak Tiket.
+  if (!isTicketPriority(priority)) return { error: "Pilih prioritas tiket." };
+  const galatAlasan = cekAlasanPrioritas(priorityReason);
+  if (galatAlasan) return { error: galatAlasan };
   if (message.length < 10 || message.length > 2000)
     return { error: "Pesan wajib diisi (10–2000 karakter)." };
 
-  // `priority` yang ikut terkirim SENGAJA diabaikan, bukan sekadar tidak
-  // dibaca: sejak triase jadi wewenang admin, form publik tidak lagi
-  // menampilkan pilihannya — dan endpoint ini publik, jadi siapa pun masih
-  // bisa menyelipkan "priority":"URGENT" ke dalam body. Prioritas awal
-  // ditetapkan createTicket(), bukan pemanggil.
   return {
     data: {
       name,
@@ -1721,6 +1894,8 @@ export function validateNewTicket(
       phone,
       workingOrder,
       subject,
+      priority,
+      priorityReason,
       message,
       attachments: validateAttachments(b.attachments),
     },

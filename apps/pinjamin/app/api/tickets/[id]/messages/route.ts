@@ -4,6 +4,7 @@ import {
   addMessage,
   getTicketForDesk,
   listMessages,
+  listPriorityLogs,
   validateAttachments,
   validateMessageBody,
 } from "@/lib/tickets";
@@ -20,6 +21,10 @@ type Ctx = { params: Promise<{ id: string }> };
  * fiturnya sudah dihapus, dan menampilkan jenis pesan yang tidak bisa lagi
  * dibuat hanya menyisakan lencana yang tak punya penjelasan. Yang dilihat
  * admin di sini kini persis sama dengan yang dilihat pelapor.
+ *
+ * `priorityLogs` (revisi penguji, 24 Nov 2026): riwayat prioritas tiket,
+ * terlama dulu, yaitu pilihan pelapor dan setiap perubahan admin beserta
+ * alasannya. Daftar kosong bila tabelnya bermasalah.
  */
 export async function GET(req: NextRequest, ctx: Ctx) {
   const gate = await gateHelpdeskAdmin(req);
@@ -33,7 +38,11 @@ export async function GET(req: NextRequest, ctx: Ctx) {
     );
   }
   try {
-    return NextResponse.json({ messages: await listMessages(id) });
+    const [messages, priorityLogs] = await Promise.all([
+      listMessages(id),
+      listPriorityLogs(id),
+    ]);
+    return NextResponse.json({ messages, priorityLogs });
   } catch (e) {
     console.error("[messages GET]", e);
     return NextResponse.json(

@@ -330,8 +330,35 @@ export const messages = {
     "{number} status set to {status}",
   ],
   priorityHint: [
-    "Prioritas dipakai tim untuk mengurutkan pekerjaan. Pelapor tidak bisa mengubahnya.",
-    "Priority is how the team orders its work. Reporters can't change it.",
+    "Prioritas awal dipilih pelapor. Mengubahnya wajib disertai alasan, dan alasan itu terlihat oleh pelapor di Lacak Tiket.",
+    "The reporter picks the initial priority. Changing it requires a reason, which the reporter can see in Track Ticket.",
+  ],
+  // --- Riwayat prioritas (revisi penguji seminar, 24 Nov 2026) ---
+  priorityReasonLabel: [
+    "Alasan perubahan prioritas",
+    "Reason for priority change",
+  ],
+  priorityReasonPlaceholder: [
+    "Mengapa prioritas tiket ini perlu diubah?",
+    "Why does this ticket's priority need to change?",
+  ],
+  priorityChangeTo: [
+    "Ubah prioritas ke {priority}",
+    "Change priority to {priority}",
+  ],
+  savePriority: ["Simpan prioritas", "Save priority"],
+  priorityHistory: ["Riwayat Prioritas", "Priority History"],
+  priorityHistoryEmpty: [
+    "Belum ada riwayat. Tiket ini dibuat sebelum pelapor bisa memilih prioritas.",
+    "No history yet. This ticket was created before reporters could pick a priority.",
+  ],
+  priorityLogChosen: [
+    "{name} (pelapor) memilih {to}",
+    "{name} (reporter) chose {to}",
+  ],
+  priorityLogChanged: [
+    "{name} mengubah {from} → {to}",
+    "{name} changed {from} → {to}",
   ],
   newReply: ["Balasan baru", "New reply"],
   newReplyHint: [

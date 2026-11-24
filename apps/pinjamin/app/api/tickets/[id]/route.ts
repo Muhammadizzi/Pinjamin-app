@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { gateHelpdeskAdmin } from "@/lib/auth";
 import { deleteTicket, getTicketForDesk, updateTicket } from "@/lib/tickets";
 import {
+  cekAlasanPrioritas,
   isIssueTypeFor,
   isTicketPriority,
   isTicketStatus,
@@ -30,13 +31,17 @@ type Ctx = { params: Promise<{ id: string }> };
  * internal adalah pesan kind=NOTE lewat POST /api/tickets/:id/messages.
  *
  * Tiket di luar working order admin ini dijawab 404 — lihat getTicketForDesk.
+ *
+ * Revisi penguji seminar (24 Nov 2026): mengubah prioritas WAJIB disertai
+ * `priorityReason`. Alasan dan nama admin dicatat ke ticket_priority_logs.
  */
 export async function PATCH(req: NextRequest, ctx: Ctx) {
   const gate = await gateHelpdeskAdmin(req);
   if (!gate.ok) return gate.res;
   const { id } = await ctx.params;
 
-  if (!(await getTicketForDesk(id, gate.admin.workingOrder))) {
+  const current = await getTicketForDesk(id, gate.admin.workingOrder);
+  if (!current) {
     return NextResponse.json(
       { error: "Tiket tidak ditemukan." },
       { status: 404 }
@@ -76,6 +81,16 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     patch.priority = body.priority;
   }
 
+  // Alasan hanya dituntut bila prioritasnya benar-benar berubah. Mengirim
+  // prioritas yang sama (mis. klik ulang tombol aktif) bukan perubahan.
+  const priorityReason = String(body.priorityReason ?? "").trim();
+  if (patch.priority && patch.priority !== current.priority) {
+    const galat = cekAlasanPrioritas(priorityReason);
+    if (galat) {
+      return NextResponse.json({ error: galat }, { status: 400 });
+    }
+  }
+
   if (body.issueType !== undefined) {
     if (
       body.issueType !== null &&
@@ -97,7 +112,10 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   }
 
   try {
-    const updated = await updateTicket(id, patch);
+    const updated = await updateTicket(id, patch, {
+      reason: priorityReason,
+      author: gate.admin.fullName || gate.admin.username,
+    });
     if (!updated) {
       return NextResponse.json(
         { error: "Tiket tidak ditemukan." },

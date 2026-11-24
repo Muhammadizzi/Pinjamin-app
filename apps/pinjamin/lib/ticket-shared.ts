@@ -80,6 +80,40 @@ export function isTicketPriority(v: unknown): v is TicketPriority {
   return typeof v === "string" && (TICKET_PRIORITIES as string[]).includes(v);
 }
 
+/**
+ * Panjang alasan prioritas, sama dengan CHECK di tabel ticket_priority_logs
+ * (supabase/22-ticket-priority-logs.sql). Revisi penguji seminar: memilih
+ * atau mengubah prioritas, baik oleh pelapor maupun admin, wajib beralasan.
+ */
+export const PRIORITY_REASON_MIN = 5;
+export const PRIORITY_REASON_MAX = 500;
+
+/** Pesan galat bila alasan prioritas kosong atau terlalu pendek/panjang. */
+export function cekAlasanPrioritas(reason: string): string | null {
+  const n = reason.trim().length;
+  if (n < PRIORITY_REASON_MIN || n > PRIORITY_REASON_MAX) {
+    return `Alasan prioritas wajib diisi (${PRIORITY_REASON_MIN}–${PRIORITY_REASON_MAX} karakter).`;
+  }
+  return null;
+}
+
+/** Siapa yang memilih atau mengubah prioritas. */
+export type PriorityAuthorRole = "PELAPOR" | "ADMIN";
+
+/** Satu baris riwayat prioritas (tabel ticket_priority_logs). */
+export interface PriorityLog {
+  id: string;
+  ticketId: string;
+  /** null = prioritas pertama yang dipilih pelapor saat membuat tiket. */
+  from: TicketPriority | null;
+  to: TicketPriority;
+  reason: string;
+  /** Nama pelapor atau nama admin yang mengubah. */
+  author: string;
+  authorRole: PriorityAuthorRole;
+  createdAt: string;
+}
+
 /* ------------------------------------------------------------------ */
 /* Working order                                                       */
 /* ------------------------------------------------------------------ */

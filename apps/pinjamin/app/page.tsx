@@ -22,7 +22,10 @@ import {
   RECENT_TICKETS_DAYS,
   TICKET_NUMBER_RE,
   WORKING_ORDERS,
+  TICKET_PRIORITIES,
+  PRIORITY_REASON_MAX,
   isWorkingOrder,
+  type PriorityLog,
   type TicketAttachment,
   type TicketPriority,
   type WorkingOrder,
@@ -89,6 +92,11 @@ const FORM_KOSONG = {
   phone: "",
   workingOrder: WORKING_ORDERS[0] as WorkingOrder,
   subject: "",
+  // Revisi penguji (24 Nov 2026): pelapor memilih prioritas + alasan.
+  // Sengaja tanpa pilihan awal, supaya prioritas dipilih dengan sadar,
+  // bukan sekadar ikut nilai bawaan.
+  priority: "" as TicketPriority | "",
+  priorityReason: "",
   message: "",
 };
 
@@ -118,9 +126,10 @@ type FilterMeja = "SEMUA" | WorkingOrder;
 /**
  * Bentuk tiket di halaman lacak — sengaja lebih sempit dari yang dikirim
  * /api/tickets/track. Tenggat SLA memang ikut di payload (portal pelapor
- * memakainya), tapi halaman ini TIDAK menampilkannya: pelapor tidak lagi
- * memilih prioritas, jadi menampilkan "target selesai" yang lahir dari
- * prioritas hanya memajang janji yang tidak ia mengerti asalnya.
+ * memakainya), tapi halaman ini TIDAK menampilkannya: penilaian SLA sudah
+ * lama dihapus, jadi "target selesai" hanya memajang janji yang tidak
+ * ditagih siapa pun. Yang ditampilkan adalah riwayat prioritas beserta
+ * alasannya (revisi penguji, 24 Nov 2026).
  */
 interface TrackTicket {
   number: string;
@@ -298,6 +307,10 @@ export default function LandingPage() {
   const [trackResult, setTrackResult] = useState<TrackTicket | null>(null);
   /** Balasan admin untuk tiket yang sedang dilacak. Baca-saja. */
   const [trackMessages, setTrackMessages] = useState<ThreadMessage[]>([]);
+  /** Riwayat prioritas tiket yang dilacak, terlama dulu. */
+  const [trackPriorityLogs, setTrackPriorityLogs] = useState<
+    Omit<PriorityLog, "id" | "ticketId">[]
+  >([]);
 
   // --- Lupa nomor tiket ---
   // Revisi penguji (24 Nov 2026): nomor tiket tidak lagi tampil di daftar
@@ -339,6 +352,12 @@ export default function LandingPage() {
   const submitTicket = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError("");
+    // Tombol prioritas bukan <input required>, jadi peramban tidak
+    // menahannya. Server tetap memeriksa; ini hanya mempercepat pesannya.
+    if (!form.priority) {
+      setFormError("Pilih prioritas tiket.");
+      return;
+    }
     setSubmitting(true);
     try {
       const res = await fetch("/api/tickets", {
@@ -394,12 +413,14 @@ export default function LandingPage() {
       if (!res.ok) {
         setTrackResult(null);
         setTrackMessages([]);
+        setTrackPriorityLogs([]);
         setTrackError(j.error || "Tiket tidak ditemukan.");
         return;
       }
       setTrackError("");
       setTrackResult(j.ticket);
       setTrackMessages(j.messages || []);
+      setTrackPriorityLogs(j.priorityLogs || []);
       // Pindah ke tiket lain: draf, email, dan galat milik tiket sebelumnya
       // tidak boleh ikut terbawa.
       if (nomorDilacakRef.current !== j.ticket.number) {
@@ -412,6 +433,7 @@ export default function LandingPage() {
     } catch {
       setTrackResult(null);
       setTrackMessages([]);
+      setTrackPriorityLogs([]);
       setTrackError("Tidak bisa terhubung ke server. Coba lagi.");
     } finally {
       setTracking(false);
@@ -866,6 +888,38 @@ export default function LandingPage() {
                       </div>
                     </div>
 
+                    {/* Riwayat prioritas — revisi penguji (24 Nov 2026).
+                        Tiket lama yang dibuat sebelum fitur ini tidak punya
+                        riwayat, jadi bagiannya tidak ditampilkan. */}
+                    {trackPriorityLogs.length > 0 && (
+                      <div className="space-y-1.5 rounded-xl border border-[#243a5e] bg-[#12263f]/40 p-2.5">
+                        <div className="text-xs font-semibold text-slate-300">
+                          Riwayat Prioritas
+                        </div>
+                        <ul className="space-y-1.5">
+                          {trackPriorityLogs.map((l, i) => (
+                            <li key={i} className="text-xs leading-relaxed">
+                              <div className="text-slate-400">
+                                <span className="font-semibold text-slate-200">
+                                  {l.author}
+                                </span>{" "}
+                                {l.from
+                                  ? `mengubah ${PRIORITY_LABEL_ID[l.from]} → ${
+                                      PRIORITY_LABEL_ID[l.to]
+                                    }`
+                                  : `memilih ${PRIORITY_LABEL_ID[l.to]}`}
+                                <span className="text-slate-500">
+                                  {" "}
+                                  • {formatDateTime(l.createdAt)}
+                                </span>
+                              </div>
+                              <div className="text-slate-300">“{l.reason}”</div>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
                     {/* Percakapan. Pesan pertama adalah isi tiket itu
                         sendiri, sisanya balasan admin dan pelapor. Membaca
                         cukup dengan nomor tiket; MEMBALAS menuntut email
@@ -1246,6 +1300,59 @@ export default function LandingPage() {
                       required
                     />
                   </div>
+
+                  {/* Prioritas + alasan — revisi penguji (24 Nov 2026).
+                      Pilihan pelapor adalah usulan: admin bisa mengubahnya,
+                      juga dengan alasan, dan riwayatnya terbaca di Lacak
+                      Tiket. */}
+                  <div className="space-y-1.5">
+                    <Label id="label-prioritas">Prioritas</Label>
+                    <div
+                      role="radiogroup"
+                      aria-labelledby="label-prioritas"
+                      className="grid grid-cols-2 gap-2 sm:grid-cols-4"
+                    >
+                      {TICKET_PRIORITIES.map((p) => {
+                        const aktif = form.priority === p;
+                        return (
+                          <button
+                            key={p}
+                            type="button"
+                            role="radio"
+                            aria-checked={aktif}
+                            onClick={() => setForm({ ...form, priority: p })}
+                            className={`h-10 rounded-xl border text-sm font-semibold transition-colors ${
+                              aktif
+                                ? "border-[#CBA12C] bg-[#CBA12C] text-[#0a2240]"
+                                : "border-[#243a5e] text-slate-300 hover:border-slate-500"
+                            }`}
+                          >
+                            {PRIORITY_LABEL_ID[p]}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="alasan-prioritas">Alasan prioritas</Label>
+                    <Textarea
+                      id="alasan-prioritas"
+                      value={form.priorityReason}
+                      onChange={(e) =>
+                        setForm({ ...form, priorityReason: e.target.value })
+                      }
+                      placeholder="Mengapa kendala ini perlu prioritas tersebut?"
+                      rows={2}
+                      maxLength={PRIORITY_REASON_MAX}
+                      className="rounded-xl min-h-[64px]"
+                      required
+                    />
+                    <p className="text-[11px] text-slate-500">
+                      Prioritas akhir ditentukan tim. Bila diubah, alasannya
+                      dapat Anda lihat di Lacak Tiket.
+                    </p>
+                  </div>
+
                   <div className="space-y-1.5">
                     <Label>Pesan</Label>
                     <Textarea
