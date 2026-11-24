@@ -41,12 +41,12 @@ const CACHE_CONTROL = "public, s-maxage=15";
  * secara sadar: sebelumnya riwayat hanya tersimpan di peramban pelapor, dan
  * itu berarti hilang begitu ia berganti perangkat.
  *
- * ⚠️ Konsekuensi yang melekat pada keputusan itu: nama pelapor dan judul
- * keluhannya terbuka untuk publik, termasuk pengunjung di luar Garudafood,
- * karena landing page tidak menuntut login. Yang bisa dilakukan endpoint ini
- * hanyalah tidak membuka LEBIH dari itu:
+ * Revisi penguji seminar (24 Nov 2026): tiap baris tinggal subjek, status,
+ * dan prioritas (plus bagian untuk penyaring). Nomor tiket dan nama pelapor
+ * tidak lagi ikut. Yang dijaga endpoint ini:
  *
- * - isi pesan, lampiran   → tidak pernah ikut (lihat publicRecentView)
+ * - nomor tiket, nama     → tidak pernah ikut (lihat publicRecentView)
+ * - isi pesan, lampiran   → tidak pernah ikut
  * - email & nomor WhatsApp → tidak pernah ikut
  * - token portal           → tidak pernah ikut; hak membalas menuntut email
  *                            pelapor (lihat /api/tickets/track/verify)

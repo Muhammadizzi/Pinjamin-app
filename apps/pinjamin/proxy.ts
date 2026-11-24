@@ -15,7 +15,8 @@ import { isPublicPage, homeFor, isPageAllowedFor } from "./lib/public-paths";
  *   GET  /api/tickets/recent          (daftar tiket 7 hari terakhir)
  *   GET  /api/tickets/portal          (portal pelapor — butuh token tiket)
  *   POST /api/tickets/track/verify    (tukar email pelapor dengan token)
- *   POST /api/tickets/portal/reply    (pelapor membalas — butuh token tiket)
+ *   POST /api/tickets/track/find      (lupa nomor: cari via email + WhatsApp)
+ *   POST /api/tickets/portal/reply   (pelapor membalas — butuh token tiket)
  *   GET  /api/public/asset/<kode>     (halaman hasil scan QR)
  *   POST /api/tickets/upload          (lampiran tiket)
  *
@@ -76,6 +77,9 @@ function isPublicApi(pathname: string, method: string) {
   // Keduanya menjaga dirinya sendiri (cocokkan email / token 256-bit).
   if (pathname === "/api/tickets/track/verify" && method === "POST")
     return true;
+  // Lupa nomor tiket: menjaga dirinya sendiri (email DAN WhatsApp harus
+  // cocok, plus batas laju per IP dan per email).
+  if (pathname === "/api/tickets/track/find" && method === "POST") return true;
   if (pathname === "/api/tickets/recent" && method === "GET") return true;
   if (pathname === "/api/tickets/portal" && method === "GET") return true;
   if (pathname === "/api/tickets/portal/reply" && method === "POST")

@@ -699,29 +699,88 @@ function berinomorAntrian(rows: Ticket[]): RecentTicket[] {
  * kolom di sini adalah keputusan sadar untuk membukanya ke publik, bukan
  * sisa dari objek yang kebetulan lewat.
  *
- * Atas permintaan pemilik produk (27 Agustus 2026), STATUS dan PRIORITAS
- * kini ikut supaya pengunjung bisa memantau progres tanpa mengetik nomor.
+ * Revisi penguji seminar (24 Nov 2026): yang tampil tinggal SUBJEK, STATUS,
+ * dan PRIORITAS. NOMOR TIKET dan NAMA PELAPOR dikeluarkan. Nomor tiket adalah
+ * kunci untuk membuka isi tiket di Lacak Tiket, jadi memajangnya di daftar
+ * publik sama dengan membagikan kunci itu ke semua pengunjung. Pelapor yang
+ * lupa nomornya memakai /api/tickets/track/find (email + nomor WhatsApp).
  *
- * ISI PESAN sengaja TIDAK ikut, dan itu keputusan sadar: bagian itulah yang
- * paling mungkin memuat detail pribadi atau rahasia operasional. Batas ini
- * juga yang menyisakan alasan Lacak Tiket tetap ada — di sana pelapor
- * membaca isi tiketnya sendiri berikut SELURUH BALASAN ADMIN, yang tidak
- * pernah muncul di daftar publik.
+ * `workingOrder` tetap dikirim hanya untuk tombol penyaring per bagian.
+ * Nilainya GA / Utility / IT, bukan data pribadi.
  *
- * Yang TETAP tidak pernah ikut: isi pesan, balasan admin, email, nomor
- * WhatsApp, lampiran, token portal, dan catatan admin.
+ * Yang TIDAK pernah ikut: nomor tiket, nama pelapor, isi pesan, balasan
+ * admin, email, nomor WhatsApp, lampiran, token portal, dan catatan admin.
  */
 export function publicRecentView(t: RecentTicket) {
   return {
-    number: t.number,
-    queue: t.queue,
-    name: t.name,
     subject: t.subject,
     workingOrder: t.workingOrder,
     status: t.status,
     priority: t.priority,
-    createdAt: t.createdAt,
   };
+}
+
+/** Bentuk satu baris hasil "Lupa nomor tiket?". */
+export interface TiketMilikPelapor {
+  number: string;
+  subject: string;
+  status: TicketStatus;
+  createdAt: string;
+}
+
+/** Batas hasil pencarian per pelapor: cukup untuk riwayat yang wajar. */
+const CARI_PELAPOR_MAX = 20;
+
+/**
+ * Tiket milik seorang pelapor, dicari dari email DAN nomor WhatsApp-nya.
+ *
+ * Jalan keluar bagi pelapor yang lupa nomor tiket, sejak nomor itu tidak lagi
+ * tampil di daftar publik. Keduanya wajib cocok sekaligus: email saja mudah
+ * ditebak dari pola nama@garudafood.co.id, sedangkan nomor WhatsApp tidak
+ * pernah tampil di halaman publik mana pun.
+ *
+ * Yang dikembalikan hanya nomor, subjek, status, dan tanggal, cukup untuk
+ * mengenali tiketnya lalu membukanya di Lacak Tiket. Tiket selesai yang sudah
+ * lewat masa simpan tidak ikut, sama seperti Lacak Tiket menjawabnya
+ * "tidak ditemukan".
+ *
+ * Email dan nomor dinormalkan dengan aturan yang sama seperti validateNewTicket
+ * (huruf kecil; spasi dan tanda hubung dibuang), karena begitulah keduanya
+ * tersimpan.
+ */
+export async function findTicketsByContact(
+  emailMentah: string,
+  phoneMentah: string
+): Promise<TiketMilikPelapor[]> {
+  const email = emailMentah.trim().toLowerCase();
+  const phone = phoneMentah.trim().replace(/[\s-]/g, "");
+  const now = Date.now();
+  const supa = getSupabaseAdmin();
+  let rows: Ticket[];
+  if (supa) {
+    const { data, error } = await supa
+      .from(TABLE)
+      .select("*")
+      .eq("email", email)
+      .eq("phone", phone)
+      .order("created_at", { ascending: false })
+      .limit(CARI_PELAPOR_MAX * 2);
+    if (error) throw new Error(error.message);
+    rows = (data || []).map(rowToTicket);
+  } else {
+    rows = loadFile()
+      .filter((t) => t.email === email && t.phone === phone)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }
+  return rows
+    .filter((t) => !tersembunyi(t, now))
+    .slice(0, CARI_PELAPOR_MAX)
+    .map((t) => ({
+      number: t.number,
+      subject: t.subject,
+      status: t.status,
+      createdAt: t.createdAt,
+    }));
 }
 
 /**

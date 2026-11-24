@@ -46,7 +46,6 @@ import {
   Paperclip,
   ShieldCheck,
   History,
-  UserRound,
 } from "lucide-react";
 
 /**
@@ -93,16 +92,23 @@ const FORM_KOSONG = {
   message: "",
 };
 
-/** Satu baris di daftar tiket terbaru — lihat publicRecentView di server. */
+/**
+ * Satu baris di daftar tiket terbaru — lihat publicRecentView di server.
+ * Sejak revisi penguji (24 Nov 2026) tanpa nomor tiket dan nama pelapor.
+ */
 interface TiketTerbaru {
-  number: string;
-  /** Antrean ke berapa di meja ini hari ini. null = tiket sudah selesai. */
-  queue: number | null;
-  name: string;
   subject: string;
+  /** Hanya untuk tombol penyaring per bagian; tidak ditampilkan di baris. */
   workingOrder: string;
   status: string;
   priority: TicketPriority;
+}
+
+/** Satu baris hasil "Lupa nomor tiket?" — lihat findTicketsByContact. */
+interface TiketDitemukan {
+  number: string;
+  subject: string;
+  status: string;
   createdAt: string;
 }
 
@@ -292,6 +298,43 @@ export default function LandingPage() {
   const [trackResult, setTrackResult] = useState<TrackTicket | null>(null);
   /** Balasan admin untuk tiket yang sedang dilacak. Baca-saja. */
   const [trackMessages, setTrackMessages] = useState<ThreadMessage[]>([]);
+
+  // --- Lupa nomor tiket ---
+  // Revisi penguji (24 Nov 2026): nomor tiket tidak lagi tampil di daftar
+  // publik, jadi pelapor yang lupa nomornya mencarinya di sini dengan email
+  // dan nomor WhatsApp yang dipakai saat membuat tiket.
+  const [lupaBuka, setLupaBuka] = useState(false);
+  const [lupaEmail, setLupaEmail] = useState("");
+  const [lupaPhone, setLupaPhone] = useState("");
+  const [lupaMencari, setLupaMencari] = useState(false);
+  const [lupaError, setLupaError] = useState("");
+  /** null = belum mencari; [] = sudah mencari, tidak ada yang cocok. */
+  const [lupaHasil, setLupaHasil] = useState<TiketDitemukan[] | null>(null);
+
+  const cariTiketSaya = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (lupaMencari) return;
+    setLupaError("");
+    setLupaHasil(null);
+    setLupaMencari(true);
+    try {
+      const res = await fetch("/api/tickets/track/find", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: lupaEmail, phone: lupaPhone }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setLupaError(j.error || "Gagal mencari tiket. Coba lagi.");
+        return;
+      }
+      setLupaHasil(j.tickets || []);
+    } catch {
+      setLupaError("Tidak bisa terhubung ke server. Coba lagi.");
+    } finally {
+      setLupaMencari(false);
+    }
+  };
 
   const submitTicket = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -671,6 +714,121 @@ export default function LandingPage() {
                     <Loader2 className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-amber-300" />
                   )}
                 </form>
+
+                {/* Lupa nomor tiket — revisi penguji (24 Nov 2026). Email DAN
+                    nomor WhatsApp harus cocok; hasilnya hanya nomor, subjek,
+                    dan status. Isi tiket tetap dibuka lewat Lacak Tiket. */}
+                <div className="-mt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLupaBuka((v) => !v);
+                      setLupaError("");
+                    }}
+                    aria-expanded={lupaBuka}
+                    className="text-xs font-medium text-amber-300 hover:text-amber-200 hover:underline"
+                  >
+                    Lupa nomor tiket?
+                  </button>
+                  {lupaBuka && (
+                    <form
+                      onSubmit={cariTiketSaya}
+                      className="mt-2 space-y-2.5 rounded-xl border border-[#243a5e] bg-[#0f1d33] p-3"
+                    >
+                      <p className="text-xs text-slate-400">
+                        Masukkan email dan nomor WhatsApp yang Anda pakai saat
+                        membuat tiket.
+                      </p>
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        <Input
+                          type="email"
+                          value={lupaEmail}
+                          onChange={(e) => setLupaEmail(e.target.value)}
+                          placeholder="nama@garudafood.co.id"
+                          aria-label="Email"
+                          className="h-10 rounded-xl"
+                          autoComplete="email"
+                          required
+                        />
+                        <Input
+                          type="tel"
+                          inputMode="numeric"
+                          value={lupaPhone}
+                          onChange={(e) => setLupaPhone(e.target.value)}
+                          placeholder="08xxxxxxxxxx"
+                          aria-label="Nomor WhatsApp"
+                          className="h-10 rounded-xl"
+                          autoComplete="tel"
+                          required
+                        />
+                      </div>
+                      <Button
+                        type="submit"
+                        disabled={lupaMencari}
+                        className="h-9 w-full rounded-xl bg-[#CBA12C] font-semibold text-[#0a2240] hover:bg-amber-400"
+                      >
+                        {lupaMencari ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Search className="h-4 w-4" />
+                        )}
+                        Cari tiket saya
+                      </Button>
+                      {lupaError && (
+                        <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+                          {lupaError}
+                        </div>
+                      )}
+                      {lupaHasil && lupaHasil.length === 0 && (
+                        <div className="rounded-lg border border-dashed border-[#243a5e] px-3 py-2 text-center text-xs text-slate-400">
+                          Tidak ada tiket yang cocok dengan email dan nomor
+                          WhatsApp tersebut.
+                        </div>
+                      )}
+                      {lupaHasil && lupaHasil.length > 0 && (
+                        <ul className="space-y-1.5">
+                          {lupaHasil.map((t) => {
+                            const meta = statusMeta(t.status);
+                            return (
+                              <li key={t.number}>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setTrackNumber(t.number);
+                                    setLupaBuka(false);
+                                    void runTrack(t.number);
+                                  }}
+                                  className="w-full rounded-lg border border-[#243a5e] px-3 py-2 text-left transition-colors hover:border-amber-300/60"
+                                >
+                                  <div className="flex flex-wrap items-center gap-1.5">
+                                    <span className="font-mono text-xs font-bold text-amber-300">
+                                      {t.number}
+                                    </span>
+                                    <span
+                                      className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${meta.cls}`}
+                                    >
+                                      <span
+                                        className={`h-1.5 w-1.5 rounded-full ${meta.dot}`}
+                                      />
+                                      {meta.label}
+                                    </span>
+                                    <span className="ml-auto shrink-0 text-[10px] text-slate-500">
+                                      {formatDateTime(t.createdAt)}
+                                    </span>
+                                  </div>
+                                  <div className="mt-0.5 truncate text-xs text-slate-300">
+                                    {t.subject}
+                                  </div>
+                                </button>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      )}
+                    </form>
+                  )}
+                </div>
+
                 {trackError && (
                   <div className="text-sm rounded-xl border border-red-500/30 bg-red-500/10 text-red-300 px-3 py-2">
                     {trackError}
@@ -820,7 +978,12 @@ export default function LandingPage() {
                 Barisnya BUKAN tombol. Satu-satunya jalan ke detail tiket
                 adalah mengetik nomornya di Lacak Tiket — supaya membuka isi
                 tiket tetap menuntut orang memegang nomornya, bukan sekadar
-                menemukannya di daftar lalu mengetuknya. */}
+                menemukannya di daftar lalu mengetuknya.
+
+                Revisi penguji (24 Nov 2026): baris tinggal subjek, status,
+                dan prioritas. Nomor tiket, nama pelapor, tanggal, dan nomor
+                antrean dibuang. Tanpa nomor tiket, nomor antrean pun tidak
+                lagi bermakna bagi pelapor. */}
             <Card className="border-[#243a5e]">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-lg">
@@ -873,34 +1036,20 @@ export default function LandingPage() {
                   </div>
                 ) : (
                   <ul className="max-h-96 space-y-1.5 overflow-y-auto">
-                    {terbaruTersaring.map((r) => {
+                    {terbaruTersaring.map((r, i) => {
                       const meta = statusMeta(r.status);
                       return (
+                        // Tanpa nomor tiket tidak ada kunci unik dari server.
+                        // Indeks cukup: daftar ini murni tampilan dan selalu
+                        // diganti utuh setiap kali dimuat ulang.
                         <li
-                          key={r.number}
+                          key={i}
                           className="rounded-xl border border-[#243a5e] bg-[#0f1d33] px-3 py-2"
                         >
-                          <div className="flex flex-wrap items-center gap-1.5">
-                            {/* Nomor antrean: berubah tiap hari mengikuti
-                                posisi. Nomor tiket di sebelahnya tidak pernah
-                                berubah — itu kunci pelapor melacak.
-
-                                Hanya tampil saat SATU meja dipilih. Antrean
-                                dihitung per working order, jadi begitu tiga
-                                meja dicampur angkanya mengulang dari 1 dan
-                                terbaca seperti salah hitung — padahal maksudnya
-                                antrean milik meja masing-masing. */}
-                            {filterMeja !== "SEMUA" && r.queue !== null && (
-                              <span
-                                title={`Antrean ke-${r.queue} di meja ${r.workingOrder}`}
-                                className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-300 px-1.5 text-[11px] font-bold text-[#0f1d33]"
-                              >
-                                {r.queue}
-                              </span>
-                            )}
-                            <span className="font-mono text-xs font-bold text-amber-300">
-                              {r.number}
-                            </span>
+                          <div className="truncate text-[13px] font-semibold text-slate-200">
+                            {r.subject}
+                          </div>
+                          <div className="mt-1 flex flex-wrap items-center gap-1.5">
                             <span
                               className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${meta.cls}`}
                             >
@@ -912,18 +1061,6 @@ export default function LandingPage() {
                             <span className="rounded-full border border-[#243a5e] px-2 py-0.5 text-[10px] font-medium text-slate-400">
                               {PRIORITY_LABEL_ID[r.priority]}
                             </span>
-                            <span className="ml-auto shrink-0 text-[10px] text-slate-500">
-                              {formatDateTime(r.createdAt)}
-                            </span>
-                          </div>
-                          <div className="mt-1 truncate text-[13px] font-semibold text-slate-200">
-                            {r.subject}
-                          </div>
-                          <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-slate-500">
-                            <UserRound className="h-3 w-3 shrink-0" />
-                            <span className="truncate">{r.name}</span>
-                            <span className="shrink-0">•</span>
-                            <span className="shrink-0">{r.workingOrder}</span>
                           </div>
                         </li>
                       );
